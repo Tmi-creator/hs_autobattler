@@ -127,14 +127,31 @@ def run_effect_smoke_tests():
     tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
     assert player.gold == starting_gold + 1, "Shell Collector should grant 1 gold"
 
-    wrath_weaver = Unit.create_from_db("101", tavern._get_next_uid(), player.uid)
-    player.board.append(wrath_weaver)
+    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    cnt = 3
+    wrath_weaver = [Unit.create_from_db("101", tavern._get_next_uid(), player.uid) for _ in range(cnt)]
+    for i in range(cnt):
+        player.board.append(wrath_weaver[i])
     demon = Unit.create_from_db("108", tavern._get_next_uid(), player.uid)
     player.hand.append(HandCard(uid=demon.uid, unit=demon))
     starting_health = player.health
     tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
-    assert player.health == starting_health - 1, "Wrath Weaver should deal 1 damage to hero"
-    assert wrath_weaver.max_atk == 3 and wrath_weaver.max_hp == 4, "Wrath Weaver should gain +2/+1"
+    assert player.health == starting_health - cnt, "Wrath Weaver should deal 1 damage to hero"
+    assert all([wrath_weaver[i].max_atk == 3 and wrath_weaver[i].max_hp == 4 for i in
+                range(cnt)]), "Wrath Weaver should gain +2/+1"
+
+    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    cnt = 3
+    swampstriker = [Unit.create_from_db("104", tavern._get_next_uid(), player.uid) for _ in range(cnt)]
+    for i in range(cnt):
+        player.board.append(swampstriker[i])
+    swampstriker1 = Unit.create_from_db("104", tavern._get_next_uid(), player.uid)
+    player.hand.append(HandCard(uid=swampstriker1.uid, unit=swampstriker1))
+    tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
+    print([u.max_atk for u in player.board])
+    assert all([swampstriker[i].max_atk == 2 for i in
+                range(cnt)]), "Swampstriker should gain +1"
+
 
     combat = Combat_Manager()
     dead_unit = Unit.create_from_db("103", combat.get_uid(), player.uid)

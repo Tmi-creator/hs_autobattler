@@ -3,6 +3,7 @@ from .entities import Player, Unit, HandCard
 from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS
 from .effects import TRIGGER_REGISTRY
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, Zone
+from .enums import UnitType
 
 
 class TavernManager:
@@ -23,7 +24,8 @@ class TavernManager:
         3. Обновить магазин (с учетом заморозки).
         """
         max_gold = min(10, 3 + turn_number - 1)
-        player.gold = max_gold
+        player.gold = max_gold + player.gold_next_turn
+        player.gold_next_turn = 0
 
         if player.up_cost > 0 and turn_number != 1:
             player.up_cost -= 1
@@ -65,8 +67,16 @@ class TavernManager:
         if slots_needed > 0:
             new_ids = self.pool.draw_cards(slots_needed, player.tavern_tier)
             for cid in new_ids:
-                new_unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+                new_unit = self._make_unit(player, cid)
                 player.store.append(new_unit)
+
+    def _make_unit(self, player: Player, cid: str):
+        unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+        if UnitType.ELEMENTAL in unit.type:
+            unit.max_atk += player.buff_elemental_atk
+            unit.max_hp += player.buff_elemental_hp
+            unit.restore_stats()
+        return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:
         """Повышение уровня таверны"""
@@ -129,7 +139,8 @@ class TavernManager:
 
         return True, "Sold unit"
 
-    def play_unit(self, player: Player, hand_index: int, insert_index: int, target_index: int = -1) -> Tuple[bool, str]:
+    def play_unit(self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1) -> Tuple[
+        bool, str]:
         """
         Разыгрывает карту из руки на стол в конкретную позицию.
         Args:

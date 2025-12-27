@@ -103,5 +103,9 @@ class Player:
     store: List[Unit] = field(default_factory=list)
     tavern_tier: int = 1
     gold: int = 3
+    gold_next_turn: int = 0
+    spell_discount: int = 0
     health: int = 30
     up_cost: int = 5
+    buff_elemental_hp: int = 0
+    buff_elemental_atk: int = 0

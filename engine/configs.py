@@ -26,6 +26,7 @@ TIER_UPGRADE_COSTS = {
 }
 COST_BUY = 3
 COST_REROLL = 1
+SPELLS_PER_ROLL = 1
 
 # Мини-база данных (MVP)
 CARD_DB = {
@@ -45,6 +46,7 @@ CARD_DB = {
     "103": {"name": "Scallywag", "tier": 1, "atk": 3, "hp": 1, "type": [UnitType.PIRATE], "deathrattle": True},
     "108": {"name": "Imprisoner", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.DEMON], "token": "108t",
             "deathrattle": True, "taunt": True},
+    "109": {"name": "Minted Corsair", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.PIRATE]},
 
     # --- TIER 2 ---
     "201": {"name": "Leapfrogger", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.BEAST], "deathrattle": True},
@@ -54,4 +56,9 @@ CARD_DB = {
     "102t": {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},
     "103t": {"name": "Pirate", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.PIRATE], "is_token": True},
     "108t": {"name": "Imp", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.DEMON], "is_token": True},
+}
+
+SPELL_DB = {
+    "S001": {"name": "Tavern Coin", "tier": 1, "cost": 1, "effect": "GAIN_GOLD", "params": {"gold": 1}},
+    "S002": {"name": "Heroic Charm", "tier": 1, "cost": 3, "effect": "BUFF_MINION", "params": {"atk": 2, "hp": 2}},
 }

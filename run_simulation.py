@@ -1,5 +1,9 @@
 import random
 from engine.game import Game
+from engine.entities import HandCard, Player, Unit
+from engine.pool import CardPool
+from engine.tavern import TavernManager
+from engine.combat import Combat_Manager
 
 
 def print_player_state(player, name):
@@ -105,5 +109,47 @@ def run_simulation():
         print("Result: Turn limit reached")
 
 
+def run_effect_smoke_tests():
+    print("\n=== RUNNING EFFECT SMOKE TESTS ===")
+    pool = CardPool()
+    tavern = TavernManager(pool)
+    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+
+    alleycat = Unit.create_from_db("102", tavern._get_next_uid(), player.uid)
+    player.hand.append(HandCard(uid=alleycat.uid, unit=alleycat))
+    tavern.play_unit(player, 0, 0, -1)
+    assert len(player.board) == 2, "Alleycat should summon a token"
+    assert player.board[1].card_id == "102t", "Alleycat token should be in the next slot"
+
+    shell_collector = Unit.create_from_db("107", tavern._get_next_uid(), player.uid)
+    player.hand.append(HandCard(uid=shell_collector.uid, unit=shell_collector))
+    starting_gold = player.gold
+    tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
+    assert player.gold == starting_gold + 1, "Shell Collector should grant 1 gold"
+
+    wrath_weaver = Unit.create_from_db("101", tavern._get_next_uid(), player.uid)
+    player.board.append(wrath_weaver)
+    demon = Unit.create_from_db("108", tavern._get_next_uid(), player.uid)
+    player.hand.append(HandCard(uid=demon.uid, unit=demon))
+    starting_health = player.health
+    tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
+    assert player.health == starting_health - 1, "Wrath Weaver should deal 1 damage to hero"
+    assert wrath_weaver.max_atk == 3 and wrath_weaver.max_hp == 4, "Wrath Weaver should gain +2/+1"
+
+    combat = Combat_Manager()
+    dead_unit = Unit.create_from_db("103", combat.get_uid(), player.uid)
+    dead_unit.cur_hp = 0
+    board = [dead_unit]
+    opponent_board = []
+    combat_players = {
+        player.uid: Player(uid=player.uid, board=board, hand=[], tavern_tier=1),
+        1: Player(uid=1, board=opponent_board, hand=[], tavern_tier=1),
+    }
+    combat.cleanup_dead([board, opponent_board], [0, 0], combat_players)
+    assert board and board[0].card_id == "103t", "Scallywag deathrattle should summon a token"
+    print("Effect smoke tests passed.")
+
+
 if __name__ == "__main__":
+    run_effect_smoke_tests()
     run_simulation()

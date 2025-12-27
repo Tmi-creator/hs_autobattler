@@ -72,7 +72,9 @@ class TavernManager:
             for cid in new_ids:
                 new_unit = self._make_unit(player, cid)
                 player.store.append(StoreItem(unit=new_unit))
-
+        cnt_spells = len([u for u in player.store if u.spell])
+        if cnt_spells >= SPELLS_PER_ROLL:
+            return
         spell_ids = self.spell_pool.draw_spells(SPELLS_PER_ROLL, player.tavern_tier)
         for spell_id in spell_ids:
             spell = Spell.create_from_db(spell_id)
@@ -193,16 +195,13 @@ class TavernManager:
 
         if len(player.board) >= 7:
             return False, "Board is full"
-
+        if insert_index < 0 or insert_index > len(player.board):
+            return False, "Invalid Index"
         player.hand.pop(hand_index)
 
-        real_index = insert_index
-        if real_index < 0: real_index = 0
-        if real_index > len(player.board): real_index = len(player.board)
+        player.board.insert(insert_index, unit)
 
-        player.board.insert(real_index, unit)
-
-        self._resolve_battlecry(player, unit, real_index, target_index)
+        self._resolve_battlecry(player, unit, insert_index, target_index)
 
         return True, "Played unit"
 

@@ -17,27 +17,56 @@ class Zone(Enum):
 
 class EventType(Enum):
     MINION_PLAYED = auto()
+    MINION_SUMMONED = auto()
     MINION_DIED = auto()
+    MINION_DAMAGED = auto()
+    DAMAGE_DEALT = auto()
+    ATTACK_DECLARED = auto()
+    AFTER_ATTACK = auto()
+    START_OF_COMBAT = auto()
+    END_OF_COMBAT = auto()
+    START_OF_TURN = auto()
+    END_OF_TURN = auto()
 
 
 @dataclass(frozen=True)
-class TargetRef:
+class EntityRef:
+    uid: int
+
+
+@dataclass(frozen=True)
+class PosRef:
     side: int
     zone: Zone
     slot: int
 
 
 @dataclass(frozen=True)
+class MinionSnapshot:
+    uid: int
+    card_id: str
+    owner_id: int
+    pos: Optional[PosRef]
+    atk: int
+    hp: int
+    types: List
+    flags: Dict[str, bool]
+
+
+@dataclass(frozen=True)
 class Event:
     event_type: EventType
-    source: TargetRef
-    target: Optional[TargetRef] = None
+    source: Optional[EntityRef] = None
+    target: Optional[EntityRef] = None
+    source_pos: Optional[PosRef] = None
+    target_pos: Optional[PosRef] = None
     value: Optional[int] = None
     meta: Optional[int] = None
+    snapshot: Optional[MinionSnapshot] = None
 
 
-ConditionFn = Callable[["EffectContext", Event, TargetRef], bool]
-EffectFn = Callable[["EffectContext", Event, TargetRef], None]
+ConditionFn = Callable[["EffectContext", Event, int], bool]
+EffectFn = Callable[["EffectContext", Event, int], None]
 
 
 @dataclass(frozen=True)
@@ -51,7 +80,7 @@ class TriggerDef:
 @dataclass(frozen=True)
 class TriggerInstance:
     trigger_def: TriggerDef
-    trigger_ref: TargetRef
+    trigger_uid: int
 
 
 class EffectContext:
@@ -64,22 +93,41 @@ class EffectContext:
         self.players_by_uid = players_by_uid
         self._uid_provider = uid_provider
         self._event_queue = event_queue
+        self._uid_to_pos: Dict[int, PosRef] = {}
+        for player_id, player in players_by_uid.items():
+            self._reindex_side(player_id, player.board)
 
-    def resolve_unit(self, ref: TargetRef) -> Optional[Unit]:
-        if ref.zone != Zone.BOARD:
+    def resolve_unit(self, ref: Optional[EntityRef]) -> Optional[Unit]:
+        if not ref:
             return None
-        player = self.players_by_uid.get(ref.side)
+        pos = self._uid_to_pos.get(ref.uid)
+        if not pos or pos.zone != Zone.BOARD:
+            return None
+        player = self.players_by_uid.get(pos.side)
         if not player:
             return None
-        if ref.slot < 0 or ref.slot >= len(player.board):
+        if pos.slot < 0 or pos.slot >= len(player.board):
             return None
-        return player.board[ref.slot]
+        return player.board[pos.slot]
 
     def iter_board_units(self, side: int) -> Iterable[tuple[int, Unit]]:
         player = self.players_by_uid.get(side)
         if not player:
             return []
         return list(enumerate(player.board))
+
+    def resolve_pos(self, ref: Optional[EntityRef]) -> Optional[PosRef]:
+        if not ref:
+            return None
+        return self._uid_to_pos.get(ref.uid)
+
+    def _reindex_side(self, side: int, board: List[Unit]) -> None:
+        for idx, unit in enumerate(board):
+            self._uid_to_pos[unit.uid] = PosRef(side=side, zone=Zone.BOARD, slot=idx)
+
+    def _reindex_all(self) -> None:
+        for player_id, player in self.players_by_uid.items():
+            self._reindex_side(player_id, player.board)
 
     def gain_gold(self, side: int, amount: int) -> None:
         player = self.players_by_uid.get(side)
@@ -91,7 +139,7 @@ class EffectContext:
         if player:
             player.health -= amount
 
-    def buff(self, target_ref: TargetRef, atk: int, hp: int) -> None:
+    def buff(self, target_ref: EntityRef, atk: int, hp: int) -> None:
         unit = self.resolve_unit(target_ref)
         if not unit:
             return
@@ -100,7 +148,7 @@ class EffectContext:
         unit.max_hp += hp
         unit.cur_hp += hp
 
-    def summon(self, side: int, card_id: str, insert_index: int) -> Optional[TargetRef]:
+    def summon(self, side: int, card_id: str, insert_index: int) -> Optional[EntityRef]:
         player = self.players_by_uid.get(side)
         if not player:
             return None
@@ -109,15 +157,25 @@ class EffectContext:
         index = max(0, min(insert_index, len(player.board)))
         unit = Unit.create_from_db(card_id, self._uid_provider(), side)
         player.board.insert(index, unit)
-        return TargetRef(side=side, zone=Zone.BOARD, slot=index)
+        self._reindex_side(side, player.board)
+        summoned = EntityRef(uid=unit.uid)
+        pos = self._uid_to_pos.get(unit.uid)
+        self.emit_event(
+            Event(
+                event_type=EventType.MINION_SUMMONED,
+                source=summoned,
+                source_pos=pos,
+            )
+        )
+        return summoned
 
     def emit_event(self, event: Event) -> None:
         self._event_queue.append(event)
 
 
 class EffectExecutor:
-    def run(self, effect: EffectFn, ctx: EffectContext, event: Event, trigger_ref: TargetRef) -> None:
-        effect(ctx, event, trigger_ref)
+    def run(self, effect: EffectFn, ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        effect(ctx, event, trigger_uid)
 
 
 class EventManager:
@@ -141,8 +199,8 @@ class EventManager:
             if extra_triggers and current_event == initial_event:
                 triggers.extend(extra_triggers)
             for trigger in self.order_triggers(triggers, current_event, ctx):
-                if trigger.trigger_def.condition(ctx, current_event, trigger.trigger_ref):
-                    self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_ref)
+                if trigger.trigger_def.condition(ctx, current_event, trigger.trigger_uid):
+                    self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_uid)
 
     def collect_triggers(self, event: Event, ctx: EffectContext) -> List[TriggerInstance]:
         triggers: List[TriggerInstance] = []
@@ -154,7 +212,7 @@ class EventManager:
                         triggers.append(
                             TriggerInstance(
                                 trigger_def=trigger_def,
-                                trigger_ref=TargetRef(side=player_id, zone=Zone.BOARD, slot=slot),
+                                trigger_uid=unit.uid,
                             )
                         )
         return triggers
@@ -165,12 +223,20 @@ class EventManager:
         event: Event,
         ctx: EffectContext,
     ) -> List[TriggerInstance]:
-        active_side = event.source.side if event.source else None
+        active_side = None
+        if event.source_pos:
+            active_side = event.source_pos.side
+        elif event.source:
+            pos = ctx.resolve_pos(event.source)
+            active_side = pos.side if pos else None
 
         def sort_key(trigger: TriggerInstance) -> tuple:
-            unit = ctx.resolve_unit(trigger.trigger_ref)
+            pos = ctx.resolve_pos(EntityRef(trigger.trigger_uid))
+            unit = ctx.resolve_unit(EntityRef(trigger.trigger_uid))
             unit_uid = unit.uid if unit else 0
-            side_priority = 0 if active_side is None or trigger.trigger_ref.side == active_side else 1
-            return (side_priority, trigger.trigger_ref.slot, unit_uid)
+            slot = pos.slot if pos else 999
+            side = pos.side if pos else -1
+            side_priority = 0 if active_side is None or side == active_side else 1
+            return (side_priority, slot, unit_uid)
 
         return sorted(triggers, key=sort_key)

@@ -17,6 +17,7 @@ class Zone(Enum):
 
 class EventType(Enum):
     MINION_PLAYED = auto()
+    MINION_DIED = auto()
 
 
 @dataclass(frozen=True)
@@ -129,12 +130,16 @@ class EventManager:
         event: Event,
         players_by_uid: Dict[int, Player],
         uid_provider: Callable[[], int],
+        extra_triggers: Optional[List[TriggerInstance]] = None,
     ) -> None:
         queue: Deque[Event] = deque([event])
         ctx = EffectContext(players_by_uid, uid_provider, queue)
+        initial_event = event
         while queue:
             current_event = queue.popleft()
             triggers = self.collect_triggers(current_event, ctx)
+            if extra_triggers and current_event == initial_event:
+                triggers.extend(extra_triggers)
             for trigger in self.order_triggers(triggers, current_event, ctx):
                 if trigger.trigger_def.condition(ctx, current_event, trigger.trigger_ref):
                     self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_ref)

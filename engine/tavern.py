@@ -2,7 +2,7 @@ from typing import Dict, Tuple
 from .entities import Player, Unit, HandCard
 from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS
 from .effects import TRIGGER_REGISTRY
-from .event_system import Event, EventManager, EventType, TargetRef, Zone
+from .event_system import EntityRef, Event, EventManager, EventType, PosRef, Zone
 
 
 class TavernManager:
@@ -163,8 +163,21 @@ class TavernManager:
         return True, "Played unit"
 
     def _resolve_battlecry(self, player: Player, unit: Unit, unit_index: int, target_index: int):
-        source = TargetRef(side=player.uid, zone=Zone.BOARD, slot=unit_index)
-        event = Event(event_type=EventType.MINION_PLAYED, source=source)
+        source = EntityRef(uid=unit.uid)
+        source_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=unit_index)
+        target_ref = None
+        target_pos = None
+        if 0 <= target_index < len(player.board):
+            target_unit = player.board[target_index]
+            target_ref = EntityRef(uid=target_unit.uid)
+            target_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=target_index)
+        event = Event(
+            event_type=EventType.MINION_PLAYED,
+            source=source,
+            target=target_ref,
+            source_pos=source_pos,
+            target_pos=target_pos,
+        )
         players_by_uid: Dict[int, Player] = {player.uid: player}
         self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
 

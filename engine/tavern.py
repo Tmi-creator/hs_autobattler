@@ -1,13 +1,15 @@
-from typing import Tuple
+from typing import Dict, Tuple
 from .entities import Player, Unit, HandCard
 from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS
-from .enums import UnitType
+from .effects import TRIGGER_REGISTRY
+from .event_system import Event, EventManager, EventType, TargetRef, Zone
 
 
 class TavernManager:
     def __init__(self, pool):
         self.pool = pool
         self._uid_counter = 1000
+        self.event_manager = EventManager(TRIGGER_REGISTRY)
 
     def _get_next_uid(self):
         self._uid_counter += 1
@@ -161,39 +163,10 @@ class TavernManager:
         return True, "Played unit"
 
     def _resolve_battlecry(self, player: Player, unit: Unit, unit_index: int, target_index: int):
-        cid = unit.card_id
-
-        # 107: Shell Collector (Дает монетку)
-        if cid == "107":
-            player.gold += 1
-
-        # 102: Alleycat
-        # Призывает 1/1 кота. Токен должен появиться СПРАВА от основного кота.
-        elif cid == "102":
-            if len(player.board) < 7:
-                token = Unit.create_from_db("102t", self._get_next_uid(), player.uid)
-                spawn_index = unit_index + 1
-                player.board.insert(spawn_index, token)
-
-        # 101: Wrath Weaver (Заклинатель гнева)
-        # Триггер: "После того как вы разыграли демона"
-        if "101" in [u.card_id for u in player.board]:
-            if UnitType.DEMON in unit.type and unit.card_id != "101":
-                for u in player.board:
-                    if u.card_id == "101":
-                        player.health -= 1
-                        u.cur_atk += 2
-                        u.cur_hp += 1
-                        u.max_atk += 2
-                        u.max_hp += 1
-        # Болотный налетчик
-        # Триггер: "После того как вы разыграли мурлока"
-        if "104" in [u.card_id for u in player.board]:
-            if UnitType.MURLOC in unit.type:
-                for u in player.board:
-                    if u.card_id == "104" and u.uid != unit.uid:
-                        u.cur_atk += 1
-                        u.max_atk += 1
+        source = TargetRef(side=player.uid, zone=Zone.BOARD, slot=unit_index)
+        event = Event(event_type=EventType.MINION_PLAYED, source=source)
+        players_by_uid: Dict[int, Player] = {player.uid: player}
+        self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
 
     def swap_units(self, player: Player, index_a: int, index_b: int) -> Tuple[bool, str]:
         """

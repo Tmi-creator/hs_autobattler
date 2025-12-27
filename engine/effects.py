@@ -22,6 +22,14 @@ def _summon_tabbycat(ctx, event: Event, trigger_ref: TargetRef) -> None:
     ctx.summon(trigger_ref.side, "102t", trigger_ref.slot + 1)
 
 
+def _summon_scallywag_token(ctx, event: Event, trigger_ref: TargetRef) -> None:
+    ctx.summon(trigger_ref.side, "103t", trigger_ref.slot)
+
+
+def _summon_imprisoner_token(ctx, event: Event, trigger_ref: TargetRef) -> None:
+    ctx.summon(trigger_ref.side, "108t", trigger_ref.slot)
+
+
 def _wrath_weaver_buff(ctx, event: Event, trigger_ref: TargetRef) -> None:
     unit = _played_unit(ctx, event)
     if not unit:
@@ -62,6 +70,22 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             condition=_is_self_play,
             effect=_summon_tabbycat,
             name="Alleycat Battlecry",
+        )
+    ],
+    "103": [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_self_play,
+            effect=_summon_scallywag_token,
+            name="Scallywag Deathrattle",
+        )
+    ],
+    "108": [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_self_play,
+            effect=_summon_imprisoner_token,
+            name="Imprisoner Deathrattle",
         )
     ],
     "101": [

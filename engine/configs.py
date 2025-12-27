@@ -31,7 +31,7 @@ SPELLS_PER_ROLL = 1
 # Мини-база данных (MVP)
 CARD_DB = {
     # --- TIER 1 ---
-    "101": {"name": "Wrath Weaver", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.NEUTRAL]},
+    "101": {"name": "Wrath Weaver", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.DEMON]},
     "107": {"name": "Shell Collector", "tier": 1, "atk": 2, "hp": 1, "type": [UnitType.NAGA]},
     "104": {"name": "Swampstriker", "tier": 1, "atk": 1, "hp": 5, "type": [UnitType.MURLOC],
             "windfury": True},
@@ -60,5 +60,10 @@ CARD_DB = {
 
 SPELL_DB = {
     "S001": {"name": "Tavern Coin", "tier": 1, "cost": 1, "effect": "GAIN_GOLD", "params": {"gold": 1}},
-    "S002": {"name": "Heroic Charm", "tier": 1, "cost": 3, "effect": "BUFF_MINION", "params": {"atk": 2, "hp": 2}},
+    "S002": {"name": "Banana", "tier": 1, "cost": 3, "effect": "BUFF_MINION", "params": {"atk": 2, "hp": 2}},
+    "S003": {"name": "Blood Gem", "tier": 0, "cost": 0, "effect": "BUFF_MINION", "params": {"atk": 1, "hp": 1}},
+    "S004": {"name": "Pointy Arrow", "tier": 1, "cost": 1, "effect": "BUFF_MINION", "params": {"atk": 4, "hp": 0}},
+    "S005": {"name": "Fortify", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
+             "params": {"atk": 0, "hp": 3, "taunt": True}},
+    "S006": {"name": "Apple", "tier": 1, "cost": 1, "effect": "BUFF_MINION", "params": {"atk": 1, "hp": 2}},
 }

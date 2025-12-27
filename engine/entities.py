@@ -143,3 +143,5 @@ class Player:
     up_cost: int = 5
     buff_elemental_hp: int = 0
     buff_elemental_atk: int = 0
+    gem_atk: int = 0
+    gem_hp: int = 0

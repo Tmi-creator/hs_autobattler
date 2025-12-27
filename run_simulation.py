@@ -167,7 +167,6 @@ def run_effect_smoke_tests():
     assert all([swampstriker[i].max_atk == 2 for i in
                 range(cnt)]), "Swampstriker should gain +1"
 
-
     combat = Combat_Manager()
     dead_unit = Unit.create_from_db("103", combat.get_uid(), player.uid)
     dead_unit.cur_hp = 0
@@ -193,12 +192,19 @@ def run_effect_smoke_tests():
     player.hand.append(buff_spell)
     tavern.play_unit(player, 0, -1, 0)
     assert target.max_atk == 3 and target.max_hp == 5, "Buff spell should grant +2/+2"
+    player.gem_atk = 1
+    buff_spell = HandCard(uid=100, spell=Spell.create_from_db("S003"))
+    player.hand.append(buff_spell)
+    tavern.play_unit(player, 0, -1, 0)
+    print(target.max_atk, target.max_hp)
+    assert target.max_atk == 5 and target.max_hp == 6, "Gem should grant +2/+1"
 
     player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
     minted = Unit.create_from_db("109", tavern._get_next_uid(), player.uid)
     player.board.append(minted)
     tavern.sell_unit(player, 0)
     assert any(c.spell and c.spell.card_id == "S001" for c in player.hand), "Minted Corsair should grant a coin"
+
     print("Effect smoke tests passed.")
 
 

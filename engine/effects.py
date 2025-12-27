@@ -42,7 +42,9 @@ def _summon_imprisoner_token(ctx, event: Event, trigger_uid: int) -> None:
 
 def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:
     played = _played_unit(ctx, event)
-    if not played or UnitType.DEMON not in played.type or played.card_id == "101":
+    if not played or UnitType.DEMON not in played.type:
+        return
+    if _is_self_play(ctx, event, trigger_uid):
         return
 
     weaver = ctx.resolve_unit(EntityRef(trigger_uid))

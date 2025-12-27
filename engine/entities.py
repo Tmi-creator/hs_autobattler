@@ -1,7 +1,7 @@
 from dataclasses import dataclass, replace, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 from .enums import UnitType
-from .configs import CARD_DB
+from .configs import CARD_DB, SPELL_DB
 
 
 @dataclass
@@ -70,8 +70,42 @@ class Unit:
 @dataclass
 class Spell:
     card_id: str
-    cost: int = 0
+    name: str
+    tier: int
+    cost: int
+    effect: str
+    params: Dict[str, int] = field(default_factory=dict)
     is_temporary: bool = False
+
+    @staticmethod
+    def create_from_db(card_id: str):
+        data = SPELL_DB.get(str(card_id))
+        if not data:
+            raise ValueError(f"Spell {card_id} not found in DB")
+        return Spell(
+            card_id=card_id,
+            name=data["name"],
+            tier=data["tier"],
+            cost=data["cost"],
+            effect=data["effect"],
+            params=dict(data.get("params", {})),
+            is_temporary=data.get("is_temporary", False),
+        )
+
+
+@dataclass
+class StoreItem:
+    unit: Optional[Unit] = None
+    spell: Optional[Spell] = None
+    is_frozen: bool = False
+
+    @property
+    def card_id(self):
+        if self.unit:
+            return self.unit.card_id
+        if self.spell:
+            return self.spell.card_id
+        return ""
 
 
 @dataclass
@@ -100,7 +134,7 @@ class Player:
     uid: int
     board: List[Unit]
     hand: List[HandCard]
-    store: List[Unit] = field(default_factory=list)
+    store: List[StoreItem] = field(default_factory=list)
     tavern_tier: int = 1
     gold: int = 3
     gold_next_turn: int = 0

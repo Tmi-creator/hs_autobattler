@@ -71,6 +71,13 @@ def _swampstriker_buff(ctx, event: Event, trigger_uid: int) -> None:
     ctx.buff(EntityRef(trigger_uid), 1, 0)
 
 
+def _minted_corsair_coin(ctx, event: Event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
+        return
+    ctx.add_spell_to_hand(pos.side, "S001")
+
+
 TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
     "107": [
         TriggerDef(
@@ -118,6 +125,14 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             condition=lambda ctx, event, ref: True,
             effect=_swampstriker_buff,
             name="Swampstriker Trigger",
+        )
+    ],
+    "109": [
+        TriggerDef(
+            event_type=EventType.MINION_SOLD,
+            condition=_is_self_play,
+            effect=_minted_corsair_coin,
+            name="Minted Corsair Sell",
         )
     ],
 }

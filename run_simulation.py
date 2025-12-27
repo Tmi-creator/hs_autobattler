@@ -1,7 +1,7 @@
 import random
 from engine.game import Game
-from engine.entities import HandCard, Player, Unit
-from engine.pool import CardPool
+from engine.entities import HandCard, Player, Unit, Spell
+from engine.pool import CardPool, SpellPool
 from engine.tavern import TavernManager
 from engine.combat import Combat_Manager
 
@@ -12,10 +12,12 @@ def print_player_state(player, name):
     board_str = " | ".join([f"{u.card_id} ({u.cur_atk}/{u.cur_hp})" for u in player.board])
     print(f"Board: [{board_str}]")
 
-    hand_str = ", ".join([c.unit.card_id for c in player.hand if c.unit])
+    hand_str = ", ".join([c.unit.card_id if c.unit else c.spell.card_id for c in player.hand])
     print(f"Hand:  [{hand_str}]")
 
-    store_str = ", ".join([f"{u.card_id}" for u in player.store])
+    store_str = ", ".join(
+        [item.unit.card_id if item.unit else item.spell.card_id for item in player.store]
+    )
     print(f"Store: [{store_str}]")
     print("-" * 40)
 
@@ -27,7 +29,10 @@ def simple_bot_turn(game, player_idx):
     player = game.players[player_idx]
 
     while len(player.board) < 7 and len(player.hand) > 0:
-        reward, done, info = game.step(player_idx, "PLAY", hand_index=0, insert_index=-1)
+        target_index = -1
+        if player.hand and player.hand[0].spell and player.board:
+            target_index = random.randint(0, len(player.board) - 1)
+        reward, done, info = game.step(player_idx, "PLAY", hand_index=0, insert_index=-1, target_index=target_index)
 
         if reward >= 0:
             print(f"[P{player_idx}] PLAY success: {info}")
@@ -52,7 +57,16 @@ def simple_bot_turn(game, player_idx):
                 print(f"[P{player_idx}] BOUGHT {card_id}")
 
                 if len(player.hand) > 0:
-                    r_play, _, i_play = game.step(player_idx, "PLAY", hand_index=len(player.hand) - 1, insert_index=-1)
+                    target_index = -1
+                    if player.hand[-1].spell and player.board:
+                        target_index = random.randint(0, len(player.board) - 1)
+                    r_play, _, i_play = game.step(
+                        player_idx,
+                        "PLAY",
+                        hand_index=len(player.hand) - 1,
+                        insert_index=-1,
+                        target_index=target_index,
+                    )
                     if r_play >= 0:
                         print(f"[P{player_idx}] ...and PLAYED it immediately")
             else:
@@ -112,7 +126,8 @@ def run_simulation():
 def run_effect_smoke_tests():
     print("\n=== RUNNING EFFECT SMOKE TESTS ===")
     pool = CardPool()
-    tavern = TavernManager(pool)
+    spell_pool = SpellPool()
+    tavern = TavernManager(pool, spell_pool)
     player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
 
     alleycat = Unit.create_from_db("102", tavern._get_next_uid(), player.uid)
@@ -164,6 +179,26 @@ def run_effect_smoke_tests():
     }
     combat.cleanup_dead([board, opponent_board], [0, 0], combat_players)
     assert board and board[0].card_id == "103t", "Scallywag deathrattle should summon a token"
+
+    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=5)
+    coin_spell = HandCard(uid=0, spell=Spell.create_from_db("S001"))
+    player.hand.append(coin_spell)
+    starting_gold = player.gold
+    tavern.play_unit(player, 0, -1, -1)
+    assert player.gold == starting_gold + 1, "Coin spell should grant 1 gold"
+
+    target = Unit.create_from_db("101", tavern._get_next_uid(), player.uid)
+    player.board.append(target)
+    buff_spell = HandCard(uid=1, spell=Spell.create_from_db("S002"))
+    player.hand.append(buff_spell)
+    tavern.play_unit(player, 0, -1, 0)
+    assert target.max_atk == 3 and target.max_hp == 5, "Buff spell should grant +2/+2"
+
+    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    minted = Unit.create_from_db("109", tavern._get_next_uid(), player.uid)
+    player.board.append(minted)
+    tavern.sell_unit(player, 0)
+    assert any(c.spell and c.spell.card_id == "S001" for c in player.hand), "Minted Corsair should grant a coin"
     print("Effect smoke tests passed.")
 
 

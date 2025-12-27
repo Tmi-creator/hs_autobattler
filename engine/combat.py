@@ -2,7 +2,7 @@ from .entities import Unit, Player
 import random
 
 from .effects import TRIGGER_REGISTRY
-from .event_system import Event, EventManager, EventType, TargetRef, TriggerInstance, Zone
+from .event_system import Event, EventManager, EventType, TargetRef, TriggerDef, TriggerInstance, Zone
 
 
 class Combat_Manager:
@@ -133,6 +133,26 @@ class Combat_Manager:
                         trigger_ref=TargetRef(side=unit.owner_id, zone=Zone.BOARD, slot=slot_index),
                     )
                 )
+        if unit.has_reborn:
+            def _reborn_effect(ctx, event, trigger_ref, card_id=unit.card_id):
+                summoned_ref = ctx.summon(trigger_ref.side, card_id, trigger_ref.slot)
+                if summoned_ref:
+                    reborn_unit = ctx.resolve_unit(summoned_ref)
+                    if reborn_unit:
+                        reborn_unit.cur_hp = 1
+                        reborn_unit.has_reborn = False
+
+            triggers.append(
+                TriggerInstance(
+                    trigger_def=TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=lambda ctx, event, ref: event.source == ref,
+                        effect=_reborn_effect,
+                        name="Reborn",
+                    ),
+                    trigger_ref=TargetRef(side=unit.owner_id, zone=Zone.BOARD, slot=slot_index),
+                )
+            )
         return triggers
 
     def cleanup_dead(self, boards, attack_indices, combat_players):
@@ -165,12 +185,6 @@ class Combat_Manager:
                         extra_triggers=extra_triggers,
                     )
                     units_added = len(board) - before_len
-                    if unit.has_reborn and len(board) < 7:
-                        reborn_unit = Unit.create_from_db(unit.card_id, self.get_uid(), unit.owner_id)
-                        reborn_unit.cur_hp = 1
-                        reborn_unit.has_reborn = False
-                        board.insert(i, reborn_unit)
-                        units_added += 1
 
                     if i < attack_indices[p_idx]:
                         attack_indices[p_idx] += units_added

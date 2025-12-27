@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Deque, Dict, Iterable, List, Optional
 
-from .entities import Player, Unit
+from .entities import HandCard, Player, Spell, Unit
 
 
 class Zone(Enum):
@@ -29,6 +29,7 @@ class EventType(Enum):
     END_OF_COMBAT = auto()
     START_OF_TURN = auto()
     END_OF_TURN = auto()
+    SPELL_CAST = auto()
 
 
 @dataclass(frozen=True)
@@ -135,6 +136,15 @@ class EffectContext:
         player = self.players_by_uid.get(side)
         if player:
             player.gold += amount
+
+    def add_spell_to_hand(self, side: int, spell_id: str) -> None:
+        player = self.players_by_uid.get(side)
+        if not player:
+            return
+        if len(player.hand) >= 10:
+            return
+        spell = Spell.create_from_db(spell_id)
+        player.hand.append(HandCard(uid=self._uid_provider(), spell=spell))
 
     def damage_hero(self, side: int, amount: int) -> None:
         player = self.players_by_uid.get(side)

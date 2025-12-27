@@ -1,14 +1,16 @@
 from typing import Dict, Tuple
-from .entities import Player, Unit, HandCard
-from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS
+from .entities import Player, Unit, HandCard, Spell, StoreItem
+from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS, SPELLS_PER_ROLL
 from .effects import TRIGGER_REGISTRY
-from .event_system import EntityRef, Event, EventManager, EventType, PosRef, Zone
+from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
 from .enums import UnitType
+from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
 class TavernManager:
-    def __init__(self, pool):
+    def __init__(self, pool, spell_pool):
         self.pool = pool
+        self.spell_pool = spell_pool
         self._uid_counter = 1000
         self.event_manager = EventManager(TRIGGER_REGISTRY)
 
@@ -30,16 +32,16 @@ class TavernManager:
         if player.up_cost > 0 and turn_number != 1:
             player.up_cost -= 1
 
-        frozen_units = [u for u in player.store if u.is_frozen]
+        frozen_items = [item for item in player.store if item.is_frozen]
 
-        not_frozen_ids = [u.card_id for u in player.store if not u.is_frozen]
-        self.pool.return_cards(not_frozen_ids)
+        not_frozen_units = [item.unit.card_id for item in player.store if not item.is_frozen and item.unit]
+        self.pool.return_cards(not_frozen_units)
 
         player.store.clear()
 
-        for u in frozen_units:
-            u.is_frozen = False
-            player.store.append(u)
+        for item in frozen_items:
+            item.is_frozen = False
+            player.store.append(item)
 
         self._fill_tavern(player)
 
@@ -50,8 +52,8 @@ class TavernManager:
 
         player.gold -= COST_REROLL
 
-        all_ids = [u.card_id for u in player.store]
-        self.pool.return_cards(all_ids)
+        all_unit_ids = [item.unit.card_id for item in player.store if item.unit]
+        self.pool.return_cards(all_unit_ids)
 
         player.store.clear()
 
@@ -62,13 +64,19 @@ class TavernManager:
     def _fill_tavern(self, player: Player):
         """Вспомогательный метод: добивает магазин до максимума карт"""
         slots_total = TAVERN_SLOTS.get(player.tavern_tier)
-        slots_needed = slots_total - len(player.store)
+        current_units = sum(1 for item in player.store if item.unit)
+        slots_needed = slots_total - current_units
 
         if slots_needed > 0:
             new_ids = self.pool.draw_cards(slots_needed, player.tavern_tier)
             for cid in new_ids:
                 new_unit = self._make_unit(player, cid)
-                player.store.append(new_unit)
+                player.store.append(StoreItem(unit=new_unit))
+
+        spell_ids = self.spell_pool.draw_spells(SPELLS_PER_ROLL, player.tavern_tier)
+        for spell_id in spell_ids:
+            spell = Spell.create_from_db(spell_id)
+            player.store.append(StoreItem(spell=spell))
 
     def _make_unit(self, player: Player, cid: str):
         unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
@@ -100,37 +108,62 @@ class TavernManager:
     def toggle_freeze(self, player: Player) -> Tuple[bool, str]:
         """Заморозить/Разморозить весь магазин"""
 
-        all_frozen = all(u.is_frozen for u in player.store)
+        all_frozen = all(item.is_frozen for item in player.store)
         if all_frozen:
-            for u in player.store:
-                u.is_frozen = False
+            for item in player.store:
+                item.is_frozen = False
             return True, "Unfrozen"
         else:
-            for u in player.store:
-                u.is_frozen = True
+            for item in player.store:
+                item.is_frozen = True
             return True, "Frozen"
 
     def buy_unit(self, player: Player, store_index: int) -> Tuple[bool, str]:
         if store_index < 0 or store_index >= len(player.store):
             return False, "Invalid index"
-        if player.gold < COST_BUY:
-            return False, "Not enough gold"
         if len(player.hand) >= 10:
             return False, "Hand is full"
 
-        unit = player.store.pop(store_index)
+        item = player.store[store_index]
 
-        unit.is_frozen = False
+        if item.unit:
+            if player.gold < COST_BUY:
+                return False, "Not enough gold"
+            item = player.store.pop(store_index)
+            item.is_frozen = False
+            player.gold -= COST_BUY
+            hand_card = HandCard(uid=item.unit.uid, unit=item.unit)
+            player.hand.append(hand_card)
+            return True, f"Bought {item.unit.card_id}"
 
-        player.gold -= COST_BUY
-        hand_card = HandCard(uid=unit.uid, unit=unit)
-        player.hand.append(hand_card)
+        if item.spell:
+            cost = max(0, item.spell.cost - player.spell_discount)
+            if player.gold < cost:
+                return False, "Not enough gold"
+            item = player.store.pop(store_index)
+            item.is_frozen = False
+            player.gold -= cost
+            player.spell_discount = 0
+            hand_card = HandCard(uid=self._get_next_uid(), spell=item.spell)
+            player.hand.append(hand_card)
+            return True, f"Bought {item.spell.card_id}"
 
-        return True, f"Bought {unit.card_id}"
+        return False, "Empty slot"
 
     def sell_unit(self, player: Player, board_index: int) -> Tuple[bool, str]:
         if board_index < 0 or board_index >= len(player.board):
             return False, "Invalid index"
+
+        unit = player.board[board_index]
+        source = EntityRef(uid=unit.uid)
+        source_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=board_index)
+        event = Event(
+            event_type=EventType.MINION_SOLD,
+            source=source,
+            source_pos=source_pos,
+        )
+        players_by_uid: Dict[int, Player] = {player.uid: player}
+        self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
 
         unit = player.board.pop(board_index)
         player.gold += 1
@@ -154,7 +187,7 @@ class TavernManager:
         hand_card = player.hand[hand_index]
 
         if hand_card.spell:
-            return False, "Spells not implemented yet"
+            return self._cast_spell(player, hand_index, target_index)
 
         unit = hand_card.unit
 
@@ -172,6 +205,35 @@ class TavernManager:
         self._resolve_battlecry(player, unit, real_index, target_index)
 
         return True, "Played unit"
+
+    def _cast_spell(self, player: Player, hand_index: int, target_index: int) -> Tuple[bool, str]:
+        hand_card = player.hand[hand_index]
+        spell = hand_card.spell
+        if not spell:
+            return False, "No spell to cast"
+
+        if spell.card_id in SPELLS_REQUIRE_TARGET and not (0 <= target_index < len(player.board)):
+            return False, "Invalid target"
+
+        trigger_defs = SPELL_TRIGGER_REGISTRY.get(spell.card_id)
+        if not trigger_defs:
+            return False, f"Unknown spell effect {spell.effect}"
+        trigger_def = trigger_defs[0]
+        trigger = TriggerInstance(trigger_def=trigger_def, trigger_uid=0)
+        source_pos = PosRef(side=player.uid, zone=Zone.HAND, slot=hand_index)
+        target_ref = None
+        if 0 <= target_index < len(player.board):
+            target_ref = EntityRef(uid=player.board[target_index].uid)
+        event = Event(
+            event_type=EventType.SPELL_CAST,
+            source=None,
+            target=target_ref,
+            source_pos=source_pos,
+        )
+        players_by_uid: Dict[int, Player] = {player.uid: player}
+        self.event_manager.process_event(event, players_by_uid, self._get_next_uid, extra_triggers=[trigger])
+        player.hand.pop(hand_index)
+        return True, f"Cast {spell.card_id}"
 
     def _resolve_battlecry(self, player: Player, unit: Unit, unit_index: int, target_index: int):
         source = EntityRef(uid=unit.uid)

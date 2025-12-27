@@ -1,6 +1,6 @@
 import random
 from typing import Dict, List
-from .configs import TIER_COPIES, CARD_DB
+from .configs import TIER_COPIES, CARD_DB, SPELL_DB
 
 
 class CardPool:
@@ -51,3 +51,26 @@ class CardPool:
                     continue
                 tier = CARD_DB[cid]['tier']
                 self.tiers[tier].append(cid)
+
+
+class SpellPool:
+    def __init__(self):
+        self.tiers: Dict[int, List[str]] = {}
+        self._initialize_pool()
+
+    def _initialize_pool(self):
+        for spell_id, data in SPELL_DB.items():
+            tier = data["tier"]
+            self.tiers.setdefault(tier, []).append(spell_id)
+
+    def draw_spells(self, count: int, max_tier: int) -> List[str]:
+        drawn_spells = []
+        available_tiers = [t for t in self.tiers.keys() if t <= max_tier]
+        if not available_tiers:
+            return drawn_spells
+
+        for _ in range(count):
+            chosen_tier = random.choice(available_tiers)
+            spell_id = random.choice(self.tiers[chosen_tier])
+            drawn_spells.append(spell_id)
+        return drawn_spells

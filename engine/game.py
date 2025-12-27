@@ -1,7 +1,7 @@
 import random
 from typing import List, Tuple, Dict
 from .entities import Player, Unit
-from .pool import CardPool
+from .pool import CardPool, SpellPool
 from .tavern import TavernManager
 from .combat import Combat_Manager
 
@@ -9,7 +9,8 @@ from .combat import Combat_Manager
 class Game:
     def __init__(self):
         self.pool = CardPool()
-        self.tavern = TavernManager(self.pool)
+        self.spell_pool = SpellPool()
+        self.tavern = TavernManager(self.pool, self.spell_pool)
         self.combat = Combat_Manager()
 
         self.players: List[Player] = [

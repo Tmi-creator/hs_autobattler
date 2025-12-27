@@ -17,6 +17,8 @@ class Zone(Enum):
 
 class EventType(Enum):
     MINION_PLAYED = auto()
+    MINION_BOUGHT = auto()
+    MINION_SOLD = auto()
     MINION_SUMMONED = auto()
     MINION_DIED = auto()
     MINION_DAMAGED = auto()

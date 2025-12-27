@@ -41,20 +41,20 @@ def _summon_imprisoner_token(ctx, event: Event, trigger_uid: int) -> None:
 
 
 def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:
-    unit = _played_unit(ctx, event)
-    if not unit:
+    played = _played_unit(ctx, event)
+    if not played or UnitType.DEMON not in played.type or played.card_id == "101":
         return
-    if UnitType.DEMON not in unit.type:
+
+    weaver = ctx.resolve_unit(EntityRef(trigger_uid))
+    if not weaver:
         return
-    if unit.card_id == "101":
-        return
+
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
-    for slot, board_unit in ctx.iter_board_units(pos.side):
-        if board_unit.card_id == "101":
-            ctx.damage_hero(pos.side, 1)
-            ctx.buff(EntityRef(board_unit.uid), 2, 1)
+
+    ctx.damage_hero(pos.side, 1)
+    ctx.buff(EntityRef(weaver.uid), 2, 1)
 
 
 def _swampstriker_buff(ctx, event: Event, trigger_uid: int) -> None:
@@ -63,12 +63,12 @@ def _swampstriker_buff(ctx, event: Event, trigger_uid: int) -> None:
         return
     if UnitType.MURLOC not in unit.type:
         return
+    if _is_self_play(ctx, event, trigger_uid):
+        return
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
-    for slot, board_unit in ctx.iter_board_units(pos.side):
-        if board_unit.card_id == "104" and board_unit.uid != unit.uid:
-            ctx.buff(EntityRef(board_unit.uid), 1, 0)
+    ctx.buff(EntityRef(trigger_uid), 1, 0)
 
 
 TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {

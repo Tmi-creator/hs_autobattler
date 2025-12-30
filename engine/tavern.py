@@ -25,6 +25,11 @@ class TavernManager:
         2. Снизить стоимость улучшения таверны.
         3. Обновить магазин (с учетом заморозки).
         """
+        self.event_manager.process_event(
+            Event(event_type=EventType.START_OF_TURN,
+                  source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
+                  ), {player.uid: player}, self._get_next_uid,
+        )
         max_gold = min(10, 3 + turn_number - 1)
         player.gold = max_gold + player.gold_next_turn
         player.gold_next_turn = 0

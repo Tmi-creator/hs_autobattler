@@ -56,6 +56,7 @@ CARD_DB = {
     "102t": {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},
     "103t": {"name": "Pirate", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.PIRATE], "is_token": True},
     "108t": {"name": "Imp", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.DEMON], "is_token": True},
+    "110t": {"name": "Crab", "tier": 1, "atk": 3, "hp": 2, "type": [UnitType.BEAST], "is_token": True},
 }
 
 SPELL_DB = {
@@ -66,4 +67,6 @@ SPELL_DB = {
     "S005": {"name": "Fortify", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
              "params": {"atk": 0, "hp": 3, "taunt": True}},
     "S006": {"name": "Apple", "tier": 1, "cost": 1, "effect": "BUFF_MINION", "params": {"atk": 1, "hp": 2}},
+    "S007": {"name": "Surf Spellcraft", "tier": 1, "cost": 0, "effect": "ATTACH_CRAB_DR",
+             "params": {"effect_id": "E_DR_CRAB32", "count": 1}, "is_temporary": True},
 }

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Deque, Dict, Iterable, List, Optional
 
+from .attached_effects import EFFECT_ID_TO_INDEX, EFFECT_INDEX_TO_ID
 from .entities import HandCard, Player, Spell, Unit
 
 
@@ -84,6 +85,7 @@ class TriggerDef:
 class TriggerInstance:
     trigger_def: TriggerDef
     trigger_uid: int
+    stacks: int = 1
 
 
 class EffectContext:
@@ -151,14 +153,59 @@ class EffectContext:
         if player:
             player.health -= amount
 
-    def buff(self, target_ref: EntityRef, atk: int, hp: int) -> None:
+    def buff_perm(self, target_ref: EntityRef, atk: int, hp: int) -> None:
         unit = self.resolve_unit(target_ref)
         if not unit:
             return
-        unit.max_atk += atk
-        unit.cur_atk += atk
-        unit.max_hp += hp
-        unit.cur_hp += hp
+        unit.perm_atk_add += atk
+        unit.perm_hp_add += hp
+        unit.recalc_stats()
+
+    def buff(self, target_ref: EntityRef, atk: int, hp: int) -> None:
+        self.buff_perm(target_ref, atk, hp)
+
+    def buff_turn(self, target_ref: EntityRef, atk: int, hp: int) -> None:
+        unit = self.resolve_unit(target_ref)
+        if not unit:
+            return
+        unit.turn_atk_add += atk
+        unit.turn_hp_add += hp
+        unit.recalc_stats()
+
+    def buff_combat(self, target_ref: EntityRef, atk: int, hp: int) -> None:
+        unit = self.resolve_unit(target_ref)
+        if not unit:
+            return
+        unit.combat_atk_add += atk
+        unit.combat_hp_add += hp
+        unit.recalc_stats()
+
+    def attach_effect_perm(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
+        unit = self.resolve_unit(target_ref)
+        if not unit:
+            return
+        index = EFFECT_ID_TO_INDEX.get(effect_id)
+        if index is None:
+            return
+        unit.attached_perm[index] += count
+
+    def attach_effect_turn(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
+        unit = self.resolve_unit(target_ref)
+        if not unit:
+            return
+        index = EFFECT_ID_TO_INDEX.get(effect_id)
+        if index is None:
+            return
+        unit.attached_turn[index] += count
+
+    def attach_effect_combat(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
+        unit = self.resolve_unit(target_ref)
+        if not unit:
+            return
+        index = EFFECT_ID_TO_INDEX.get(effect_id)
+        if index is None:
+            return
+        unit.attached_combat[index] += count
 
     def summon(self, side: int, card_id: str, insert_index: int) -> Optional[EntityRef]:
         player = self.players_by_uid.get(side)
@@ -212,7 +259,8 @@ class EventManager:
                 triggers.extend(extra_triggers)
             for trigger in self.order_triggers(triggers, current_event, ctx):
                 if trigger.trigger_def.condition(ctx, current_event, trigger.trigger_uid):
-                    self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_uid)
+                    for _ in range(trigger.stacks):
+                        self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_uid)
 
     def collect_triggers(self, event: Event, ctx: EffectContext) -> List[TriggerInstance]:
         triggers: List[TriggerInstance] = []
@@ -227,6 +275,23 @@ class EventManager:
                                 trigger_uid=unit.uid,
                             )
                         )
+                for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
+                    for index, count in enumerate(attached):
+                        if count <= 0:
+                            continue
+                        effect_id = EFFECT_INDEX_TO_ID[index]
+                        if not effect_id:
+                            continue
+                        trigger_defs = self.trigger_registry.get(effect_id, [])
+                        for trigger_def in trigger_defs:
+                            if trigger_def.event_type == event.event_type:
+                                triggers.append(
+                                    TriggerInstance(
+                                        trigger_def=trigger_def,
+                                        trigger_uid=unit.uid,
+                                        stacks=count,
+                                    )
+                                )
         return triggers
 
     def order_triggers(

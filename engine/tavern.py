@@ -25,6 +25,9 @@ class TavernManager:
         2. Снизить стоимость улучшения таверны.
         3. Обновить магазин (с учетом заморозки).
         """
+        for unit in player.board:
+            unit.reset_turn_layer()
+            unit.restore_stats()
         self.event_manager.process_event(
             Event(event_type=EventType.START_OF_TURN,
                   source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
@@ -88,8 +91,9 @@ class TavernManager:
     def _make_unit(self, player: Player, cid: str):
         unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
         if UnitType.ELEMENTAL in unit.type:
-            unit.max_atk += player.buff_elemental_atk
-            unit.max_hp += player.buff_elemental_hp
+            unit.perm_atk_add += player.buff_elemental_atk
+            unit.perm_hp_add += player.buff_elemental_hp
+            unit.recalc_stats()
             unit.restore_stats()
         return unit
 

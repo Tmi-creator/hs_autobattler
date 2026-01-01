@@ -2,6 +2,7 @@ from .entities import Unit
 import random
 
 from .effects import TRIGGER_REGISTRY
+from .attached_effects import EFFECT_INDEX_TO_ID
 from .event_system import (
     EntityRef,
     Event,
@@ -261,6 +262,23 @@ class Combat_Manager:
                         trigger_uid=unit.uid,
                     )
                 )
+        for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
+            for index, count in enumerate(attached):
+                if count <= 0:
+                    continue
+                effect_id = EFFECT_INDEX_TO_ID[index]
+                if not effect_id:
+                    continue
+                trigger_defs = self.event_manager.trigger_registry.get(effect_id, [])
+                for trigger_def in trigger_defs:
+                    if trigger_def.event_type == EventType.MINION_DIED:
+                        triggers.append(
+                            TriggerInstance(
+                                trigger_def=trigger_def,
+                                trigger_uid=unit.uid,
+                                stacks=count,
+                            )
+                        )
         if unit.has_reborn:
             def _reborn_effect(ctx, event, trigger_uid, card_id=unit.card_id):
                 if not event.source_pos:

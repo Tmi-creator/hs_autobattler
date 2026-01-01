@@ -14,7 +14,7 @@ def _spell_coin(ctx, event: Event, trigger_uid: int) -> None:
 def _spell_banana(ctx, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
-    ctx.buff(EntityRef(event.target.uid), 2, 2)
+    ctx.buff_perm(EntityRef(event.target.uid), 2, 2)
 
 
 def _spell_bloodgem(ctx, event: Event, trigger_uid: int) -> None:
@@ -22,19 +22,19 @@ def _spell_bloodgem(ctx, event: Event, trigger_uid: int) -> None:
         return
     player = ctx.players_by_uid.get(event.source_pos.side)
     gem_atk, gem_hp = player.gem_atk, player.gem_hp
-    ctx.buff(EntityRef(event.target.uid), 1 + gem_atk, 1 + gem_hp)
+    ctx.buff_perm(EntityRef(event.target.uid), 1 + gem_atk, 1 + gem_hp)
 
 
 def _spell_arrow(ctx, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
-    ctx.buff(EntityRef(event.target.uid), 4, 0)
+    ctx.buff_perm(EntityRef(event.target.uid), 4, 0)
 
 
 def _spell_fortify(ctx, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
-    ctx.buff(EntityRef(event.target.uid), 0, 3)
+    ctx.buff_perm(EntityRef(event.target.uid), 0, 3)
     unit = ctx.resolve_unit(EntityRef(event.target.uid))
     unit.has_taunt = True
 
@@ -45,7 +45,13 @@ def _spell_apple(ctx, event: Event, trigger_uid: int) -> None:
     player = ctx.players_by_uid.get(event.source_pos.side)
     for item in player.store:
         if item.unit:
-            ctx.buff(EntityRef(item.unit.uid), 1, 2)
+            ctx.buff_perm(EntityRef(item.unit.uid), 1, 2)
+
+
+def _spell_surf_spellcraft(ctx, event: Event, trigger_uid: int) -> None:
+    if not event.target:
+        return
+    ctx.attach_effect_turn(EntityRef(event.target.uid), "E_DR_CRAB32", 1)
 
 
 SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
@@ -97,6 +103,14 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Apple",
         )
     ],
+    "S007": [
+        TriggerDef(
+            event_type=EventType.SPELL_CAST,
+            condition=lambda ctx, event, ref: True,
+            effect=_spell_surf_spellcraft,
+            name="Surf Spellcraft",
+        )
+    ],
 }
 
-SPELLS_REQUIRE_TARGET = {"S002", "S003", "S004", "S005"}
+SPELLS_REQUIRE_TARGET = {"S002", "S003", "S004", "S005", "S007"}

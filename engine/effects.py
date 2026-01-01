@@ -40,6 +40,12 @@ def _summon_imprisoner_token(ctx, event: Event, trigger_uid: int) -> None:
         ctx.summon(pos.side, "108t", pos.slot)
 
 
+def _summon_crab_token(ctx, event: Event, trigger_uid: int) -> None:
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if pos:
+        ctx.summon(pos.side, "110t", pos.slot)
+
+
 def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:
     played = _played_unit(ctx, event)
     if not played or UnitType.DEMON not in played.type:
@@ -56,7 +62,7 @@ def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:
         return
 
     ctx.damage_hero(pos.side, 1)
-    ctx.buff(EntityRef(weaver.uid), 2, 1)
+    ctx.buff_perm(EntityRef(weaver.uid), 2, 1)
 
 
 def _swampstriker_buff(ctx, event: Event, trigger_uid: int) -> None:
@@ -70,7 +76,7 @@ def _swampstriker_buff(ctx, event: Event, trigger_uid: int) -> None:
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
-    ctx.buff(EntityRef(trigger_uid), 1, 0)
+    ctx.buff_perm(EntityRef(trigger_uid), 1, 0)
 
 
 def _minted_corsair_coin(ctx, event: Event, trigger_uid: int) -> None:
@@ -135,6 +141,14 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             condition=_is_self_play,
             effect=_minted_corsair_coin,
             name="Minted Corsair Sell",
+        )
+    ],
+    "E_DR_CRAB32": [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=lambda ctx, event, trigger_uid: event.source is not None and event.source.uid == trigger_uid,
+            effect=_summon_crab_token,
+            name="Attached Crab Deathrattle",
         )
     ],
 }

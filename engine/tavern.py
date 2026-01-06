@@ -277,3 +277,9 @@ class TavernManager:
         player.board[index_a], player.board[index_b] = player.board[index_b], player.board[index_a]
 
         return True, "Swapped"
+
+    def end_turn(self, player: Player) -> None:
+        player.hand[:] = [
+            hc for hc in player.hand
+            if not (hc.spell is not None and hc.spell.is_temporary)
+        ]

@@ -294,7 +294,8 @@ class Combat_Manager:
                 TriggerInstance(
                     trigger_def=TriggerDef(
                         event_type=EventType.MINION_DIED,
-                        condition=lambda ctx, event, trigger_uid: event.source is not None and event.source.uid == trigger_uid,
+                        condition=lambda ctx, event,
+                                         trigger_uid: event.source is not None and event.source.uid == trigger_uid,
                         effect=_reborn_effect,
                         name="Reborn",
                     ),

@@ -90,10 +90,10 @@ class TriggerInstance:
 
 class EffectContext:
     def __init__(
-        self,
-        players_by_uid: Dict[int, Player],
-        uid_provider: Callable[[], int],
-        event_queue: Deque[Event],
+            self,
+            players_by_uid: Dict[int, Player],
+            uid_provider: Callable[[], int],
+            event_queue: Deque[Event],
     ):
         self.players_by_uid = players_by_uid
         self._uid_provider = uid_provider
@@ -243,11 +243,11 @@ class EventManager:
         self.executor = executor or EffectExecutor()
 
     def process_event(
-        self,
-        event: Event,
-        players_by_uid: Dict[int, Player],
-        uid_provider: Callable[[], int],
-        extra_triggers: Optional[List[TriggerInstance]] = None,
+            self,
+            event: Event,
+            players_by_uid: Dict[int, Player],
+            uid_provider: Callable[[], int],
+            extra_triggers: Optional[List[TriggerInstance]] = None,
     ) -> None:
         queue: Deque[Event] = deque([event])
         ctx = EffectContext(players_by_uid, uid_provider, queue)
@@ -295,10 +295,10 @@ class EventManager:
         return triggers
 
     def order_triggers(
-        self,
-        triggers: List[TriggerInstance],
-        event: Event,
-        ctx: EffectContext,
+            self,
+            triggers: List[TriggerInstance],
+            event: Event,
+            ctx: EffectContext,
     ) -> List[TriggerInstance]:
         active_side = None
         if event.source_pos:

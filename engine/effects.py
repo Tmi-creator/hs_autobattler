@@ -43,7 +43,7 @@ def _summon_imprisoner_token(ctx, event: Event, trigger_uid: int) -> None:
 def _summon_crab_token(ctx, event: Event, trigger_uid: int) -> None:
     pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
     if pos:
-        ctx.summon(pos.side, "110t", pos.slot)
+        ctx.summon(pos.side, "001t", pos.slot)
 
 
 def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:

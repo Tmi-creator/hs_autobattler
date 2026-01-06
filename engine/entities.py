@@ -43,18 +43,18 @@ class Unit:
         old_max_hp = self.max_hp
         old_cur_hp = self.cur_hp
         self.max_atk = (
-            self.base_atk
-            + self.perm_atk_add
-            + self.turn_atk_add
-            + self.combat_atk_add
-            + self.aura_atk_add
+                self.base_atk
+                + self.perm_atk_add
+                + self.turn_atk_add
+                + self.combat_atk_add
+                + self.aura_atk_add
         )
         self.max_hp = (
-            self.base_hp
-            + self.perm_hp_add
-            + self.turn_hp_add
-            + self.combat_hp_add
-            + self.aura_hp_add
+                self.base_hp
+                + self.perm_hp_add
+                + self.turn_hp_add
+                + self.combat_hp_add
+                + self.aura_hp_add
         )
         missing = max(old_max_hp - old_cur_hp, 0)
         new_cur_hp = self.max_hp - missing

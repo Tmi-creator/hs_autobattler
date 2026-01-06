@@ -47,6 +47,7 @@ CARD_DB = {
     "108": {"name": "Imprisoner", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.DEMON], "token": "108t",
             "deathrattle": True, "taunt": True},
     "109": {"name": "Minted Corsair", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.PIRATE]},
+    "110": {"name": "Flighty Scout", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.MURLOC]},
 
     # --- TIER 2 ---
     "201": {"name": "Leapfrogger", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.BEAST], "deathrattle": True},
@@ -56,7 +57,7 @@ CARD_DB = {
     "102t": {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},
     "103t": {"name": "Pirate", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.PIRATE], "is_token": True},
     "108t": {"name": "Imp", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.DEMON], "is_token": True},
-    "110t": {"name": "Crab", "tier": 1, "atk": 3, "hp": 2, "type": [UnitType.BEAST], "is_token": True},
+    "001t": {"name": "Crab", "tier": 1, "atk": 3, "hp": 2, "type": [UnitType.BEAST], "is_token": True},
 }
 
 SPELL_DB = {

@@ -1,5 +1,6 @@
 import random
 from typing import Dict, List
+
 from .configs import TIER_COPIES, CARD_DB, SPELL_DB
 
 

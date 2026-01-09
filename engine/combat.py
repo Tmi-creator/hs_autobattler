@@ -26,14 +26,13 @@ class CombatManager:
         return self.uid
 
     def resolve_combat(self, player_1, player_2):
-        board_1 = [u.combat_copy() for u in player_1.board]
-        board_2 = [u.combat_copy() for u in player_2.board]
         combat_players = {
             player_1.uid: player_1.combat_copy(),
             player_2.uid: player_2.combat_copy(),
         }
 
-        boards = [board_1, board_2]
+        boards = [combat_players[i].board for i in range(2)]
+        board_1, board_2 = boards
 
         self.event_manager.process_event(
             Event(event_type=EventType.START_OF_COMBAT),
@@ -52,7 +51,7 @@ class CombatManager:
 
         while True:
             end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
-            if end_battle[0] != "NO END":
+            if end_battle[0] != BattleOutcome.NO_END:
                 return end_battle
             attacker_board = boards[attacker_player_idx]
             defender_board = boards[1 - attacker_player_idx]

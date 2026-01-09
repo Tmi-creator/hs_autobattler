@@ -128,7 +128,7 @@ def run_effect_smoke_tests():
     pool = CardPool()
     spell_pool = SpellPool()
     tavern = TavernManager(pool, spell_pool)
-    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    player = Player(uid=0, board=[], hand=[])
 
     print("\n=== RUNNING ALLEYCAT TESTS ===")
     alleycat = Unit.create_from_db("102", tavern._get_next_uid(), player.uid)
@@ -147,7 +147,7 @@ def run_effect_smoke_tests():
     print("PASSED")
 
     print("\n=== RUNNING WRATH WEAVER TESTS ===")
-    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    player = Player(uid=0, board=[], hand=[])
     cnt = 3
     wrath_weaver = [Unit.create_from_db("101", tavern._get_next_uid(), player.uid) for _ in range(cnt)]
     for i in range(cnt):
@@ -162,7 +162,7 @@ def run_effect_smoke_tests():
     print("PASSED")
 
     print("\n=== RUNNING SWAMPSTRIKER TESTS ===")
-    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    player = Player(uid=0, board=[], hand=[])
     cnt = 3
     swampstriker = [Unit.create_from_db("104", tavern._get_next_uid(), player.uid) for _ in range(cnt)]
     for i in range(cnt):
@@ -181,15 +181,15 @@ def run_effect_smoke_tests():
     board = [dead_unit]
     opponent_board = []
     combat_players = {
-        player.uid: Player(uid=player.uid, board=board, hand=[], tavern_tier=1),
-        1: Player(uid=1, board=opponent_board, hand=[], tavern_tier=1),
+        player.uid: Player(uid=player.uid, board=board, hand=[]),
+        1: Player(uid=1, board=opponent_board, hand=[]),
     }
     combat.cleanup_dead([board, opponent_board], [0, 0], combat_players)
     assert board and board[0].card_id == "103t", "Scallywag deathrattle should summon a token"
     print("PASSED")
 
     print("\n=== RUNNING COIN TESTS ===")
-    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=5)
+    player = Player(uid=0, board=[], hand=[])
     coin_spell = HandCard(uid=0, spell=Spell.create_from_db("S001"))
     player.hand.append(coin_spell)
     starting_gold = player.gold
@@ -205,15 +205,21 @@ def run_effect_smoke_tests():
     tavern.play_unit(player, 0, -1, 0)
     assert target.max_atk == 3 and target.max_hp == 5, "Buff spell should grant +2/+2"
     print("BANANA PASSED")
-    player.gem_atk = 1
+    player.mechanics.modify_stat("BLOOD_GEM", 1, 0)
     buff_spell = HandCard(uid=100, spell=Spell.create_from_db("S003"))
     player.hand.append(buff_spell)
     tavern.play_unit(player, 0, -1, 0)
     assert target.max_atk == 5 and target.max_hp == 6, "Gem should grant +2/+1"
     print("GEM PASSED")
+    buff_spell = HandCard(uid=3, spell=Spell.create_from_db("S005"))
+    player.hand.append(buff_spell)
+    tavern.play_unit(player, 0, -1, 0)
+    assert target.max_atk == 5 and target.max_hp == 9, "fortify should give +0/+3"
+    assert target.has_taunt, "fortify should give taunt"
+    print("FORTIFY PASSED")
 
     print("\n=== RUNNING MINTED CORSAIR TESTS ===")
-    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    player = Player(uid=0, board=[], hand=[])
     minted = Unit.create_from_db("109", tavern._get_next_uid(), player.uid)
     player.board.append(minted)
     tavern.sell_unit(player, 0)
@@ -221,7 +227,7 @@ def run_effect_smoke_tests():
     print("PASSED")
 
     print("\n=== RUNNING TEMPORARY SPELL TESTS ===")
-    player = Player(uid=0, board=[], hand=[], tavern_tier=1, gold=0)
+    player = Player(uid=0, board=[], hand=[])
     unit = Unit.create_from_db("109", tavern._get_next_uid(), player.uid)
     unit.cur_hp = 0
     player.board.append(unit)
@@ -234,8 +240,8 @@ def run_effect_smoke_tests():
     board = [unit]
     opponent_board = []
     combat_players = {
-        player.uid: Player(uid=player.uid, board=board, hand=[], tavern_tier=1),
-        1: Player(uid=1, board=opponent_board, hand=[], tavern_tier=1),
+        player.uid: Player(uid=player.uid, board=board, hand=[]),
+        1: Player(uid=1, board=opponent_board, hand=[]),
     }
     combat.cleanup_dead([board, opponent_board], [0, 0], combat_players)
     assert board and board[0].card_id == "001t", "Should summon 3/2 token crab"
@@ -250,8 +256,8 @@ def run_effect_smoke_tests():
     board = [unit]
     opponent_board = []
     combat_players = {
-        player.uid: Player(uid=player.uid, board=board, hand=[], tavern_tier=1),
-        1: Player(uid=1, board=opponent_board, hand=[], tavern_tier=1),
+        player.uid: Player(uid=player.uid, board=board, hand=[]),
+        1: Player(uid=1, board=opponent_board, hand=[]),
     }
     combat.cleanup_dead([board, opponent_board], [0, 0], combat_players)
     assert not board, "effect should not be permanent"

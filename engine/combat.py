@@ -2,7 +2,7 @@ from .entities import Unit
 import random
 
 from .effects import TRIGGER_REGISTRY
-from .attached_effects import EFFECT_INDEX_TO_ID
+from .enums import Tags
 from .event_system import (
     EntityRef,
     Event,
@@ -32,28 +32,21 @@ class Combat_Manager:
             player_1.uid: player_1.__class__(
                 uid=player_1.uid,
                 board=board_1,
-                hand=[],
-                store=[],
+                hand=player_1.hand.copy(),
                 tavern_tier=player_1.tavern_tier,
-                gold=0,
                 health=player_1.health,
-                up_cost=player_1.up_cost,
             ),
             player_2.uid: player_2.__class__(
                 uid=player_2.uid,
                 board=board_2,
-                hand=[],
-                store=[],
+                hand=player_2.copy(),
                 tavern_tier=player_2.tavern_tier,
-                gold=0,
                 health=player_2.health,
-                up_cost=player_2.up_cost,
             ),
         }
 
         boards = [board_1, board_2]
 
-        # 2. Фаза "Start of Combat" (Начало боя)
         self.event_manager.process_event(
             Event(event_type=EventType.START_OF_COMBAT),
             combat_players,
@@ -70,30 +63,9 @@ class Combat_Manager:
         attack_indices = [0, 0]
 
         while True:
-            if not board_1 and not board_2:
-                self.event_manager.process_event(
-                    Event(event_type=EventType.END_OF_COMBAT),
-                    combat_players,
-                    self.get_uid,
-                )
-                return "DRAW", 0
-            if not board_1:
-                damage = sum(u.tier for u in board_2) + player_2.tavern_tier
-                self.event_manager.process_event(
-                    Event(event_type=EventType.END_OF_COMBAT),
-                    combat_players,
-                    self.get_uid,
-                )
-                return "LOSE", -damage
-            if not board_2:
-                damage = sum(u.tier for u in board_1) + player_1.tavern_tier
-                self.event_manager.process_event(
-                    Event(event_type=EventType.END_OF_COMBAT),
-                    combat_players,
-                    self.get_uid,
-                )
-                return "WIN", damage
-
+            end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
+            if end_battle[0] != "NO END":
+                return end_battle
             attacker_board = boards[attacker_player_idx]
             defender_board = boards[1 - attacker_player_idx]
 
@@ -105,6 +77,7 @@ class Combat_Manager:
             num_attacks = 1
             if attacker_unit.has_windfury:
                 num_attacks += 1
+
             for i in range(num_attacks):
                 taunts = [u for u in defender_board if u.has_taunt]
                 if taunts:
@@ -118,34 +91,40 @@ class Combat_Manager:
 
                 if not attacker_unit.is_alive:
                     break
-                if not board_1 and not board_2:
-                    self.event_manager.process_event(
-                        Event(event_type=EventType.END_OF_COMBAT),
-                        combat_players,
-                        self.get_uid,
-                    )
-                    return "DRAW", 0
-                if not board_1:
-                    damage = sum(u.tier for u in board_2) + player_2.tavern_tier
-                    self.event_manager.process_event(
-                        Event(event_type=EventType.END_OF_COMBAT),
-                        combat_players,
-                        self.get_uid,
-                    )
-                    return "LOSE", -damage
-                if not board_2:
-                    damage = sum(u.tier for u in board_1) + player_1.tavern_tier
-                    self.event_manager.process_event(
-                        Event(event_type=EventType.END_OF_COMBAT),
-                        combat_players,
-                        self.get_uid,
-                    )
-                    return "WIN", damage
+                end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
+                if end_battle[0] != "NO END":
+                    return end_battle
 
             if attacker_unit.is_alive:
                 attack_indices[attacker_player_idx] += 1
 
             attacker_player_idx = 1 - attacker_player_idx
+
+    def check_end_of_battle(self, board_1, board_2, player_1, player_2, combat_players):
+        if not board_1 and not board_2:
+            self.event_manager.process_event(
+                Event(event_type=EventType.END_OF_COMBAT),
+                combat_players,
+                self.get_uid,
+            )
+            return "DRAW", 0
+        if not board_1:
+            damage = sum(u.tier for u in board_2) + player_2.tavern_tier
+            self.event_manager.process_event(
+                Event(event_type=EventType.END_OF_COMBAT),
+                combat_players,
+                self.get_uid,
+            )
+            return "LOSE", -damage
+        if not board_2:
+            damage = sum(u.tier for u in board_1) + player_1.tavern_tier
+            self.event_manager.process_event(
+                Event(event_type=EventType.END_OF_COMBAT),
+                combat_players,
+                self.get_uid,
+            )
+            return "WIN", damage
+        return "NO END", 0
 
     def perform_attack(self, attacker, target, combat_players):
         """
@@ -171,19 +150,19 @@ class Combat_Manager:
         pre_target_hp = target.cur_hp
         pre_attacker_hp = attacker.cur_hp
         if dmg_to_target > 0 and target.has_divine_shield:
-            target.has_divine_shield = False
+            target.tags.discard(Tags.DIVINE_SHIELD)
         else:
             target.cur_hp -= dmg_to_target
             if attacker.has_poisonous or attacker.has_venomous:
                 target.cur_hp = 0
-                attacker.has_venomous = False
+                attacker.tags.discard(Tags.VENOMOUS)
         if dmg_to_attacker > 0 and attacker.has_divine_shield:
-            attacker.has_divine_shield = False
+            attacker.tags.discard(Tags.DIVINE_SHIELD)
         else:
             attacker.cur_hp -= dmg_to_attacker
             if target.has_poisonous or target.has_venomous:
                 attacker.cur_hp = 0
-                target.has_venomous = False
+                target.tags.discard(Tags.VENOMOUS)
 
         actual_damage_to_target = max(0, pre_target_hp - target.cur_hp)
         actual_damage_to_attacker = max(0, pre_attacker_hp - attacker.cur_hp)
@@ -263,13 +242,10 @@ class Combat_Manager:
                     )
                 )
         for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
-            for index, count in enumerate(attached):
+            for index, count in attached.items():
                 if count <= 0:
                     continue
-                effect_id = EFFECT_INDEX_TO_ID[index]
-                if not effect_id:
-                    continue
-                trigger_defs = self.event_manager.trigger_registry.get(effect_id, [])
+                trigger_defs = self.event_manager.trigger_registry.get(index, [])
                 for trigger_def in trigger_defs:
                     if trigger_def.event_type == EventType.MINION_DIED:
                         triggers.append(
@@ -288,7 +264,7 @@ class Combat_Manager:
                     reborn_unit = ctx.resolve_unit(summoned_ref)
                     if reborn_unit:
                         reborn_unit.cur_hp = 1
-                        reborn_unit.has_reborn = False
+                        reborn_unit.tags.discard(Tags.REBORN)
 
             triggers.append(
                 TriggerInstance(
@@ -330,15 +306,7 @@ class Combat_Manager:
                         atk=unit.cur_atk,
                         hp=unit.cur_hp,
                         types=list(unit.type),
-                        flags={
-                            "taunt": unit.has_taunt,
-                            "divine_shield": unit.has_divine_shield,
-                            "windfury": unit.has_windfury,
-                            "poisonous": unit.has_poisonous,
-                            "reborn": unit.has_reborn,
-                            "venomous": unit.has_venomous,
-                            "cleave": unit.has_cleave,
-                        },
+                        tags=set(unit.tags),
                     )
                     death_event = Event(
                         event_type=EventType.MINION_DIED,

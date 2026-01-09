@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from .enums import Tags
 from .event_system import EntityRef, Event, EventType, TriggerDef
 
 
@@ -21,8 +22,8 @@ def _spell_bloodgem(ctx, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
     player = ctx.players_by_uid.get(event.source_pos.side)
-    gem_atk, gem_hp = player.gem_atk, player.gem_hp
-    ctx.buff_perm(EntityRef(event.target.uid), 1 + gem_atk, 1 + gem_hp)
+    atk, hp = player.mechanics.get_stat("BLOOD_GEM")
+    ctx.buff_perm(EntityRef(event.target.uid), atk, hp)
 
 
 def _spell_arrow(ctx, event: Event, trigger_uid: int) -> None:
@@ -36,7 +37,7 @@ def _spell_fortify(ctx, event: Event, trigger_uid: int) -> None:
         return
     ctx.buff_perm(EntityRef(event.target.uid), 0, 3)
     unit = ctx.resolve_unit(EntityRef(event.target.uid))
-    unit.has_taunt = True
+    unit.tags.append(Tags.TAUNT)
 
 
 def _spell_apple(ctx, event: Event, trigger_uid: int) -> None:

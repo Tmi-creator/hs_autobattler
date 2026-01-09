@@ -1,43 +1,71 @@
 from dataclasses import dataclass, replace, field
-from typing import Dict, List, Optional
-from .enums import UnitType
-from .configs import CARD_DB, SPELL_DB
-from .attached_effects import make_effect_counts
+from typing import Dict, List, Optional, Set, Tuple
+from .enums import UnitType, Tags
+from .configs import CARD_DB, SPELL_DB, MECHANIC_DEFAULTS
 
 
 @dataclass
 class Unit:
-    uid: int
-    card_id: str
-    owner_id: int
+    uid: int  # уникальный id
+    card_id: str  # id карты
+    owner_id: int  # id игрока
+    tier: int
+
     base_hp: int
     base_atk: int
-    max_hp: int  # initial hp(or after enchantments)
-    max_atk: int  # initial atk(or after enchantments)
-    tier: int
-    cur_hp: int = 0  # current hp(in fight)
-    cur_atk: int = 0  # current atk(in fight)
-    perm_hp_add: int = 0
+    max_hp: int
+    max_atk: int
+
+    cur_hp: int = 0
+    cur_atk: int = 0
+    perm_hp_add: int = 0  # баффы примененные навсегда
     perm_atk_add: int = 0
-    turn_hp_add: int = 0
+    turn_hp_add: int = 0  # баффы примененные только на этот ход
     turn_atk_add: int = 0
-    combat_hp_add: int = 0
+    combat_hp_add: int = 0  # баффы примененные только на этот бой
     combat_atk_add: int = 0
-    aura_hp_add: int = 0
+    aura_hp_add: int = 0  # баффы примененные аурой зависящей от расположения (вида соседние существа получают +1 атаки)
     aura_atk_add: int = 0
-    attached_perm: List[int] = field(default_factory=make_effect_counts)
-    attached_turn: List[int] = field(default_factory=make_effect_counts)
-    attached_combat: List[int] = field(default_factory=make_effect_counts)
+
+    attached_perm: Dict[str, int] = field(default_factory=dict)
+    attached_turn: Dict[str, int] = field(default_factory=dict)
+    attached_combat: Dict[str, int] = field(default_factory=dict)
     type: List[UnitType] = field(default_factory=list)
     is_golden: bool = False
-    has_taunt: bool = False
-    has_divine_shield: bool = False
-    has_windfury: bool = False
-    has_poisonous: bool = False
-    has_reborn: bool = False
-    has_venomous: bool = False
-    has_cleave: bool = False
     is_frozen: bool = False
+    tags: Set[Tags] = field(default_factory=list)
+
+    @property
+    def has_taunt(self):
+        return Tags.TAUNT in self.tags
+
+    @property
+    def has_divine_shield(self):
+        return Tags.DIVINE_SHIELD in self.tags
+
+    @property
+    def has_windfury(self):
+        return Tags.WINDFURY in self.tags
+
+    @property
+    def has_poisonous(self):
+        return Tags.POISONOUS in self.tags
+
+    @property
+    def has_reborn(self):
+        return Tags.REBORN in self.tags
+
+    @property
+    def has_venomous(self):
+        return Tags.VENOMOUS in self.tags
+
+    @property
+    def has_cleave(self):
+        return Tags.CLEAVE in self.tags
+
+    @property
+    def has_stealth(self):
+        return Tags.STEALTH in self.tags
 
     def recalc_stats(self) -> None:
         old_max_hp = self.max_hp
@@ -73,9 +101,9 @@ class Unit:
         unit = replace(
             self,
             type=list(self.type),
-            attached_perm=list(self.attached_perm),
-            attached_turn=list(self.attached_turn),
-            attached_combat=make_effect_counts(),
+            attached_perm=dict(self.attached_perm),
+            attached_turn=dict(self.attached_turn),
+            attached_combat=field(default_factory=dict),
             combat_hp_add=0,
             combat_atk_add=0,
             aura_hp_add=0,
@@ -88,13 +116,13 @@ class Unit:
     def reset_turn_layer(self) -> None:
         self.turn_hp_add = 0
         self.turn_atk_add = 0
-        self.attached_turn = make_effect_counts()
+        self.attached_turn = dict()
         self.recalc_stats()
 
     def reset_combat_layer(self) -> None:
         self.combat_hp_add = 0
         self.combat_atk_add = 0
-        self.attached_combat = make_effect_counts()
+        self.attached_combat = dict()
         self.recalc_stats()
 
     @staticmethod
@@ -116,14 +144,7 @@ class Unit:
             cur_atk=data['atk'],
             tier=data['tier'],
             type=list(data.get('type', [])),
-
-            has_taunt=data.get('taunt', False),
-            has_divine_shield=data.get('divine_shield', False),
-            has_windfury=data.get('windfury', False),
-            has_poisonous=data.get('poisonous', False),
-            has_reborn=data.get('reborn', False),
-            has_venomous=data.get('venomous', False),
-            has_cleave=data.get('cleave', False)
+            tags=data.get('tags', []),
         )
         unit.recalc_stats()
         unit.restore_stats()
@@ -178,14 +199,6 @@ class HandCard:
     spell: Optional[Spell] = None
 
     @property
-    def cost(self):
-        if self.unit:
-            return 3
-        elif self.spell:
-            return self.spell.cost
-        return 0
-
-    @property
     def card_id(self):
         if self.unit:
             return self.unit.card_id
@@ -193,18 +206,81 @@ class HandCard:
 
 
 @dataclass
+class EconomyState:
+    """
+    Вся экономика игрока здесь
+    """
+    gold: int = 3
+    gold_next_turn: int = 0
+    tavern_tier: int = 1
+    spell_discount: int = 0
+    up_cost: int = 5
+    store: List[StoreItem] = field(default_factory=list)
+
+    def new_turn(self, turn_number: int):
+        self.gold = min(10, 3 + turn_number - 1) + self.gold_next_turn
+        self.gold_next_turn = 0
+        if self.up_cost > 0 and turn_number != 1:
+            self.up_cost -= 1
+
+
+@dataclass
+class MechanicState:
+    """Глобальные баффы и счетчики механик"""
+    modifiers: Dict[str, Tuple[int, int]] = field(
+        default_factory=lambda: MECHANIC_DEFAULTS.copy()
+    )
+
+    def modify_stat(self, key: str, atk_add: int, hp_add: int):
+        """Универсальный метод баффа механики"""
+        current_atk, current_hp = self.modifiers.get(key, (0, 0))
+        self.modifiers[key] = (current_atk + atk_add, current_hp + hp_add)
+
+    def get_stat(self, key: str) -> Tuple[int, int]:
+        return self.modifiers.get(key, (0, 0))
+
+
+@dataclass
 class Player:
     uid: int
     board: List[Unit]
     hand: List[HandCard]
-    store: List[StoreItem] = field(default_factory=list)
-    tavern_tier: int = 1
-    gold: int = 3
-    gold_next_turn: int = 0
-    spell_discount: int = 0
+    economy: EconomyState = field(default_factory=EconomyState)
+    mechanics: MechanicState = field(default_factory=MechanicState)
     health: int = 30
-    up_cost: int = 5
-    buff_elemental_hp: int = 0
-    buff_elemental_atk: int = 0
-    gem_atk: int = 0
-    gem_hp: int = 0
+
+    @property
+    def gold(self) -> int:
+        return self.economy.gold
+
+    @gold.setter
+    def gold(self, value: int):
+        self.economy.gold = value
+
+    @property
+    def gold_next_turn(self) -> int:
+        return self.economy.gold_next_turn
+
+    @gold_next_turn.setter
+    def gold_next_turn(self, value: int):
+        self.economy.gold_next_turn = value
+
+    @property
+    def up_cost(self) -> int:
+        return self.economy.up_cost
+
+    @up_cost.setter
+    def up_cost(self, value: int):
+        self.economy.up_cost = value
+
+    @property
+    def tavern_tier(self) -> int:
+        return self.economy.tavern_tier
+
+    @tavern_tier.setter
+    def tavern_tier(self, value: int):
+        self.economy.tavern_tier = value
+
+    @property
+    def store(self) -> List[StoreItem]:
+        return self.economy.store

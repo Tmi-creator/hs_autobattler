@@ -1,4 +1,4 @@
-from .enums import UnitType
+from .enums import UnitType, Tags
 
 TIER_COPIES = {
     1: 16,
@@ -24,6 +24,12 @@ TIER_UPGRADE_COSTS = {
     5: 9,
     6: 10
 }
+
+MECHANIC_DEFAULTS = {
+    "BLOOD_GEM": (1, 1),
+    "ELEMENTAL_BUFF": (0, 0),
+}
+
 COST_BUY = 3
 COST_REROLL = 1
 SPELLS_PER_ROLL = 1
@@ -34,24 +40,23 @@ CARD_DB = {
     "101": {"name": "Wrath Weaver", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.DEMON]},
     "107": {"name": "Shell Collector", "tier": 1, "atk": 2, "hp": 1, "type": [UnitType.NAGA]},
     "104": {"name": "Swampstriker", "tier": 1, "atk": 1, "hp": 5, "type": [UnitType.MURLOC],
-            "windfury": True},
+            "tags": [Tags.WINDFURY]},
     "105": {
         "name": "Annoy-o-Tron",
         "tier": 1, "atk": 1, "hp": 2,
         "type": [UnitType.MECH],
-        "taunt": True,
-        "divine_shield": True
+        "tags": [Tags.DIVINE_SHIELD, Tags.TAUNT]
     },
     "102": {"name": "Alleycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "token": "102t"},
     "103": {"name": "Scallywag", "tier": 1, "atk": 3, "hp": 1, "type": [UnitType.PIRATE], "deathrattle": True},
     "108": {"name": "Imprisoner", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.DEMON], "token": "108t",
-            "deathrattle": True, "taunt": True},
+            "deathrattle": True, "tags": [Tags.TAUNT]},
     "109": {"name": "Minted Corsair", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.PIRATE]},
     "110": {"name": "Flighty Scout", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.MURLOC]},
 
     # --- TIER 2 ---
     "201": {"name": "Leapfrogger", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.BEAST], "deathrattle": True},
-    "202": {"name": "Molten Rock", "tier": 2, "atk": 2, "hp": 4, "type": [UnitType.ELEMENTAL], "taunt": True},
+    "202": {"name": "Molten Rock", "tier": 2, "atk": 2, "hp": 4, "type": [UnitType.ELEMENTAL], "tags": [Tags.TAUNT]},
 
     # --- TOKENS (призывные существа, нет в пуле) ---
     "102t": {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},
@@ -66,7 +71,7 @@ SPELL_DB = {
     "S003": {"name": "Blood Gem", "tier": 0, "cost": 0, "effect": "BUFF_MINION", "params": {"atk": 1, "hp": 1}},
     "S004": {"name": "Pointy Arrow", "tier": 1, "cost": 1, "effect": "BUFF_MINION", "params": {"atk": 4, "hp": 0}},
     "S005": {"name": "Fortify", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
-             "params": {"atk": 0, "hp": 3, "taunt": True}},
+             "params": {"atk": 0, "hp": 3, "tags": [Tags.TAUNT]}},
     "S006": {"name": "Apple", "tier": 1, "cost": 1, "effect": "BUFF_MINION", "params": {"atk": 1, "hp": 2}},
     "S007": {"name": "Surf Spellcraft", "tier": 1, "cost": 0, "effect": "ATTACH_CRAB_DR",
              "params": {"effect_id": "E_DR_CRAB32", "count": 1}, "is_temporary": True},

@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Deque, Dict, Iterable, List, Optional
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
-from .attached_effects import EFFECT_ID_TO_INDEX, EFFECT_INDEX_TO_ID
+from .enums import Tags
 from .entities import HandCard, Player, Spell, Unit
 
 
@@ -31,6 +31,7 @@ class EventType(Enum):
     START_OF_TURN = auto()
     END_OF_TURN = auto()
     SPELL_CAST = auto()
+    UNIT_CREATED = auto()
 
 
 @dataclass(frozen=True)
@@ -54,7 +55,7 @@ class MinionSnapshot:
     atk: int
     hp: int
     types: List
-    flags: Dict[str, bool]
+    tags: Set[Tags]
 
 
 @dataclass(frozen=True)
@@ -184,28 +185,19 @@ class EffectContext:
         unit = self.resolve_unit(target_ref)
         if not unit:
             return
-        index = EFFECT_ID_TO_INDEX.get(effect_id)
-        if index is None:
-            return
-        unit.attached_perm[index] += count
+        unit.attached_perm[effect_id] = unit.attached_perm.get(effect_id, 0) + count
 
     def attach_effect_turn(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
         unit = self.resolve_unit(target_ref)
         if not unit:
             return
-        index = EFFECT_ID_TO_INDEX.get(effect_id)
-        if index is None:
-            return
-        unit.attached_turn[index] += count
+        unit.attached_turn[effect_id] = unit.attached_turn.get(effect_id, 0) + count
 
     def attach_effect_combat(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
         unit = self.resolve_unit(target_ref)
         if not unit:
             return
-        index = EFFECT_ID_TO_INDEX.get(effect_id)
-        if index is None:
-            return
-        unit.attached_combat[index] += count
+        unit.attached_combat[effect_id] = unit.attached_combat.get(effect_id, 0) + count
 
     def summon(self, side: int, card_id: str, insert_index: int) -> Optional[EntityRef]:
         player = self.players_by_uid.get(side)
@@ -276,13 +268,10 @@ class EventManager:
                             )
                         )
                 for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
-                    for index, count in enumerate(attached):
+                    for index, count in attached.items():
                         if count <= 0:
                             continue
-                        effect_id = EFFECT_INDEX_TO_ID[index]
-                        if not effect_id:
-                            continue
-                        trigger_defs = self.trigger_registry.get(effect_id, [])
+                        trigger_defs = self.trigger_registry.get(index, [])
                         for trigger_def in trigger_defs:
                             if trigger_def.event_type == event.event_type:
                                 triggers.append(

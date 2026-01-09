@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 
 
 class UnitType(Enum):
@@ -13,3 +13,14 @@ class UnitType(Enum):
     NAGA = "Naga"
     QUILBOAR = "Quilboar"
     NEUTRAL = "Neutral"
+
+
+class Tags(Enum):
+    TAUNT = auto()
+    DIVINE_SHIELD = auto()
+    WINDFURY = auto()
+    POISONOUS = auto()
+    REBORN = auto()
+    VENOMOUS = auto()
+    CLEAVE = auto()
+    STEALTH = auto()

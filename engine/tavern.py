@@ -90,11 +90,7 @@ class TavernManager:
 
     def _make_unit(self, player: Player, cid: str):
         unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
-        if UnitType.ELEMENTAL in unit.type:
-            unit.perm_atk_add += player.buff_elemental_atk
-            unit.perm_hp_add += player.buff_elemental_hp
-            unit.recalc_stats()
-            unit.restore_stats()
+        # TODO: дописать сюда бафф элементалей через ивент
         return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:

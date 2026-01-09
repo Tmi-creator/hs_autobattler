@@ -37,7 +37,7 @@ def _spell_fortify(ctx, event: Event, trigger_uid: int) -> None:
         return
     ctx.buff_perm(EntityRef(event.target.uid), 0, 3)
     unit = ctx.resolve_unit(EntityRef(event.target.uid))
-    unit.tags.append(Tags.TAUNT)
+    unit.tags.add(Tags.TAUNT)
 
 
 def _spell_apple(ctx, event: Event, trigger_uid: int) -> None:

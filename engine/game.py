@@ -3,7 +3,7 @@ from typing import List, Tuple, Dict
 from .entities import Player, Unit
 from .pool import CardPool, SpellPool
 from .tavern import TavernManager
-from .combat import Combat_Manager
+from .combat import CombatManager
 
 
 class Game:
@@ -11,7 +11,7 @@ class Game:
         self.pool = CardPool()
         self.spell_pool = SpellPool()
         self.tavern = TavernManager(self.pool, self.spell_pool)
-        self.combat = Combat_Manager()
+        self.combat = CombatManager()
 
         self.players: List[Player] = [
             Player(uid=0, board=[], hand=[], tavern_tier=1, gold=3, health=30),

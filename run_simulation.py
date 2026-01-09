@@ -3,7 +3,7 @@ from engine.game import Game
 from engine.entities import HandCard, Player, Unit, Spell
 from engine.pool import CardPool, SpellPool
 from engine.tavern import TavernManager
-from engine.combat import Combat_Manager
+from engine.combat import CombatManager
 
 
 def print_player_state(player, name):
@@ -175,7 +175,7 @@ def run_effect_smoke_tests():
     print("PASSED")
 
     print("\n=== RUNNING SCALLYWAG TESTS ===")
-    combat = Combat_Manager()
+    combat = CombatManager()
     dead_unit = Unit.create_from_db("103", combat.get_uid(), player.uid)
     dead_unit.cur_hp = 0
     board = [dead_unit]
@@ -236,7 +236,7 @@ def run_effect_smoke_tests():
     player.hand.append(spell)
     tavern.play_unit(player, 0, -1, 0)
     player.hand.append(spell1)
-    combat = Combat_Manager()
+    combat = CombatManager()
     board = [unit]
     opponent_board = []
     combat_players = {

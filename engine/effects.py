@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Union
 
-from .enums import UnitType
+from .enums import UnitType, CardIDs, SpellIDs, EffectIDs
 from .event_system import EntityRef, Event, EventType, TriggerDef
 
 
@@ -25,25 +25,25 @@ def _summon_tabbycat(ctx, event: Event, trigger_uid: int) -> None:
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
-    ctx.summon(pos.side, "102t", pos.slot + 1)
+    ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1)
 
 
 def _summon_scallywag_token(ctx, event: Event, trigger_uid: int) -> None:
     pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
     if pos:
-        ctx.summon(pos.side, "103t", pos.slot)
+        ctx.summon(pos.side, CardIDs.PIRATE_TOKEN, pos.slot)
 
 
 def _summon_imprisoner_token(ctx, event: Event, trigger_uid: int) -> None:
     pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
     if pos:
-        ctx.summon(pos.side, "108t", pos.slot)
+        ctx.summon(pos.side, CardIDs.IMP_TOKEN, pos.slot)
 
 
 def _summon_crab_token(ctx, event: Event, trigger_uid: int) -> None:
     pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
     if pos:
-        ctx.summon(pos.side, "001t", pos.slot)
+        ctx.summon(pos.side, CardIDs.CRAB_TOKEN, pos.slot)
 
 
 def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:
@@ -83,11 +83,11 @@ def _minted_corsair_coin(ctx, event: Event, trigger_uid: int) -> None:
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
-    ctx.add_spell_to_hand(pos.side, "S001")
+    ctx.add_spell_to_hand(pos.side, SpellIDs.TAVERN_COIN)
 
 
-TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
-    "107": [
+TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
+    CardIDs.SHELL_COLLECTOR: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,
             condition=_is_self_play,
@@ -95,7 +95,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Shell Collector Battlecry",
         )
     ],
-    "102": [
+    CardIDs.ALLEYCAT: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,
             condition=_is_self_play,
@@ -103,7 +103,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Alleycat Battlecry",
         )
     ],
-    "103": [
+    CardIDs.SCALLYWAG: [
         TriggerDef(
             event_type=EventType.MINION_DIED,
             condition=_is_self_play,
@@ -111,7 +111,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Scallywag Deathrattle",
         )
     ],
-    "108": [
+    CardIDs.IMPRISONER: [
         TriggerDef(
             event_type=EventType.MINION_DIED,
             condition=_is_self_play,
@@ -119,7 +119,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Imprisoner Deathrattle",
         )
     ],
-    "101": [
+    CardIDs.WRATH_WEAVER: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,
             condition=lambda ctx, event, ref: True,
@@ -127,7 +127,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Wrath Weaver Trigger",
         )
     ],
-    "104": [
+    CardIDs.SWAMPSTRIKER: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,
             condition=lambda ctx, event, ref: True,
@@ -135,7 +135,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Swampstriker Trigger",
         )
     ],
-    "109": [
+    CardIDs.MINTED_CORSAIR: [
         TriggerDef(
             event_type=EventType.MINION_SOLD,
             condition=_is_self_play,
@@ -143,7 +143,7 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Minted Corsair Sell",
         )
     ],
-    "E_DR_CRAB32": [
+    EffectIDs.CRAB_DEATHRATTLE: [
         TriggerDef(
             event_type=EventType.MINION_DIED,
             condition=lambda ctx, event, trigger_uid: event.source is not None and event.source.uid == trigger_uid,

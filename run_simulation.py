@@ -1,4 +1,6 @@
 import random
+
+from engine.enums import MechanicType
 from engine.game import Game
 from engine.entities import HandCard, Player, Unit, Spell
 from engine.pool import CardPool, SpellPool
@@ -205,7 +207,7 @@ def run_effect_smoke_tests():
     tavern.play_unit(player, 0, -1, 0)
     assert target.max_atk == 3 and target.max_hp == 5, "Buff spell should grant +2/+2"
     print("BANANA PASSED")
-    player.mechanics.modify_stat("BLOOD_GEM", 1, 0)
+    player.mechanics.modify_stat(MechanicType.BLOOD_GEM, 1, 0)
     buff_spell = HandCard(uid=100, spell=Spell.create_from_db("S003"))
     player.hand.append(buff_spell)
     tavern.play_unit(player, 0, -1, 0)

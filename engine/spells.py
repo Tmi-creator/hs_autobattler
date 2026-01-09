@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from .enums import Tags
+from .enums import Tags, MechanicType, SpellIDs, EffectIDs
 from .event_system import EntityRef, Event, EventType, TriggerDef
 
 
@@ -22,7 +22,7 @@ def _spell_bloodgem(ctx, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
     player = ctx.players_by_uid.get(event.source_pos.side)
-    atk, hp = player.mechanics.get_stat("BLOOD_GEM")
+    atk, hp = player.mechanics.get_stat(MechanicType.BLOOD_GEM)
     ctx.buff_perm(EntityRef(event.target.uid), atk, hp)
 
 
@@ -52,11 +52,11 @@ def _spell_apple(ctx, event: Event, trigger_uid: int) -> None:
 def _spell_surf_spellcraft(ctx, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
-    ctx.attach_effect_turn(EntityRef(event.target.uid), "E_DR_CRAB32", 1)
+    ctx.attach_effect_turn(EntityRef(event.target.uid), EffectIDs.CRAB_DEATHRATTLE, 1)
 
 
-SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
-    "S001": [
+SPELL_TRIGGER_REGISTRY: Dict[SpellIDs, List[TriggerDef]] = {
+    SpellIDs.TAVERN_COIN: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -64,7 +64,7 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Tavern Coin",
         )
     ],
-    "S002": [
+    SpellIDs.BANANA: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -72,7 +72,7 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Banana",
         )
     ],
-    "S003": [
+    SpellIDs.BLOOD_GEM: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -80,7 +80,7 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Blood Gem",
         )
     ],
-    "S004": [
+    SpellIDs.POINTY_ARROW: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -88,7 +88,7 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Pointy Arrow",
         )
     ],
-    "S005": [
+    SpellIDs.FORTIFY: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -96,7 +96,7 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Fortify",
         )
     ],
-    "S006": [
+    SpellIDs.APPLE: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -104,7 +104,7 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Apple",
         )
     ],
-    "S007": [
+    SpellIDs.SURF_SPELLCRAFT: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,
             condition=lambda ctx, event, ref: True,
@@ -114,4 +114,10 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
     ],
 }
 
-SPELLS_REQUIRE_TARGET = {"S002", "S003", "S004", "S005", "S007"}
+SPELLS_REQUIRE_TARGET = {
+    SpellIDs.BANANA,
+    SpellIDs.BLOOD_GEM,
+    SpellIDs.POINTY_ARROW,
+    SpellIDs.FORTIFY,
+    SpellIDs.SURF_SPELLCRAFT
+}

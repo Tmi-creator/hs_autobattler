@@ -2,7 +2,7 @@ from .entities import Unit
 import random
 
 from .effects import TRIGGER_REGISTRY
-from .enums import Tags
+from .enums import Tags, BattleOutcome
 from .event_system import (
     EntityRef,
     Event,
@@ -80,7 +80,7 @@ class CombatManager:
                 if not attacker_unit.is_alive:
                     break
                 end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
-                if end_battle[0] != "NO END":
+                if end_battle[0] != BattleOutcome.NO_END:
                     return end_battle
 
             if attacker_unit.is_alive:
@@ -95,7 +95,7 @@ class CombatManager:
                 combat_players,
                 self.get_uid,
             )
-            return "DRAW", 0
+            return BattleOutcome.DRAW, 0
         if not board_1:
             damage = sum(u.tier for u in board_2) + player_2.tavern_tier
             self.event_manager.process_event(
@@ -103,7 +103,7 @@ class CombatManager:
                 combat_players,
                 self.get_uid,
             )
-            return "LOSE", -damage
+            return BattleOutcome.LOSE, -damage
         if not board_2:
             damage = sum(u.tier for u in board_1) + player_1.tavern_tier
             self.event_manager.process_event(
@@ -111,8 +111,8 @@ class CombatManager:
                 combat_players,
                 self.get_uid,
             )
-            return "WIN", damage
-        return "NO END", 0
+            return BattleOutcome.WIN, damage
+        return BattleOutcome.NO_END, 0
 
     def perform_attack(self, attacker, target, combat_players):
         """

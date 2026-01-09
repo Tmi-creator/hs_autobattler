@@ -1,7 +1,8 @@
 from dataclasses import dataclass, replace, field
 from typing import Dict, List, Optional, Set, Tuple
-from .enums import UnitType, Tags
+from .enums import UnitType, Tags, MechanicType, CardIDs, SpellIDs
 from .configs import CARD_DB, SPELL_DB, MECHANIC_DEFAULTS
+from copy import deepcopy
 
 
 @dataclass
@@ -128,7 +129,14 @@ class Unit:
     @staticmethod
     def create_from_db(card_id: str, uid: int, owner_id: int):
         """Фабричный метод: создает юнита по ID из базы"""
-        data = CARD_DB.get(str(card_id))
+        data = CARD_DB.get(card_id)
+
+        if not data and isinstance(card_id, str):
+            try:
+                data = CARD_DB.get(CardIDs(card_id))
+            except ValueError:
+                pass
+
         if not data:
             raise ValueError(f"Card {card_id} not found in DB")
 
@@ -163,9 +171,17 @@ class Spell:
 
     @staticmethod
     def create_from_db(card_id: str):
-        data = SPELL_DB.get(str(card_id))
+        data = SPELL_DB.get(card_id)
+
+        if not data and isinstance(card_id, str):
+            try:
+                data = SPELL_DB.get(SpellIDs(card_id))
+            except ValueError:
+                pass
+
         if not data:
             raise ValueError(f"Spell {card_id} not found in DB")
+
         return Spell(
             card_id=card_id,
             name=data["name"],
@@ -202,7 +218,9 @@ class HandCard:
     def card_id(self):
         if self.unit:
             return self.unit.card_id
-        return self.spell.card_id
+        if self.spell:
+            return self.spell.card_id
+        return "NO ID"
 
 
 @dataclass
@@ -227,16 +245,16 @@ class EconomyState:
 @dataclass
 class MechanicState:
     """Глобальные баффы и счетчики механик"""
-    modifiers: Dict[str, Tuple[int, int]] = field(
+    modifiers: Dict[MechanicType, Tuple[int, int]] = field(
         default_factory=lambda: MECHANIC_DEFAULTS.copy()
     )
 
-    def modify_stat(self, key: str, atk_add: int, hp_add: int):
+    def modify_stat(self, key: MechanicType, atk_add: int, hp_add: int):
         """Универсальный метод баффа механики"""
         current_atk, current_hp = self.modifiers.get(key, (0, 0))
         self.modifiers[key] = (current_atk + atk_add, current_hp + hp_add)
 
-    def get_stat(self, key: str) -> Tuple[int, int]:
+    def get_stat(self, key: MechanicType) -> Tuple[int, int]:
         return self.modifiers.get(key, (0, 0))
 
 
@@ -252,10 +270,10 @@ class Player:
     def combat_copy(self):
         return Player(
             uid=self.uid,
-            board=self.board.copy(),
+            board=[u.combat_copy() for u in self.board],
             hand=self.hand.copy(),
-            economy=self.economy,
-            mechanics=self.mechanics,
+            economy=deepcopy(self.economy),
+            mechanics=deepcopy(self.mechanics),
             health=self.health,
         )
 

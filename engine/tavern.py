@@ -18,7 +18,7 @@ class TavernManager:
         self._uid_counter += 1
         return self._uid_counter
 
-    def start_turn(self, player: Player, turn_number: int):
+    def start_turn(self, player: Player, turn_number: int) -> None:
         """
         Логика начала хода (Фаза вербовки):
         1. Восстановить/увеличить золото.
@@ -53,7 +53,7 @@ class TavernManager:
 
         self._fill_tavern(player)
 
-    def roll_tavern(self, player: Player):
+    def roll_tavern(self, player: Player) -> tuple[bool, str]:
         """Платное обновление (1 золотой). Игнорирует заморозку (сбрасывает всё)."""
         if player.gold < COST_REROLL:
             return False, "Not enough gold"
@@ -69,7 +69,7 @@ class TavernManager:
 
         return True, "Rolled"
 
-    def _fill_tavern(self, player: Player):
+    def _fill_tavern(self, player: Player) -> None:
         """Вспомогательный метод: добивает магазин до максимума карт"""
         slots_total = TAVERN_SLOTS.get(player.tavern_tier)
         current_units = sum(1 for item in player.store if item.unit)
@@ -88,7 +88,7 @@ class TavernManager:
             spell = Spell.create_from_db(spell_id)
             player.store.append(StoreItem(spell=spell))
 
-    def _make_unit(self, player: Player, cid: str):
+    def _make_unit(self, player: Player, cid: str) -> Unit:
         unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
         # TODO: дописать сюда бафф элементалей через ивент
         return unit

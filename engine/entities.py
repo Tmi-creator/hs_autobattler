@@ -33,7 +33,7 @@ class Unit:
     type: List[UnitType] = field(default_factory=list)
     is_golden: bool = False
     is_frozen: bool = False
-    tags: Set[Tags] = field(default_factory=list)
+    tags: Set[Tags] = field(default_factory=set)
 
     @property
     def has_taunt(self):
@@ -103,7 +103,7 @@ class Unit:
             type=list(self.type),
             attached_perm=dict(self.attached_perm),
             attached_turn=dict(self.attached_turn),
-            attached_combat=field(default_factory=dict),
+            attached_combat=dict(),
             combat_hp_add=0,
             combat_atk_add=0,
             aura_hp_add=0,
@@ -144,7 +144,7 @@ class Unit:
             cur_atk=data['atk'],
             tier=data['tier'],
             type=list(data.get('type', [])),
-            tags=data.get('tags', []),
+            tags=set(data.get('tags', [])),
         )
         unit.recalc_stats()
         unit.restore_stats()
@@ -249,6 +249,16 @@ class Player:
     mechanics: MechanicState = field(default_factory=MechanicState)
     health: int = 30
 
+    def combat_copy(self):
+        return Player(
+            uid=self.uid,
+            board=self.board.copy(),
+            hand=self.hand.copy(),
+            economy=self.economy,
+            mechanics=self.mechanics,
+            health=self.health,
+        )
+
     @property
     def gold(self) -> int:
         return self.economy.gold
@@ -280,6 +290,14 @@ class Player:
     @tavern_tier.setter
     def tavern_tier(self, value: int):
         self.economy.tavern_tier = value
+
+    @property
+    def spell_discount(self) -> int:
+        return self.economy.spell_discount
+
+    @spell_discount.setter
+    def spell_discount(self, value: int):
+        self.economy.spell_discount = value
 
     @property
     def store(self) -> List[StoreItem]:

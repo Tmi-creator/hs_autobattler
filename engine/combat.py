@@ -29,20 +29,8 @@ class Combat_Manager:
         board_1 = [u.combat_copy() for u in player_1.board]
         board_2 = [u.combat_copy() for u in player_2.board]
         combat_players = {
-            player_1.uid: player_1.__class__(
-                uid=player_1.uid,
-                board=board_1,
-                hand=player_1.hand.copy(),
-                tavern_tier=player_1.tavern_tier,
-                health=player_1.health,
-            ),
-            player_2.uid: player_2.__class__(
-                uid=player_2.uid,
-                board=board_2,
-                hand=player_2.copy(),
-                tavern_tier=player_2.tavern_tier,
-                health=player_2.health,
-            ),
+            player_1.uid: player_1.combat_copy(),
+            player_2.uid: player_2.combat_copy(),
         }
 
         boards = [board_1, board_2]

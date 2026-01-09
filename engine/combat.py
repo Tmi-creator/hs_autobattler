@@ -16,7 +16,7 @@ from .event_system import (
 )
 
 
-class Combat_Manager:
+class CombatManager:
     def __init__(self):
         self.uid = 10000
         self.event_manager = EventManager(TRIGGER_REGISTRY)

@@ -1,4 +1,7 @@
-from .entities import Unit
+from typing import List
+
+from engine.event_system import PosRef
+from .entities import Unit, Player
 import random
 
 from .effects import TRIGGER_REGISTRY
@@ -25,7 +28,7 @@ class CombatManager:
         self.uid += 1
         return self.uid
 
-    def resolve_combat(self, player_1, player_2):
+    def resolve_combat(self, player_1: Player, player_2: Player) -> tuple[BattleOutcome, int]:
         combat_players = {
             player_1.uid: player_1.combat_copy(),
             player_2.uid: player_2.combat_copy(),
@@ -87,7 +90,8 @@ class CombatManager:
 
             attacker_player_idx = 1 - attacker_player_idx
 
-    def check_end_of_battle(self, board_1, board_2, player_1, player_2, combat_players):
+    def check_end_of_battle(self, board_1: List[Unit], board_2: List[Unit], player_1: Player, player_2: Player,
+                            combat_players: dict[int, Player]) -> tuple[BattleOutcome, int]:
         if not board_1 and not board_2:
             self.event_manager.process_event(
                 Event(event_type=EventType.END_OF_COMBAT),
@@ -113,7 +117,7 @@ class CombatManager:
             return BattleOutcome.WIN, damage
         return BattleOutcome.NO_END, 0
 
-    def perform_attack(self, attacker, target, combat_players):
+    def perform_attack(self, attacker: Unit, target: Unit, combat_players: dict[int, Player]) -> None:
         """
         Реализация атаки существа со всеми доп механиками
         """
@@ -217,7 +221,7 @@ class CombatManager:
             self.get_uid,
         )
 
-    def _collect_death_triggers(self, unit, slot_index):
+    def _collect_death_triggers(self, unit: Unit, slot_index: int) -> List[TriggerInstance]:
         trigger_defs = self.event_manager.trigger_registry.get(unit.card_id, [])
         triggers = []
         for trigger_def in trigger_defs:
@@ -267,14 +271,15 @@ class CombatManager:
             )
         return triggers
 
-    def _find_pos(self, combat_players, uid):
+    def _find_pos(self, combat_players: dict[int, Player], uid: int) -> PosRef | None:
         for side, player in combat_players.items():
             for slot, unit in enumerate(player.board):
                 if unit.uid == uid:
                     return PosRef(side=side, zone=Zone.BOARD, slot=slot)
         return None
 
-    def cleanup_dead(self, boards, attack_indices, combat_players):
+    def cleanup_dead(self, boards: List[List[Unit]], attack_indices: List[int],
+                     combat_players: dict[int, Player]) -> None:
         """
         Чистим стол при смерти существ и двигаем индекс атаки куда надо
         """

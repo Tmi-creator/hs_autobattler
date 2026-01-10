@@ -303,6 +303,6 @@ class EventManager:
             slot = pos.slot if pos else 999
             side = pos.side if pos else -1
             side_priority = 0 if active_side is None or side == active_side else 1
-            return (side_priority, slot, unit_uid)
+            return side_priority, slot, unit_uid
 
         return sorted(triggers, key=sort_key)

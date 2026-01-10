@@ -270,5 +270,5 @@ def run_effect_smoke_tests():
 
 
 if __name__ == "__main__":
-    # run_simulation()
+    run_simulation()
     run_effect_smoke_tests()

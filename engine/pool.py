@@ -2,12 +2,13 @@ import random
 from typing import Dict, List
 
 from .configs import TIER_COPIES, CARD_DB, SPELL_DB
+from .enums import CardIDs, SpellIDs
 
 
 class CardPool:
     def __init__(self):
         # Структура: {1: ['101', '101'...], 2: ['201', ...]}
-        self.tiers: Dict[int, List[str]] = {}
+        self.tiers: Dict[int, List[CardIDs]] = {}
         self._initialize_pool()
 
     def _initialize_pool(self):
@@ -44,7 +45,7 @@ class CardPool:
 
         return drawn_cards
 
-    def return_cards(self, card_ids: List[str]):
+    def return_cards(self, card_ids: List[CardIDs]):
         """Возвращает карты обратно в пул (при продаже или реролле)"""
         for cid in card_ids:
             if cid in CARD_DB:
@@ -64,7 +65,7 @@ class SpellPool:
             tier = data["tier"]
             self.tiers.setdefault(tier, []).append(spell_id)
 
-    def draw_spells(self, count: int, max_tier: int) -> List[str]:
+    def draw_spells(self, count: int, max_tier: int) -> List[SpellIDs]:
         drawn_spells = []
         available_tiers = [t for t in self.tiers.keys() if t <= max_tier]
         if not available_tiers:

@@ -175,7 +175,7 @@ class TavernManager:
         unit = player.board.pop(board_index)
         player.gold += 1
 
-        self.pool.return_cards([str(unit.card_id)])
+        self.pool.return_cards([unit.card_id])
 
         return True, "Sold unit"
 
@@ -200,6 +200,8 @@ class TavernManager:
 
         if len(player.board) >= 7:
             return False, "Board is full"
+        if insert_index == -1:
+            insert_index = len(player.board)
         if insert_index < 0 or insert_index > len(player.board):
             return False, "Invalid Index"
         player.hand.pop(hand_index)

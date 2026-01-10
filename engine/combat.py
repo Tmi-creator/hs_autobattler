@@ -1,6 +1,5 @@
 from typing import List
 
-from engine.event_system import PosRef
 from .entities import Unit, Player
 import random
 
@@ -34,7 +33,7 @@ class CombatManager:
             player_2.uid: player_2.combat_copy(),
         }
 
-        boards = [combat_players[i].board for i in range(2)]
+        boards = [i.board for i in combat_players.values()]
         board_1, board_2 = boards
 
         self.event_manager.process_event(

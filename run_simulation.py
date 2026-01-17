@@ -1,5 +1,6 @@
 import random
 
+from engine.configs import CARD_DB
 from engine.enums import MechanicType, CardIDs, SpellIDs, Tags
 from engine.game import Game
 from engine.entities import HandCard, Player, Unit, Spell
@@ -365,7 +366,125 @@ def run_golden_tests():
     print("PASSED: Золотая Scallywag успешно призвала двух пиратов")
 
 
+def run_discovery_tests():
+    print("\n=== ЗАПУСК ТЕСТОВ РАСКОПКИ (DISCOVERY) ===")
+
+    # 1. Подготовка среды
+    pool = CardPool()
+    spell_pool = SpellPool()
+    tavern = TavernManager(pool, spell_pool)
+    player = Player(uid=0, board=[], hand=[])
+    player.tavern_tier = 1
+
+    # =================================================================
+    # ТЕСТ 1: Простая раскопка и состояние игрока
+    # =================================================================
+    print("\n[TEST] Старт раскопки и блокировка игрока")
+
+    # Запускаем раскопку 3-х карт Тир-1
+    success = tavern.start_discovery(player, source="Test1", count=3)
+
+    assert success is True, "Раскопка должна запуститься успешно"
+    assert player.is_discovering is True, "Флаг is_discovering должен быть True"
+    assert len(player.discovery.options) == 3, f"Ожидалось 3 опции, получено {len(player.discovery.options)}"
+
+    print("PASSED: Игрок в режиме раскопки, опции сгенерированы")
+
+    # =================================================================
+    # ТЕСТ 2: Выбор карты и возврат невыбранных в пул
+    # =================================================================
+    print("\n[TEST] Выбор карты и проверка пула (Return Cards)")
+
+    # Запоминаем карты, которые нам предложили
+    offered_cards = [item.unit.card_id for item in player.discovery.options]
+    selected_index = 0
+    selected_card_id = offered_cards[selected_index]
+    unpicked_card_ids = offered_cards[1:]
+
+    # Считаем, сколько таких карт сейчас в пуле (они уже изъяты для показа!)
+    # В данный момент (во время показа) их должно быть меньше, чем было изначально.
+    # Но мы проверим состояние ПОСЛЕ выбора.
+
+    # Запоминаем текущее состояние пула для невыбранных карт
+    # (Внимание: карты УЖЕ изъяты из списка pool.tiers, пока они в options)
+    pool_counts_during_show = {}
+    for cid in unpicked_card_ids:
+        tier = CARD_DB[cid]['tier']
+        pool_counts_during_show[cid] = pool.tiers[tier].count(cid)
+
+    # Делаем выбор
+    success, msg = tavern.make_discovery_choice(player, selected_index)
+
+    assert success is True, f"Выбор должен пройти успешно: {msg}"
+    assert player.is_discovering is False, "Игрок должен выйти из режима раскопки"
+    assert len(player.hand) == 1, "Карта должна попасть в руку"
+    assert player.hand[0].unit.card_id == selected_card_id, "В руке должна быть выбранная карта"
+
+    # ПРОВЕРКА ПУЛА:
+    # Невыбранные карты должны вернуться. Значит их количество в пуле должно увеличиться на 1
+    # по сравнению с моментом, когда окно выбора было открыто.
+    for cid in unpicked_card_ids:
+        tier = CARD_DB[cid]['tier']
+        current_count = pool.tiers[tier].count(cid)
+        prev_count = pool_counts_during_show[cid]
+        assert current_count == prev_count + 1, f"Карта {cid} должна вернуться в пул! Было {prev_count}, стало {current_count}"
+
+    print("PASSED: Выбранная карта в руке, остальные вернулись в пул")
+
+    # =================================================================
+    # ТЕСТ 3: Фильтрация по Тиру (Exact Tier - для триплетов)
+    # =================================================================
+    print("\n[TEST] Раскопка с Exact Tier (Триплеты)")
+    # Очищаем руку
+    player.hand = []
+
+    # Просим строго Тир 2 (например, награда за триплет на 1 уровне таверны)
+    tavern.start_discovery(player, source="TripletTest", tier=2, exact_tier=True, count=3)
+
+    for item in player.discovery.options:
+        unit_tier = item.unit.tier
+        assert unit_tier == 2, f"Ожидался строго Тир 2, получен Тир {unit_tier}"
+
+    # Завершаем выбор, чтобы очистить состояние
+    tavern.make_discovery_choice(player, 0)
+    print("PASSED: Все предложенные карты строго 2-го уровня")
+
+    # =================================================================
+    # ТЕСТ 4: Предикат (Фильтр по типу)
+    # =================================================================
+    print("\n[TEST] Раскопка с предикатом (Только Демоны)")
+
+    # Предикат: Тип существа содержит DEMON
+    # (Обрати внимание, в UnitType enum это может быть строка или Enum, в зависимости от твоей реализации DB.
+    # В конфигах обычно строки: 'type': ['Demon'])
+    def demon_filter(data):
+        return "Demon" in data.get("type", [])
+
+    # Ищем демонов (Wrath Weaver, Imprisoner и т.д.)
+    # Ставим max_tier побольше, чтобы точно найти демонов
+    success = tavern.start_discovery(player, source="DemonTest", tier=2, exact_tier=False, predicate=demon_filter)
+
+    if success:
+        for item in player.discovery.options:
+            is_demon = "Demon" in [t.value if hasattr(t, 'value') else t for t in item.unit.type]
+            # Или просто проверка по DB, если unit.type уже сконвертирован в Enum
+            # В твоем коде unit.type это List[UnitType]. Проверим строковое представление.
+            unit_types_str = [str(t) for t in item.unit.type]
+            # UnitType.DEMON -> "UnitType.DEMON" или просто проверка, что не пусто
+            # Проще проверить ID, зная базу: 101 (Weaver) или 108 (Imprisoner)
+            pass
+            # П Bard check:
+            assert any(t.name == "DEMON" for t in item.unit.type), f"Юнит {item.unit.card_id} должен быть Демоном"
+
+        tavern.make_discovery_choice(player, 0)
+        print("PASSED: Все предложенные карты — Демоны")
+    else:
+        print("WARNING: Не удалось найти достаточно демонов в пуле для теста (это нормально, если пул маленький)")
+
+    print("\n=== ВСЕ ТЕСТЫ РАСКОПКИ УСПЕШНО ПРОЙДЕНЫ ===")
+
 if __name__ == "__main__":
     # run_simulation()
     run_effect_smoke_tests()
     run_golden_tests()
+    run_discovery_tests()

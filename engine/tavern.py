@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 from .entities import Player, Unit, HandCard, Spell, StoreItem
 from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS, SPELLS_PER_ROLL
 from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
@@ -211,6 +211,68 @@ class TavernManager:
         self._resolve_battlecry(player, unit, insert_index, target_index)
 
         return True, "Played unit"
+
+    def start_discovery(self, player: Player,
+                        source: str,  # Обязательно указываем источник (для логов)
+                        tier: Optional[int] = None,  # Если None - берем текущий таверн-тир
+                        exact_tier: bool = False,  # True для наград за триплеты
+                        count: int = 3,
+                        predicate=None) -> bool:
+
+        if player.is_discovering:
+            return False
+
+        target_tier = tier if tier is not None else player.tavern_tier
+
+        card_ids = self.pool.draw_discovery_cards(
+            count=count,
+            tier=target_tier,
+            exact_tier=exact_tier,
+            predicate=predicate
+        )
+
+        if not card_ids:
+            return False
+
+        options = []
+        for cid in card_ids:
+            unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+            options.append(StoreItem(unit=unit))
+
+        player.discovery.options = options
+        player.discovery.is_active = True
+
+        player.discovery.discover_tier = target_tier
+        player.discovery.source = source
+        player.discovery.is_exact_tier = exact_tier
+
+        return True
+
+    def make_discovery_choice(self, player: Player, index: int) -> Tuple[bool, str]:
+        if not player.is_discovering:
+            return False, "Not discovering"
+
+        if index < 0 or index >= len(player.discovery.options):
+            return False, "Invalid index"
+
+        chosen_item = player.discovery.options.pop(index)
+
+        remaining_ids = []
+        for item in player.discovery.options:
+            if item.unit:
+                remaining_ids.append(item.unit.card_id)
+
+        self.pool.return_cards(remaining_ids)
+
+        player.discovery.options.clear()
+        player.discovery.is_active = False
+
+        if len(player.hand) < 10:
+            if chosen_item.unit:
+                player.hand.append(HandCard(uid=chosen_item.unit.uid, unit=chosen_item.unit))
+                return True, f"Discovered {chosen_item.unit.card_id}"
+            # тут дальше будут спеллы раскапываться
+        return True, "Discovered (Burned)"
 
     def _cast_spell(self, player: Player, hand_index: int, target_index: int) -> Tuple[bool, str]:
         hand_card = player.hand[hand_index]

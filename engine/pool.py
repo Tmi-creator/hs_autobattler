@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List
+from typing import Dict, List, Callable
 
 from .configs import TIER_COPIES, CARD_DB, SPELL_DB
 from .enums import CardIDs, SpellIDs
@@ -53,6 +53,44 @@ class CardPool:
                     continue
                 tier = CARD_DB[cid]['tier']
                 self.tiers[tier].append(cid)
+
+    def draw_discovery_cards(self, count: int, tier: int, exact_tier: bool = False,
+                             predicate: Callable[[dict], bool] = None) -> List[str]:
+        """
+        Выбирает count УНИКАЛЬНЫХ карт для раскопки и временно изымает их из пула.
+        """
+        candidates = []
+
+        search_tiers = []
+        for t in self.tiers.keys():
+            if exact_tier:
+                if t == tier:
+                    search_tiers.append(t)
+            else:
+                if t <= tier:
+                    search_tiers.append(t)
+
+        for t in search_tiers:
+            unique_ids_in_pool = set(self.tiers[t])
+            for card_id in unique_ids_in_pool:
+                data = CARD_DB.get(card_id)
+                if not data:
+                    continue
+                if predicate and not predicate(data):
+                    continue
+
+                candidates.append(card_id)
+
+        if not candidates:
+            return []
+        k = min(len(candidates), count)
+        chosen_ids = random.sample(candidates, k)
+        for cid in chosen_ids:
+            c_tier = CARD_DB[cid]['tier']
+            if cid in self.tiers[c_tier]:
+                self.tiers[c_tier].remove(cid)
+
+        return chosen_ids
 
 
 class SpellPool:

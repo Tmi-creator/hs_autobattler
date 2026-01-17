@@ -199,14 +199,14 @@ class EffectContext:
             return
         unit.attached_combat[effect_id] = unit.attached_combat.get(effect_id, 0) + count
 
-    def summon(self, side: int, card_id: str, insert_index: int) -> Optional[EntityRef]:
+    def summon(self, side: int, card_id: str, insert_index: int, is_golden: bool = False) -> Optional[EntityRef]:
         player = self.players_by_uid.get(side)
         if not player:
             return None
         if len(player.board) >= 7:
             return None
         index = max(0, min(insert_index, len(player.board)))
-        unit = Unit.create_from_db(card_id, self._uid_provider(), side)
+        unit = Unit.create_from_db(card_id, self._uid_provider(), side, is_golden)
         player.board.insert(index, unit)
         self._reindex_side(side, player.board)
         summoned = EntityRef(uid=unit.uid)
@@ -230,8 +230,12 @@ class EffectExecutor:
 
 
 class EventManager:
-    def __init__(self, trigger_registry: Dict[str, List[TriggerDef]], executor: Optional[EffectExecutor] = None):
+    def __init__(self,
+                 trigger_registry: Dict[str, List[TriggerDef]],
+                 golden_trigger_registry: Dict[str, List[TriggerDef]] = None,
+                 executor: Optional[EffectExecutor] = None):
         self.trigger_registry = trigger_registry
+        self.golden_trigger_registry = golden_trigger_registry or {}
         self.executor = executor or EffectExecutor()
 
     def process_event(
@@ -258,13 +262,23 @@ class EventManager:
         triggers: List[TriggerInstance] = []
         for player_id, player in ctx.players_by_uid.items():
             for slot, unit in enumerate(player.board):
-                trigger_defs = self.trigger_registry.get(unit.card_id, [])
-                for trigger_def in trigger_defs:
+                stacks_multiplier = 1
+                if unit.is_golden:
+                    if unit.card_id in self.golden_trigger_registry:
+                        active_defs = self.golden_trigger_registry[unit.card_id]
+                    else:
+                        active_defs = self.trigger_registry.get(unit.card_id, [])
+                        stacks_multiplier = 2
+                else:
+                    active_defs = self.trigger_registry.get(unit.card_id, [])
+
+                for trigger_def in active_defs:
                     if trigger_def.event_type == event.event_type:
                         triggers.append(
                             TriggerInstance(
                                 trigger_def=trigger_def,
                                 trigger_uid=unit.uid,
+                                stacks=stacks_multiplier
                             )
                         )
                 for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):

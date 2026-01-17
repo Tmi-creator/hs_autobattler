@@ -127,7 +127,7 @@ class Unit:
         self.recalc_stats()
 
     @staticmethod
-    def create_from_db(card_id: str, uid: int, owner_id: int):
+    def create_from_db(card_id: str, uid: int, owner_id: int, is_golden: bool = False):
         """Фабричный метод: создает юнита по ID из базы"""
         data = CARD_DB.get(card_id)
 
@@ -140,12 +140,17 @@ class Unit:
         if not data:
             raise ValueError(f"Card {card_id} not found in DB")
 
+        mult = 2 if is_golden else 1
+
+        base_hp = data['hp'] * mult
+        base_atk = data['atk'] * mult
+        
         unit = Unit(
             uid=uid,
             card_id=card_id,
             owner_id=owner_id,
-            base_hp=data['hp'],
-            base_atk=data['atk'],
+            base_hp=base_hp,
+            base_atk=base_atk,
             max_hp=data['hp'],
             max_atk=data['atk'],
             cur_hp=data['hp'],
@@ -153,6 +158,7 @@ class Unit:
             tier=data['tier'],
             type=list(data.get('type', [])),
             tags=set(data.get('tags', [])),
+            is_golden=is_golden
         )
         unit.recalc_stats()
         unit.restore_stats()

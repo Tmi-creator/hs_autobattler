@@ -3,7 +3,7 @@ from typing import List
 from .entities import Unit, Player
 import random
 
-from .effects import TRIGGER_REGISTRY
+from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
 from .enums import Tags, BattleOutcome
 from .event_system import (
     EntityRef,
@@ -21,7 +21,7 @@ from .event_system import (
 class CombatManager:
     def __init__(self):
         self.uid = 10000
-        self.event_manager = EventManager(TRIGGER_REGISTRY)
+        self.event_manager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
 
     def get_uid(self):
         self.uid += 1
@@ -221,16 +221,29 @@ class CombatManager:
         )
 
     def _collect_death_triggers(self, unit: Unit, slot_index: int) -> List[TriggerInstance]:
-        trigger_defs = self.event_manager.trigger_registry.get(unit.card_id, [])
         triggers = []
+
+        stacks_multiplier = 1
+
+        if unit.is_golden:
+            if unit.card_id in self.event_manager.golden_trigger_registry:
+                trigger_defs = self.event_manager.golden_trigger_registry[unit.card_id]
+            else:
+                trigger_defs = self.event_manager.trigger_registry.get(unit.card_id, [])
+                stacks_multiplier = 2
+        else:
+            trigger_defs = self.event_manager.trigger_registry.get(unit.card_id, [])
+
         for trigger_def in trigger_defs:
             if trigger_def.event_type == EventType.MINION_DIED:
                 triggers.append(
                     TriggerInstance(
                         trigger_def=trigger_def,
                         trigger_uid=unit.uid,
+                        stacks=stacks_multiplier
                     )
                 )
+
         for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
             for index, count in attached.items():
                 if count <= 0:
@@ -249,7 +262,8 @@ class CombatManager:
             def _reborn_effect(ctx, event, trigger_uid, card_id=unit.card_id):
                 if not event.source_pos:
                     return
-                summoned_ref = ctx.summon(event.source_pos.side, card_id, event.source_pos.slot)
+                summoned_ref = ctx.summon(event.source_pos.side, card_id, event.source_pos.slot,
+                                          is_golden=unit.is_golden)
                 if summoned_ref:
                     reborn_unit = ctx.resolve_unit(summoned_ref)
                     if reborn_unit:

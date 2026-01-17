@@ -1,6 +1,6 @@
 import random
 
-from engine.enums import MechanicType, CardIDs, SpellIDs
+from engine.enums import MechanicType, CardIDs, SpellIDs, Tags
 from engine.game import Game
 from engine.entities import HandCard, Player, Unit, Spell
 from engine.pool import CardPool, SpellPool
@@ -269,6 +269,103 @@ def run_effect_smoke_tests():
     print("Effect smoke tests passed.")
 
 
+def run_golden_tests():
+    print("\n=== ЗАПУСК ТЕСТОВ ЗОЛОТЫХ СУЩЕСТВ ===")
+    pool = CardPool()
+    spell_pool = SpellPool()
+    tavern = TavernManager(pool, spell_pool)
+    combat = CombatManager()
+
+    print("\n[TEST] Создание золотого существа (Stats Check)")
+    g_weaver = Unit.create_from_db(CardIDs.WRATH_WEAVER, 1, 1, is_golden=True)
+
+    assert g_weaver.is_golden is True, "Флаг is_golden должен быть True"
+    assert g_weaver.base_atk == 2, f"Ожидалась атака 2, получено {g_weaver.base_atk}"
+    assert g_weaver.base_hp == 6, f"Ожидалось здоровье 6, получено {g_weaver.base_hp}"
+    print("PASSED: Статы удвоены корректно")
+
+    print("\n[TEST] Дефолтное удвоение (Shell Collector)")
+    player = Player(uid=0, board=[], hand=[])
+
+    g_collector = Unit.create_from_db(CardIDs.SHELL_COLLECTOR, tavern._get_next_uid(), player.uid, is_golden=True)
+    player.hand.append(HandCard(uid=g_collector.uid, unit=g_collector))
+
+    start_gold = player.gold
+    tavern.play_unit(player, 0, 0, -1)
+
+    expected_gold = start_gold + 2
+    assert player.gold == expected_gold, f"Ожидалось золото {expected_gold}, получено {player.gold}. Триггер не сработал дважды?"
+    print("PASSED: Получено 2 монетки")
+
+    print("\n[TEST] Спец. реализация (Golden Alleycat)")
+    player = Player(uid=0, board=[], hand=[])
+
+    g_cat = Unit.create_from_db(CardIDs.ALLEYCAT, tavern._get_next_uid(), player.uid, is_golden=True)
+    player.hand.append(HandCard(uid=g_cat.uid, unit=g_cat))
+
+    tavern.play_unit(player, 0, 0, -1)
+
+    assert len(player.board) == 2, f"Ожидалось 2 существа на столе, получено {len(player.board)}"
+
+    token = player.board[1]
+    assert token.card_id == CardIDs.TABBYCAT, "Второй юнит должен быть токеном"
+    if token.is_golden and token.base_atk == 2:
+        print("PASSED: Призван один золотой токен 2/2 (Override сработал)")
+    else:
+        print(
+            f"FAILED: Токен имеет статы {token.base_atk}/{token.base_hp} и golden={token.is_golden}. Ожидалось 2/2 Golden.")
+
+    print("\n[TEST] Золотой Reborn")
+    g_reborn_unit = Unit.create_from_db(CardIDs.WRATH_WEAVER, combat.get_uid(), 0, is_golden=True)
+    g_reborn_unit.tags.add(Tags.REBORN)
+    g_reborn_unit.cur_hp = 0
+
+    board = [g_reborn_unit]
+    combat_players = {
+        0: Player(uid=0, board=board, hand=[]),
+        1: Player(uid=1, board=[], hand=[])
+    }
+
+    combat.cleanup_dead([board, []], [0, 0], combat_players)
+
+    assert len(board) == 1, "Юнит должен возродиться"
+    reborn_u = board[0]
+
+    assert reborn_u.cur_hp == 1, "Возрожденный юнит должен иметь 1 HP"
+    assert reborn_u.max_hp == 6, f"Макс HP должно быть золотым (6), получено {reborn_u.max_hp}"
+    assert reborn_u.is_golden is True, "Возрожденный юнит должен остаться золотым"
+    assert Tags.REBORN not in reborn_u.tags, "Тэг Reborn должен исчезнуть"
+
+    print("PASSED: Юнит возродился золотым с 1 HP")
+
+    print("\n[TEST] Золотая Scallywag (Deathrattle x2)")
+
+    board = []
+    p0 = Player(uid=0, board=board, hand=[])
+
+    g_scallywag = Unit.create_from_db(CardIDs.SCALLYWAG, combat.get_uid(), 0, is_golden=True)
+    g_scallywag.cur_hp = 0
+    board.append(g_scallywag)
+
+    combat_players = {
+        0: p0,
+        1: Player(uid=1, board=[], hand=[])
+    }
+
+    combat.cleanup_dead([board, []], [0, 0], combat_players)
+
+    assert len(board) == 2, f"Ожидалось 2 пирата, получено {len(board)}. (Возможно, не сработал stacks=2)"
+
+    token1 = board[0]
+    token2 = board[1]
+
+    assert token1.card_id == CardIDs.PIRATE_TOKEN, "Первый юнит должен быть Пиратом"
+    assert token2.card_id == CardIDs.PIRATE_TOKEN, "Второй юнит должен быть Пиратом"
+
+    print("PASSED: Золотая Scallywag успешно призвала двух пиратов")
+
+
 if __name__ == "__main__":
-    run_simulation()
+    # run_simulation()
     run_effect_smoke_tests()
+    run_golden_tests()

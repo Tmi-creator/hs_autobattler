@@ -1,7 +1,7 @@
 from typing import Dict, Tuple
 from .entities import Player, Unit, HandCard, Spell, StoreItem
 from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS, SPELLS_PER_ROLL
-from .effects import TRIGGER_REGISTRY
+from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
 from .enums import UnitType
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
@@ -12,7 +12,7 @@ class TavernManager:
         self.pool = pool
         self.spell_pool = spell_pool
         self._uid_counter = 1000
-        self.event_manager = EventManager(TRIGGER_REGISTRY)
+        self.event_manager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
 
     def _get_next_uid(self):
         self._uid_counter += 1

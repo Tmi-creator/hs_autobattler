@@ -86,6 +86,13 @@ def _minted_corsair_coin(ctx, event: Event, trigger_uid: int) -> None:
     ctx.add_spell_to_hand(pos.side, SpellIDs.TAVERN_COIN)
 
 
+def _summon_golden_tabbycat(ctx, event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
+        return
+    ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1, is_golden=True)
+
+
 TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
     CardIDs.SHELL_COLLECTOR: [
         TriggerDef(
@@ -149,6 +156,17 @@ TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
             condition=lambda ctx, event, trigger_uid: event.source is not None and event.source.uid == trigger_uid,
             effect=_summon_crab_token,
             name="Attached Crab Deathrattle",
+        )
+    ],
+}
+
+GOLDEN_TRIGGER_REGISTRY = {
+    CardIDs.ALLEYCAT: [
+        TriggerDef(
+            event_type=EventType.MINION_PLAYED,
+            condition=_is_self_play,
+            effect=_summon_golden_tabbycat,
+            name="Golden Alleycat Battlecry",
         )
     ],
 }

@@ -144,7 +144,7 @@ class Unit:
 
         base_hp = data['hp'] * mult
         base_atk = data['atk'] * mult
-        
+
         unit = Unit(
             uid=uid,
             card_id=card_id,
@@ -265,6 +265,17 @@ class MechanicState:
 
 
 @dataclass
+class DiscoveryState:
+    is_active: bool = False
+    options: List[StoreItem] = field(default_factory=list)
+
+    # Метаданные
+    discover_tier: int = 1
+    source: str = "Unknown"  # "Triplet", "HeroPower", "Primalfin"
+    is_exact_tier: bool = False  # True для триплетов, False для остальных
+
+
+@dataclass
 class Player:
     uid: int
     board: List[Unit]
@@ -272,6 +283,8 @@ class Player:
     economy: EconomyState = field(default_factory=EconomyState)
     mechanics: MechanicState = field(default_factory=MechanicState)
     health: int = 30
+
+    discovery: DiscoveryState = field(default_factory=DiscoveryState)
 
     def combat_copy(self):
         return Player(
@@ -282,6 +295,10 @@ class Player:
             mechanics=deepcopy(self.mechanics),
             health=self.health,
         )
+
+    @property
+    def is_discovering(self) -> bool:
+        return self.discovery.is_active
 
     @property
     def gold(self) -> int:

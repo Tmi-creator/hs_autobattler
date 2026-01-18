@@ -87,4 +87,11 @@ SPELL_DB = {
         "params": {"effect_id": EffectIDs.CRAB_DEATHRATTLE, "count": 1},
         "is_temporary": True
     },
+    SpellIDs.TRIPLET_REWARD: {
+        "name": "Triple Reward",
+        "tier": 1,
+        "cost": 0,
+        "effect": "DISCOVER_TIER_UP",
+        "is_temporary": False
+    },
 }

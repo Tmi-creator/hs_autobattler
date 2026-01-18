@@ -3,7 +3,7 @@ from .entities import Player, Unit, HandCard, Spell, StoreItem
 from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS, SPELLS_PER_ROLL
 from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
-from .enums import UnitType
+from .enums import UnitType, SpellIDs
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
@@ -141,6 +141,7 @@ class TavernManager:
             player.gold -= COST_BUY
             hand_card = HandCard(uid=item.unit.uid, unit=item.unit)
             player.hand.append(hand_card)
+            self._check_triplet(player, item.unit.card_id)
             return True, f"Bought {item.unit.card_id}"
 
         if item.spell:
@@ -174,8 +175,8 @@ class TavernManager:
 
         unit = player.board.pop(board_index)
         player.gold += 1
-
-        self.pool.return_cards([unit.card_id])
+        count_to_return = 3 if unit.is_golden else 1
+        self.pool.return_cards([unit.card_id] * count_to_return)
 
         return True, "Sold unit"
 
@@ -207,7 +208,15 @@ class TavernManager:
         player.hand.pop(hand_index)
 
         player.board.insert(insert_index, unit)
+        if unit.is_golden:
+            if len(player.hand) < 10:
+                reward_spell = Spell.create_from_db(SpellIDs.TRIPLET_REWARD)
 
+                reward_tier = min(6, player.tavern_tier + 1)
+
+                reward_spell.params['tier'] = reward_tier
+
+                player.hand.append(HandCard(uid=self._get_next_uid(), spell=reward_spell))
         self._resolve_battlecry(player, unit, insert_index, target_index)
 
         return True, "Played unit"
@@ -270,15 +279,110 @@ class TavernManager:
         if len(player.hand) < 10:
             if chosen_item.unit:
                 player.hand.append(HandCard(uid=chosen_item.unit.uid, unit=chosen_item.unit))
+                self._check_triplet(player, chosen_item.unit.card_id)
                 return True, f"Discovered {chosen_item.unit.card_id}"
             # тут дальше будут спеллы раскапываться
         return True, "Discovered (Burned)"
+
+    def _check_triplet(self, player: Player, card_id: str):
+        """
+        Ищет 3 копии существа, объединяет их в золотое.
+        Временные баффы остаются временными, постоянные — постоянными.
+        """
+        hand_indices = [i for i, hc in enumerate(player.hand)
+                        if hc.unit and hc.unit.card_id == card_id and not hc.unit.is_golden]
+        board_indices = [i for i, u in enumerate(player.board)
+                         if u.card_id == card_id and not u.is_golden]
+
+        if len(hand_indices) + len(board_indices) < 3:
+            return
+
+        removed_count = 0
+        indices_to_pop_hand = []
+        indices_to_pop_board = []
+
+        for idx in hand_indices:
+            if removed_count < 3:
+                indices_to_pop_hand.append(idx)
+                removed_count += 1
+
+        for idx in board_indices:
+            if removed_count < 3:
+                indices_to_pop_board.append(idx)
+                removed_count += 1
+
+        total_perm_hp = 0
+        total_perm_atk = 0
+        total_turn_hp = 0
+        total_turn_atk = 0
+
+        merged_attached_perm = {}
+        merged_attached_turn = {}
+
+        def _collect_stats(u: Unit):
+            nonlocal total_perm_hp, total_perm_atk, total_turn_hp, total_turn_atk
+
+            total_perm_hp += u.perm_hp_add
+            total_perm_atk += u.perm_atk_add
+
+            total_turn_hp += u.turn_hp_add
+            total_turn_atk += u.turn_atk_add
+
+            for k, v in u.attached_perm.items():
+                merged_attached_perm[k] = merged_attached_perm.get(k, 0) + v
+            for k, v in u.attached_turn.items():
+                merged_attached_turn[k] = merged_attached_turn.get(k, 0) + v
+
+        for idx in indices_to_pop_hand:
+            _collect_stats(player.hand[idx].unit)
+
+        for idx in indices_to_pop_board:
+            _collect_stats(player.board[idx])
+
+        for idx in sorted(indices_to_pop_hand, reverse=True):
+            player.hand.pop(idx)
+        for idx in sorted(indices_to_pop_board, reverse=True):
+            player.board.pop(idx)
+
+        golden_unit = Unit.create_from_db(card_id, self._get_next_uid(), player.uid, is_golden=True)
+
+        golden_unit.perm_hp_add = total_perm_hp
+        golden_unit.perm_atk_add = total_perm_atk
+
+        golden_unit.turn_hp_add = total_turn_hp
+        golden_unit.turn_atk_add = total_turn_atk
+
+        golden_unit.attached_perm = merged_attached_perm
+        golden_unit.attached_turn = merged_attached_turn
+
+        golden_unit.recalc_stats()
+        golden_unit.restore_stats()
+
+        player.hand.append(HandCard(uid=golden_unit.uid, unit=golden_unit))
+
+        self._check_triplet(player, card_id)
 
     def _cast_spell(self, player: Player, hand_index: int, target_index: int) -> Tuple[bool, str]:
         hand_card = player.hand[hand_index]
         spell = hand_card.spell
         if not spell:
             return False, "No spell to cast"
+        if spell.card_id == SpellIDs.TRIPLET_REWARD:
+            discover_tier = spell.params.get('tier', 1)
+
+            success = self.start_discovery(
+                player,
+                source="TripletReward",
+                tier=discover_tier,
+                exact_tier=True,
+                count=3
+            )
+
+            if success:
+                player.hand.pop(hand_index)
+                return True, f"Discovery Tier {discover_tier} Started"
+            else:
+                return False, "Failed to start discovery"
 
         if spell.card_id in SPELLS_REQUIRE_TARGET and not (0 <= target_index < len(player.board)):
             return False, "Invalid target"
@@ -286,6 +390,7 @@ class TavernManager:
         trigger_defs = SPELL_TRIGGER_REGISTRY.get(spell.card_id)
         if not trigger_defs:
             return False, f"Unknown spell effect {spell.effect}"
+
         trigger_def = trigger_defs[0]
         trigger = TriggerInstance(trigger_def=trigger_def, trigger_uid=0)
         source_pos = PosRef(side=player.uid, zone=Zone.HAND, slot=hand_index)

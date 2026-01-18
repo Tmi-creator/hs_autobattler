@@ -112,6 +112,7 @@ SPELL_TRIGGER_REGISTRY: Dict[SpellIDs, List[TriggerDef]] = {
             name="Surf Spellcraft",
         )
     ],
+
 }
 
 SPELLS_REQUIRE_TARGET = {

@@ -70,5 +70,7 @@ class SpellIDs(str, Enum):
     APPLE = "S006"
     SURF_SPELLCRAFT = "S007"
 
+    TRIPLET_REWARD = "S999"
+
 class EffectIDs(str, Enum):
     CRAB_DEATHRATTLE = "E_DR_CRAB32"

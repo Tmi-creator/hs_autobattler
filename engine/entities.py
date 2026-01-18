@@ -102,6 +102,7 @@ class Unit:
         unit = replace(
             self,
             type=list(self.type),
+            tags=set(self.tags),
             attached_perm=dict(self.attached_perm),
             attached_turn=dict(self.attached_turn),
             attached_combat=dict(),

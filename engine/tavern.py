@@ -444,6 +444,14 @@ class TavernManager:
         return True, "Swapped"
 
     def end_turn(self, player: Player) -> None:
+        self.event_manager.process_event(
+            Event(event_type=EventType.END_OF_TURN,
+                  source_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=-1)
+                  ),
+            {player.uid: player},
+            self._get_next_uid
+        )
+
         player.hand[:] = [
             hc for hc in player.hand
             if not (hc.spell is not None and hc.spell.is_temporary)

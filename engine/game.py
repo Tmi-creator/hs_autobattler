@@ -38,6 +38,13 @@ class Game:
         player = self.players[player_idx]
         reward = 0
         info = "Unknown Action"
+
+        if player.is_discovering and action_type != "DISCOVER_CHOICE":
+            return -0.1, False, "Must choose discovery"
+
+        if self.players_ready.get(player_idx, False) and action_type != "END_TURN":
+            return -0.1, False, "Player already ready"
+
         if action_type == "END_TURN":
             self.tavern.end_turn(player)
             self.players_ready[player_idx] = True
@@ -60,6 +67,8 @@ class Game:
                 reward = -0.1
         elif action_type == "FREEZE":
             success, info = self.tavern.toggle_freeze(player)
+            if not success:
+                reward = -0.1
         elif action_type == "PLAY":
             # kwargs: hand_index, insert_index, target_index
             h_idx = kwargs.get('hand_index', -1)
@@ -71,6 +80,18 @@ class Game:
                 reward = -0.1
             else:
                 reward = 0.1
+        elif action_type == "SWAP":
+            # kwargs: index_a, index_b
+            a = kwargs.get('index_a', -1)
+            b = kwargs.get('index_b', -1)
+            success, info = self.tavern.swap_units(player, a, b)
+            if not success:
+                reward = -0.1
+        elif action_type == "DISCOVER_CHOICE":
+            # kwargs: index
+            success, info = self.tavern.make_discovery_choice(player, kwargs.get('index', -1))
+            if not success:
+                reward = -0.1
         else:
             reward = -0.1
 
@@ -126,6 +147,8 @@ class Game:
 
         if p0.health <= 0 or p1.health <= 0:
             self.game_over = True
+            self.winner_id = 0 if (p0.health > 0 and p1.health <= 0) else (
+                1 if (p1.health > 0 and p0.health <= 0) else None)
             return agent_reward
 
         self.turn_count += 1

@@ -88,8 +88,14 @@ class HearthstoneEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+
         self.game = Game()
         self.consecutive_errors = 0
+
         return self._get_obs(), {}
 
     def step(self, action):
@@ -226,23 +232,34 @@ class HearthstoneEnv(gym.Env):
         p_idx = self.enemy_id
         player = self.game.players[p_idx]
 
-        # 1. Раскопка
         if player.is_discovering and player.discovery.options:
             self.game.step(p_idx, "DISCOVER_CHOICE", index=0)
 
-        # 2. Рука -> Стол
-        while len(player.hand) > 0 and len(player.board) < 7:
+        attempts = 0
+        max_attempts = 15
+
+        while len(player.hand) > 0 and len(player.board) < 7 and attempts < max_attempts:
+            # Запоминаем размер руки до действия
+            hand_size_before = len(player.hand)
+
             self.game.step(p_idx, "PLAY", hand_index=0, insert_index=-1)
+            if len(player.hand) == hand_size_before:
+                break
+
             if player.is_discovering:
                 self.game.step(p_idx, "DISCOVER_CHOICE", index=0)
 
-        # 3. Магазин -> Покупка
+            attempts += 1
+
         it = 0
         while player.gold >= 3 and player.store and it < 5:
             it += 1
             idx = random.randint(0, len(player.store) - 1)
             self.game.step(p_idx, "BUY", index=idx)
+
+            # Пытаемся сыграть купленное (тоже с защитой)
             if player.hand:
+                # Одна попытка сыграть последнюю карту
                 self.game.step(p_idx, "PLAY", hand_index=len(player.hand) - 1, insert_index=-1)
                 if player.is_discovering:
                     self.game.step(p_idx, "DISCOVER_CHOICE", index=0)

@@ -484,7 +484,7 @@ def run_discovery_tests():
     print("\n=== ВСЕ ТЕСТЫ РАСКОПКИ УСПЕШНО ПРОЙДЕНЫ ===")
 
 if __name__ == "__main__":
-    # run_simulation()
+    run_simulation()
     run_effect_smoke_tests()
     run_golden_tests()
     run_discovery_tests()

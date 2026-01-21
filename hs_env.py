@@ -8,6 +8,7 @@ from engine.enums import UnitType
 from engine.configs import CARD_DB
 from engine.effects import TRIGGER_REGISTRY
 from engine.event_system import EventType
+from engine.spells import SPELLS_REQUIRE_TARGET
 
 # Константы нормализации
 MAX_ATK = 50.0
@@ -26,10 +27,10 @@ class HearthstoneEnv(gym.Env):
     Action Space (Discrete 32):
     0: End Turn
     1: Roll
-    2-8: Buy (Slot 0-6) / DISCOVER_CHOICE (Option 0-2)
-    9-15: Sell (Slot 0-6)
+    2-8: Buy (Slot 0-6) / DISCOVER_CHOICE (Option 0-2) / TARGET BOARD (Slot 0-6)
+    9-15: Sell (Slot 0-6) / TARGET STORE (Slot 0-6) [Not implemented in engine yet, usually spells target board]
     16-25: Play Hand (Card 0-9)
-    26-31: Swap Right (Slot i <-> Slot i+1) [New]
+    26-31: Swap Right (Slot i <-> Slot i+1)
            26: 0<->1, 27: 1<->2 ... 31: 5<->6
     """
 
@@ -47,7 +48,7 @@ class HearthstoneEnv(gym.Env):
         self.all_types = list(UnitType)
         self.num_types = len(self.all_types)  # 11
 
-        # --- Вектор сущности (34 float) ---
+        # --- Вектор сущности (35 float) ---
         # [0] Is Present
         # [1] Is Spell
         # [2] Card ID (Norm)
@@ -65,13 +66,14 @@ class HearthstoneEnv(gym.Env):
         # [20] Has Start of Combat
         # [21] Has Sell Effect
         # [22] Has Synergy (Engine)
-        # [23..33] Types (11 шт)
+        # [23] Is Selected (Targeting Source) <-- НОВОЕ
+        # [24..34] Types (11 шт)
 
-        self.entity_features = 23 + self.num_types  # 34
+        self.entity_features = 24 + self.num_types  # Было 34, стало 35
 
         # Размер вектора наблюдения:
-        # Global(6) + Board(7*34) + Hand(10*34) + Store(7*34) + Discover(3*34) + Enemy(3)
-        # 6 + 238 + 340 + 238 + 102 + 3 = 927
+        # Global(6) + Board(7*35) + Hand(10*35) + Store(7*35) + Discover(3*35) + Enemy(3)
+        # 6 + 245 + 350 + 245 + 105 + 3 = 954
         total_obs_size = 6 + \
                          (7 * self.entity_features) + \
                          (10 * self.entity_features) + \
@@ -86,6 +88,9 @@ class HearthstoneEnv(gym.Env):
         self._card_id_map = {}
         self._next_card_int = 1
 
+        self.is_targeting = False
+        self.pending_spell_hand_index = None
+
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
@@ -95,6 +100,9 @@ class HearthstoneEnv(gym.Env):
 
         self.game = Game()
         self.consecutive_errors = 0
+
+        self.is_targeting = False
+        self.pending_spell_hand_index = None
 
         return self._get_obs(), {}
 
@@ -116,6 +124,28 @@ class HearthstoneEnv(gym.Env):
                 kwargs['index'] = action - 2
             else:
                 action_type = "INVALID_DURING_DISCOVERY"
+
+        elif self.is_targeting:
+            # Используем кнопки BUY (2-8) как выбор цели на ДОСКЕ (0-6)
+            if 2 <= action <= 8:
+                action_type = "PLAY"  # Продолжаем розыгрыш
+                kwargs['hand_index'] = self.pending_spell_hand_index
+                kwargs['target_index'] = action - 2
+
+                # Сбрасываем состояние таргетинга после выбора
+                self.pending_spell_hand_index = None
+                self.is_targeting = False
+
+            # Кнопка END TURN (0) как ОТМЕНА (Cancel)
+            elif action == 0:
+                action_type = "CANCEL_CAST"
+                self.pending_spell_hand_index = None
+                self.is_targeting = False
+                # В движок ничего не шлем, просто сброс состояния
+
+            else:
+                # Любые другие действия (Roll, Sell, Swap) запрещены во время прицеливания
+                action_type = "INVALID_NEED_TARGET"
         else:
             # Обычный режим
             if action == 0:
@@ -129,9 +159,24 @@ class HearthstoneEnv(gym.Env):
                 action_type = "SELL"
                 kwargs['index'] = action - 9
             elif 16 <= action <= 25:
-                action_type = "PLAY"
-                kwargs['hand_index'] = action - 16
-                kwargs['insert_index'] = -1
+                h_idx = action - 16
+                # Проверяем, есть ли карта и требует ли она цель
+                if h_idx < len(player.hand):
+                    card = player.hand[h_idx]
+                    card_id = getattr(card.spell, 'card_id', None) if card.spell else getattr(card.unit, 'card_id',
+                                                                                              None)
+                    if card_id in SPELLS_REQUIRE_TARGET:
+                        # ПЕРЕХОД В РЕЖИМ ЦЕЛИ
+                        self.pending_spell_hand_index = h_idx
+                        self.is_targeting = True
+                        action_type = "WAIT_FOR_TARGET"
+                    else:
+                        # Обычный розыгрыш (без цели или самодостаточный юнит)
+                        action_type = "PLAY"
+                        kwargs['hand_index'] = h_idx
+                        kwargs['insert_index'] = -1
+                else:
+                    action_type = "INVALID_HAND_INDEX"
             elif 26 <= action <= 31:  # --- SWAP LOGIC ---
                 action_type = "SWAP"
                 idx_a = action - 26
@@ -147,7 +192,18 @@ class HearthstoneEnv(gym.Env):
         done = False
         info = "Unknown"
 
-        if action_type == "INVALID_DURING_DISCOVERY":
+        if action_type == "WAIT_FOR_TARGET":
+            # Мы не идем в game.step, мы просто обновили внутреннее состояние
+            # Возвращаем награду 0 и обновленный obs (где is_targeting=1 и is_selected=1)
+            return self._get_obs(), 0.0, False, False, {}
+
+        elif action_type == "CANCEL_CAST":
+            return self._get_obs(), 0.0, False, False, {}
+
+        elif action_type == "INVALID_NEED_TARGET":
+            return self._get_obs(), -2.0, False, False, {"error": "Must select target"}
+
+        elif action_type == "INVALID_DURING_DISCOVERY":
             reward = -2.0
             info = "Must choose discovery"
             self.consecutive_errors += 1
@@ -166,7 +222,7 @@ class HearthstoneEnv(gym.Env):
                     info != "Player already ready" and
                     info != "Max tier reached" and
                     info != "Empty slot" and
-                    info != "Invalid indices" and  # Ошибка при неверном свапе
+                    info != "Invalid indices" and
                     info != "Same index" and
                     info != "Not discovering" and
                     info != "No spell to cast" and
@@ -182,8 +238,9 @@ class HearthstoneEnv(gym.Env):
                     reward = 0.1
                 if action_type == "DISCOVER_CHOICE":
                     reward += 1.0
-                # Можно добавить небольшой reward за swap, но лучше 0.1,
-                # чтобы не поощрять бессмысленное перекладывание
+                # Бонус за успешное применение заклинания с целью
+                if action_type == "PLAY" and "target_index" in kwargs:
+                    reward += 1.0
 
         # --- ЗАЩИТА ОТ ЗАВИСАНИЯ (Training Wheels) ---
         force_end_turn = False
@@ -239,7 +296,6 @@ class HearthstoneEnv(gym.Env):
         max_attempts = 15
 
         while len(player.hand) > 0 and len(player.board) < 7 and attempts < max_attempts:
-            # Запоминаем размер руки до действия
             hand_size_before = len(player.hand)
 
             self.game.step(p_idx, "PLAY", hand_index=0, insert_index=-1)
@@ -257,9 +313,7 @@ class HearthstoneEnv(gym.Env):
             idx = random.randint(0, len(player.store) - 1)
             self.game.step(p_idx, "BUY", index=idx)
 
-            # Пытаемся сыграть купленное (тоже с защитой)
             if player.hand:
-                # Одна попытка сыграть последнюю карту
                 self.game.step(p_idx, "PLAY", hand_index=len(player.hand) - 1, insert_index=-1)
                 if player.is_discovering:
                     self.game.step(p_idx, "DISCOVER_CHOICE", index=0)
@@ -270,23 +324,24 @@ class HearthstoneEnv(gym.Env):
         p = self.game.players[self.my_player_id]
         e = self.game.players[self.enemy_id]
 
-        # 1. Global (6)
+        # 1. Global (7)
         global_features = [
             p.gold / MAX_GOLD,
             p.tavern_tier / MAX_TIER,
             p.health / MAX_HP,
             p.up_cost / 10.0,
             p.spell_discount / MAX_SPELL_DISCOUNT,
-            1.0 if p.is_discovering else 0.0
+            1.0 if p.is_discovering else 0.0,
+            1.0 if self.is_targeting else 0.0
         ]
 
         # 2. Zones
-        board_vec = self._encode_zone(p.board, 7)
-        hand_vec = self._encode_zone(p.hand, 10)
-        store_vec = self._encode_zone(p.store, 7)
+        board_vec = self._encode_zone(p.board, 7, zone_type="BOARD")
+        hand_vec = self._encode_zone(p.hand, 10, zone_type="HAND")
+        store_vec = self._encode_zone(p.store, 7, zone_type="STORE")
 
         discover_items = p.discovery.options if p.is_discovering else []
-        discover_vec = self._encode_zone(discover_items, 3)
+        discover_vec = self._encode_zone(discover_items, 3, zone_type="DISCOVER")
 
         # 3. Enemy (3)
         enemy_vec = [
@@ -304,16 +359,16 @@ class HearthstoneEnv(gym.Env):
             enemy_vec
         ], dtype=np.float32)
 
-    def _encode_zone(self, items, n_slots):
+    def _encode_zone(self, items, n_slots, zone_type="UNKNOWN"):
         zone_features = []
         for i in range(n_slots):
             if i < len(items):
-                zone_features.extend(self._encode_single_entity(items[i]))
+                zone_features.extend(self._encode_single_entity(items[i], index_in_zone=i, zone_type=zone_type))
             else:
                 zone_features.extend([0.0] * self.entity_features)
         return zone_features
 
-    def _encode_single_entity(self, item):
+    def _encode_single_entity(self, item, index_in_zone=-1, zone_type="UNKNOWN"):
         """Создание вектора сущности с анализом триггеров"""
         unit = getattr(item, 'unit', None)
         spell = getattr(item, 'spell', None)
@@ -352,7 +407,7 @@ class HearthstoneEnv(gym.Env):
                     if cond_name == "_is_self_play":
                         has_battlecry = True
                     else:
-                        has_synergy = True  # Wrath Weaver etc.
+                        has_synergy = True
 
                 elif evt == EventType.MINION_SUMMONED:
                     has_synergy = True
@@ -385,7 +440,6 @@ class HearthstoneEnv(gym.Env):
                 has_synergy
             ]
 
-            # Данные из базы (is_token, deathrattle)
             db_data = CARD_DB.get(card_id, {})
             flags[8] = db_data.get('is_token', False)
             flags[9] = db_data.get('deathrattle', False)
@@ -399,9 +453,8 @@ class HearthstoneEnv(gym.Env):
             is_spell = 1.0
             cur_atk = 0.0
             cur_hp = 0.0
-            # Спелл считаем как Battlecry (мгновенный эффект)
             flags = [False] * 15
-            flags[10] = True
+            flags[10] = True  # Спелл как Battlecry
 
             u_types = []
 
@@ -425,6 +478,16 @@ class HearthstoneEnv(gym.Env):
 
         # Flags (15 шт)
         vec.extend([1.0 if f else 0.0 for f in flags])
+
+        # --- Is Selected (Targeting) ---
+        is_selected = 0.0
+        if self.is_targeting and \
+                zone_type == "HAND" and \
+                self.pending_spell_hand_index is not None and \
+                index_in_zone == self.pending_spell_hand_index:
+            is_selected = 1.0
+
+        vec.append(is_selected)  # [23]
 
         # Types (11 шт)
         type_vec = [0.0] * self.num_types

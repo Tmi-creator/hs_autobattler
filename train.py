@@ -6,12 +6,15 @@ import gymnasium as gym
 import wandb
 from wandb.integration.sb3 import WandbCallback
 
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
+from sb3_contrib.common.wrappers import ActionMasker
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.vec_env import VecNormalize
 
 from hs_env import HearthstoneEnv
 
@@ -40,6 +43,17 @@ def setup_determinism(seed: int):
         # torch.use_deterministic_algorithms(True)
 
 
+def make_env(rank, seed=0):
+    def _init():
+        env = HearthstoneEnv()
+        env = Monitor(env)
+        env.reset(seed=seed + rank)
+        env = ActionMasker(env, lambda env: env.unwrapped.action_masks())
+        return env
+
+    return _init
+
+
 def main():
     SEED = 42
     # Вызываем настройку ДО всего остального
@@ -48,7 +62,7 @@ def main():
     # 1. Настройки
     config = {
         "policy_type": "MlpPolicy",
-        "total_timesteps": 100_000,
+        "total_timesteps": 300_000,
         "learning_rate": 0.0003,
         "gamma": 0.99,
         "batch_size": 256,
@@ -80,17 +94,21 @@ def main():
     print(f"Initializing {config['n_envs']} parallel environments...")
 
     # make_vec_env сама передаст seed + rank в каждый подпроцесс
-    env = make_vec_env(
-        HearthstoneEnv,
-        n_envs=config["n_envs"],
-        seed=SEED,
-        vec_env_cls=SubprocVecEnv
+    env = DummyVecEnv(
+        [make_env(i, SEED) for i in range(config["n_envs"])]
     )
+
+    # Оборачиваем векторизованную среду в нормализатор
+    # norm_obs=True - нормализует входные данные (obs)
+    # norm_reward=True - нормализует награду (reward)
+    # clip_reward=10.0 - обрезает выбросы
+    # add next
+    # env = VecNormalize(env, norm_obs=False, norm_reward=True, clip_reward=10.0)
 
     policy_kwargs = dict(net_arch=config["net_arch"])
 
-    model = PPO(
-        config["policy_type"],
+    model = MaskablePPO(
+        "MlpPolicy",
         env,
         verbose=1,
         learning_rate=config["learning_rate"],
@@ -100,7 +118,7 @@ def main():
         ent_coef=config["ent_coef"],
         tensorboard_log=f"runs/{run.id}",
         policy_kwargs=policy_kwargs,
-        seed=SEED,  # Важно передать и сюда
+        seed=SEED,
         device="cuda" if torch.cuda.is_available() else "auto"
     )
 

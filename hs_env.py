@@ -40,7 +40,6 @@ class HearthstoneEnv(gym.Env):
         self.game = Game()
         self.my_player_id = 0
         self.enemy_id = 1
-        self.consecutive_errors = 0
 
         # Action Space увеличен с 26 до 32
         self.action_space = spaces.Discrete(32)
@@ -72,9 +71,9 @@ class HearthstoneEnv(gym.Env):
         self.entity_features = 24 + self.num_types  # Было 34, стало 35
 
         # Размер вектора наблюдения:
-        # Global(6) + Board(7*35) + Hand(10*35) + Store(7*35) + Discover(3*35) + Enemy(3)
-        # 6 + 245 + 350 + 245 + 105 + 3 = 954
-        total_obs_size = 6 + \
+        # Global(7) + Board(7*35) + Hand(10*35) + Store(7*35) + Discover(3*35) + Enemy(3)
+        # 7 + 245 + 350 + 245 + 105 + 3 = 955
+        total_obs_size = 7 + \
                          (7 * self.entity_features) + \
                          (10 * self.entity_features) + \
                          (7 * self.entity_features) + \
@@ -99,7 +98,6 @@ class HearthstoneEnv(gym.Env):
             np.random.seed(seed)
 
         self.game = Game()
-        self.consecutive_errors = 0
 
         self.is_targeting = False
         self.pending_spell_hand_index = None
@@ -107,12 +105,10 @@ class HearthstoneEnv(gym.Env):
         return self._get_obs(), {}
 
     def step(self, action):
-        if not hasattr(self, "consecutive_errors"):
-            self.consecutive_errors = 0
 
         player = self.game.players[self.my_player_id]
         is_discovering = player.is_discovering
-
+        prev_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
         # --- МЭППИНГ ДЕЙСТВИЙ ---
         action_type = "UNKNOWN"
         kwargs = {}
@@ -144,7 +140,6 @@ class HearthstoneEnv(gym.Env):
                 # В движок ничего не шлем, просто сброс состояния
 
             else:
-                # Любые другие действия (Roll, Sell, Swap) запрещены во время прицеливания
                 action_type = "INVALID_NEED_TARGET"
         else:
             # Обычный режим
@@ -171,13 +166,13 @@ class HearthstoneEnv(gym.Env):
                         self.is_targeting = True
                         action_type = "WAIT_FOR_TARGET"
                     else:
-                        # Обычный розыгрыш (без цели или самодостаточный юнит)
+                        # default
                         action_type = "PLAY"
                         kwargs['hand_index'] = h_idx
                         kwargs['insert_index'] = -1
                 else:
                     action_type = "INVALID_HAND_INDEX"
-            elif 26 <= action <= 31:  # --- SWAP LOGIC ---
+            elif 26 <= action <= 31:
                 action_type = "SWAP"
                 idx_a = action - 26
                 idx_b = idx_a + 1
@@ -187,7 +182,7 @@ class HearthstoneEnv(gym.Env):
         p0_hp_before = player.health
         p1_hp_before = self.game.players[self.enemy_id].health
 
-        # --- ВЫПОЛНЕНИЕ В ДВИЖКЕ ---
+        # Engine run
         reward = 0
         done = False
         info = "Unknown"
@@ -200,68 +195,44 @@ class HearthstoneEnv(gym.Env):
         elif action_type == "CANCEL_CAST":
             return self._get_obs(), 0.0, False, False, {}
 
-        elif action_type == "INVALID_NEED_TARGET":
-            return self._get_obs(), -2.0, False, False, {"error": "Must select target"}
+        _, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
 
-        elif action_type == "INVALID_DURING_DISCOVERY":
-            reward = -2.0
-            info = "Must choose discovery"
-            self.consecutive_errors += 1
-        else:
-            _, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
+        # Errors
+        is_valid_action = (
+                info != "Not enough gold" and
+                info != "Board is full" and
+                info != "Hand is full" and
+                info != "Invalid index" and
+                info != "Invalid hand index" and
+                info != "Unknown Action" and
+                info != "Must choose discovery" and
+                info != "Player already ready" and
+                info != "Max tier reached" and
+                info != "Empty slot" and
+                info != "Invalid indices" and
+                info != "Same index" and
+                info != "Not discovering" and
+                info != "No spell to cast" and
+                info != "Invalid target"
+        )
 
-            # Список ошибок движка, которые считаются "плохим действием"
-            is_valid_action = (
-                    info != "Not enough gold" and
-                    info != "Board is full" and
-                    info != "Hand is full" and
-                    info != "Invalid index" and
-                    info != "Invalid hand index" and
-                    info != "Unknown Action" and
-                    info != "Must choose discovery" and
-                    info != "Player already ready" and
-                    info != "Max tier reached" and
-                    info != "Empty slot" and
-                    info != "Invalid indices" and
-                    info != "Same index" and
-                    info != "Not discovering" and
-                    info != "No spell to cast" and
-                    info != "Invalid target"
-            )
+        if not is_valid_action:
+            return self._get_obs(), 0, False, False, {}
+        current_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
+        power_delta = (current_board_power - prev_board_power)
+        if power_delta > 0:
+            reward += power_delta * 0.05
+        if action_type == "UPGRADE":  # Поощряем прокачку таверны
+            pass  # right now no need to up tavern
+            reward += 0.5
 
-            if not is_valid_action:
-                reward = -2.0
-                self.consecutive_errors += 1
-            else:
-                self.consecutive_errors = 0
-                if action_type != "END_TURN":
-                    reward = 0.1
-                if action_type == "DISCOVER_CHOICE":
-                    reward += 1.0
-                # Бонус за успешное применение заклинания с целью
-                if action_type == "PLAY" and "target_index" in kwargs:
-                    reward += 1.0
+        if action_type == "DISCOVER_CHOICE":  # Раскопка это почти всегда хорошо
+            reward += 0.5
 
-        # --- ЗАЩИТА ОТ ЗАВИСАНИЯ (Training Wheels) ---
-        force_end_turn = False
-        if self.consecutive_errors >= 10:
-            if not is_discovering:
-                action_type = "END_TURN"
-                force_end_turn = True
-                self.consecutive_errors = 0
-            else:
-                self.game.step(self.my_player_id, "DISCOVER_CHOICE", index=0)
-                reward -= 1.0
-                self.consecutive_errors = 0
-
-        # --- КОНЕЦ ХОДА И БОЙ ---
+        # Combat + EndOfTurn
         if action_type == "END_TURN" and not done:
-            if not force_end_turn:
-                reward += 2.0
-
-            if force_end_turn:
-                self.game.step(self.my_player_id, "END_TURN")
-
+            if player.gold > 2:
+                reward -= 0.1 * player.gold
             self._play_enemy_turn()
             done = self.game.game_over
 
@@ -272,17 +243,56 @@ class HearthstoneEnv(gym.Env):
             damage_dealt = p1_hp_before - p1_hp_after
             damage_taken = p0_hp_before - p0_hp_after
 
-            reward += (damage_dealt * 2.0)
-            reward -= (damage_taken * 1.0)
+            reward += (damage_dealt * 0.2)
+            reward -= (damage_taken * 0.2)
 
             if done:
                 if p0_hp_after > 0:
-                    reward += 20.0
+                    reward += 5.0
                 else:
-                    reward -= 20.0
+                    reward -= 5.0
 
         truncated = self.game.turn_count > 50
         return self._get_obs(), reward, done, truncated, {}
+
+    def _calculate_board_power(self, player):
+        power = 0
+        for unit in player.board:
+            u_score = unit.cur_atk * 1.0 + unit.cur_hp * 0.8
+
+            # === MODIFIERS ===
+
+            # 2. Божественный щит
+            # Щит дает возможность нанести урон еще раз безнаказанно.
+            # Ценность = Атака юнита (он ударит лишний раз) + Немного выживаемости
+            if unit.has_divine_shield:
+                u_score += (unit.cur_atk * 1.0) + 5.0
+
+            # 3. Яд / Токсичность
+            if unit.has_poisonous or unit.has_venomous:
+                poison_value = 30.0
+                if unit.cur_atk < poison_value:
+                    u_score += (poison_value - unit.cur_atk)
+
+            # 4. Неистовство ветра (Windfury)
+            # Потенциально удваивает атаку. Но юнит может умереть после первого удара.
+            # Оцениваем как +70% к атаке.
+            if unit.has_windfury:
+                u_score += unit.cur_atk * 0.7
+
+            # 5. Перерождение (Reborn)
+            # Это еще одна тушка с 1 ХП и той же атакой (если нежить).
+            if unit.has_reborn:
+                u_score += (unit.base_atk * 0.8) + 1.0
+
+            # 6. Клив (Cleave)
+            # Бьет троих. Ценность атаки утраивается? Нет, но x2 точно.
+            if unit.has_cleave:
+                u_score += unit.cur_atk * 1.0
+
+            power += u_score
+
+        return power
 
     def _play_enemy_turn(self):
         """Простейший бот: покупает рандомно, ставит всё, выбирает первое в раскопке"""
@@ -498,3 +508,98 @@ class HearthstoneEnv(gym.Env):
         vec.extend(type_vec)
 
         return vec
+
+    def action_masks(self):
+        """
+        Возвращает булеву маску валидных действий:
+        True - действие доступно, False - запрещено.
+        Порядок индексов соответствует action_space (Discrete 32).
+        """
+        player = self.game.players[self.my_player_id]
+        masks = [False] * 32
+
+        # --- 1. ФАЗА РАСКОПКИ (Discovery) ---
+        if player.is_discovering:
+            num_options = len(player.discovery.options)
+            for i in range(num_options):
+                masks[2 + i] = True
+            return masks
+
+        # --- 2. ФАЗА ВЫБОРА ЦЕЛИ (Targeting) ---
+        if self.is_targeting:
+            masks[0] = True  # Cancel cast
+            # idx: 2 + i
+            board_len = len(player.board)
+            for i in range(board_len):
+                masks[2 + i] = True
+            return masks
+
+        # --- 3. ОБЫЧНАЯ ФАЗА ---
+
+        # [0] End Turn - always available
+        masks[0] = True
+
+        # [1] Roll - доступно, если есть 1 золотой
+        if player.gold >= 1:
+            masks[1] = True
+
+        # BUY (2-8)
+        for i in range(7):
+            if i < len(player.store):
+                item = player.store[i]
+                cost = item.spell.cost - player.spell_discount if item.spell else 3
+                # hand overload
+                masks[2 + i] = (player.gold >= cost) and (len(player.hand) < 10)
+
+        # SELL (9-15)
+        for i in range(7):
+            masks[9 + i] = (i < len(player.board))
+
+        # PLAY (16-25)
+        for i in range(10):
+            masks[16 + i] = self._can_play_card(player, i)
+
+        # SWAP (26-31)
+        for i in range(6):
+            masks[26 + i] = (i + 1 < len(player.board))
+
+        return masks
+
+    def _can_play_card(self, player, card_index):
+        """
+        Централизованная проверка: можно ли сыграть карту из руки с индексом card_index.
+        """
+        if card_index >= len(player.hand):
+            return False
+
+        card = player.hand[card_index]
+
+        if card.spell:
+            spell_id = card.spell.card_id
+
+            # Условие А: Нужна цель (Target)
+            # Берем список из движка, но проверяем универсально
+            if spell_id in SPELLS_REQUIRE_TARGET:
+                if not player.board:
+                    return False
+
+            # Условие Б: Особые спеллы (пример на будущее)
+            # if spell_id == SpellIDs.SOME_CONDITIONAL_SPELL:
+            #     if not condition: return False
+
+            return True
+
+        if card.unit:
+            if len(player.board) >= 7:
+                return False
+
+            # Условие Б: Боевые кличи с целью (Battlecry Target)
+            # В ТВОЕМ текущем движке нет юнитов, требующих цель (как Coin Naga или Weaver).
+            # Но если появятся, мы добавим их в список UNITS_REQUIRE_TARGET и проверим тут.
+            # card_id = card.unit.card_id
+            # if card_id in UNITS_REQUIRE_TARGET and not player.board:
+            #    return False
+
+            return True
+
+        return False

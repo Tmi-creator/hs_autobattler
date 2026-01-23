@@ -40,7 +40,11 @@ class HearthstoneEnv(gym.Env):
         self.game = Game()
         self.my_player_id = 0
         self.enemy_id = 1
+        self.max_steps_per_episode = 1000
+        self.steps_taken = 0
 
+        self.actions_in_turn = 0
+        self.max_actions_in_turn = 40
         # Action Space увеличен с 26 до 32
         self.action_space = spaces.Discrete(32)
 
@@ -99,12 +103,17 @@ class HearthstoneEnv(gym.Env):
 
         self.game = Game()
 
+        self.steps_taken = 0
+        self.actions_in_turn = 0
         self.is_targeting = False
         self.pending_spell_hand_index = None
 
         return self._get_obs(), {}
 
     def step(self, action):
+        self.steps_taken += 1
+        self.actions_in_turn += 1
+        truncated = (self.game.turn_count > 50) or (self.steps_taken >= self.max_steps_per_episode)
 
         player = self.game.players[self.my_player_id]
         is_discovering = player.is_discovering
@@ -190,10 +199,10 @@ class HearthstoneEnv(gym.Env):
         if action_type == "WAIT_FOR_TARGET":
             # Мы не идем в game.step, мы просто обновили внутреннее состояние
             # Возвращаем награду 0 и обновленный obs (где is_targeting=1 и is_selected=1)
-            return self._get_obs(), 0.0, False, False, {}
+            return self._get_obs(), 0.0, False, truncated, {}
 
         elif action_type == "CANCEL_CAST":
-            return self._get_obs(), 0.0, False, False, {}
+            return self._get_obs(), 0.0, False, truncated, {}
 
         _, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
 
@@ -231,6 +240,7 @@ class HearthstoneEnv(gym.Env):
 
         # Combat + EndOfTurn
         if action_type == "END_TURN" and not done:
+            self.actions_in_turn = 0
             if player.gold > 2:
                 reward -= 0.1 * player.gold
             self._play_enemy_turn()
@@ -252,7 +262,6 @@ class HearthstoneEnv(gym.Env):
                 else:
                     reward -= 5.0
 
-        truncated = self.game.turn_count > 50
         return self._get_obs(), reward, done, truncated, {}
 
     def _calculate_board_power(self, player):
@@ -517,6 +526,11 @@ class HearthstoneEnv(gym.Env):
         """
         player = self.game.players[self.my_player_id]
         masks = [False] * 32
+
+        # ban stupid swaps
+        if self.actions_in_turn >= self.max_actions_in_turn:
+            masks[0] = True  # Только End Turn
+            return masks
 
         # --- 1. ФАЗА РАСКОПКИ (Discovery) ---
         if player.is_discovering:

@@ -1,81 +1,79 @@
-import gymnasium as gym
 import numpy as np
-from stable_baselines3 import PPO
-
+from sb3_contrib import MaskablePPO
 from hs_env import HearthstoneEnv
+from tqdm import tqdm
 
 
-def evaluate_model(model_path, num_games=100):
+def evaluate(model_path, num_games=1000):
     print(f"Loading model from: {model_path}")
 
     env = HearthstoneEnv()
 
+    # Грузим модель
     try:
-        model = PPO.load(model_path, env=env)
+        model = MaskablePPO.load(model_path)
     except FileNotFoundError:
-        print("Model file not found! Check the path.")
+        print("❌ Model not found! Check path.")
         return
 
-    print(f"\n--- Starting Evaluation ({num_games} games) ---")
+    print(f"\n🥊 STARTING BATTLE ROYALE: {num_games} GAMES")
 
     wins = 0
     losses = 0
     draws = 0
-    total_rewards = []
-    turns_history = []
 
-    for i in range(num_games):
+    # Храним историю ходов, чтобы понять, насколько быстро он убивает
+    turn_counts = []
+
+    for i in tqdm(range(num_games)):
         obs, _ = env.reset()
         done = False
         truncated = False
-        episode_reward = 0
 
         while not done and not truncated:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, truncated, info = env.step(action)
-            episode_reward += reward
+            action_masks = env.action_masks()
 
-        total_rewards.append(episode_reward)
-        turns_history.append(env.game.turn_count)
+            # deterministic=True заставляет агента играть "лучший" ход, а не пробовать варианты
+            action, _ = model.predict(obs, action_masks=action_masks, deterministic=True)
+
+            obs, reward, done, truncated, info = env.step(action)
 
         p0_hp = env.game.players[0].health
         p1_hp = env.game.players[1].health
 
-        result_str = "DRAW"
+        turn_counts.append(env.game.turn_count)
+
         if p0_hp > 0 and p1_hp <= 0:
             wins += 1
-            result_str = "WIN"
         elif p0_hp <= 0 and p1_hp > 0:
             losses += 1
-            result_str = "LOSE"
-            print(
-                f"Game {i + 1}/{num_games} | Result: {result_str} | HP: {p0_hp} vs {p1_hp} | Reward: {episode_reward:.1f}")
-            print([[u.max_atk, u.max_hp, u.card_id] for u in env.game.players[0].board])
-            print([[u.max_atk, u.max_hp, u.card_id] for u in env.game.players[1].board])
         else:
-            draws += 1
+            draws += 1  # infinite swap / both died
 
-        # if (i + 1) % 10 == 0:
-        #     print(
-        #         f"Game {i + 1}/{num_games} | Result: {result_str} | HP: {p0_hp} vs {p1_hp} | Reward: {episode_reward:.1f}")
-
+    # --- STATS ---
     win_rate = (wins / num_games) * 100
-    avg_reward = np.mean(total_rewards)
-    avg_turns = np.mean(turns_history)
+    avg_turns = np.mean(turn_counts)
 
-    print("\n" + "=" * 30)
-    print(f"EVALUATION RESULTS ({num_games} games)")
-    print("=" * 30)
-    print(f"Win Rate:      {win_rate:.1f}%")
-    print(f"Wins:          {wins}")
-    print(f"Losses:        {losses}")
-    print(f"Draws:         {draws}")
-    print(f"Avg Reward:    {avg_reward:.2f}")
-    print(f"Avg Turns:     {avg_turns:.1f}")
-    print("=" * 30)
+    print("\n" + "=" * 40)
+    print(f"📊 FINAL RESULTS ({num_games} games)")
+    print("=" * 40)
+    print(f"🏆 Win Rate:   {win_rate:.2f}%")
+    print(f"✅ Wins:       {wins}")
+    print(f"❌ Losses:     {losses}")
+    print(f"🤝 Draws:      {draws}")
+    print(f"⏱️ Avg Turns:  {avg_turns:.1f}")
+    print("=" * 40)
+
+    if win_rate > 95.0:
+        print("🤖 VERDICT: DOMINATOR (Ready for Tier 2)")
+    elif win_rate > 80.0:
+        print("🤔 VERDICT: GOOD, BUT NOT PERFECT")
+    else:
+        print("💩 VERDICT: NEEDS MORE TRAINING")
 
 
 if __name__ == "__main__":
-    MODEL_PATH = "models/PPO/hs_final"
+    # models/run_id/hs_final
+    MODEL_PATH = "models/xctm4xer/hs_final"
 
-    evaluate_model(MODEL_PATH, num_games=200)
+    evaluate(MODEL_PATH)

@@ -226,7 +226,7 @@ class HearthstoneEnv(gym.Env):
         )
 
         if not is_valid_action:
-            return self._get_obs(), 0, False, False, {}
+            return self._get_obs(), 0, self.game.game_over, truncated, {}
         current_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
         power_delta = (current_board_power - prev_board_power)
         if power_delta > 0:

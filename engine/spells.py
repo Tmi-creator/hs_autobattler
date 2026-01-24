@@ -45,8 +45,8 @@ def _spell_apple(ctx, event: Event, trigger_uid: int) -> None:
         return
     side = event.source_pos.side
 
-    for idx, _ in ctx.iter_store_units(side):
-        ctx.buff_tavern_minion_at_index(side, idx, 1, 2)
+    for idx, unit in ctx.iter_store_units(side):
+        ctx.buff_perm(EntityRef(unit.uid), 1, 2)
 
 
 def _spell_surf_spellcraft(ctx, event: Event, trigger_uid: int) -> None:

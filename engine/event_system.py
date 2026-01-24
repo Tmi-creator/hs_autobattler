@@ -107,14 +107,26 @@ class EffectContext:
         if not ref:
             return None
         pos = self._uid_to_pos.get(ref.uid)
-        if not pos or pos.zone != Zone.BOARD:
+        if not pos:
             return None
         player = self.players_by_uid.get(pos.side)
         if not player:
             return None
-        if pos.slot < 0 or pos.slot >= len(player.board):
-            return None
-        return player.board[pos.slot]
+        if pos.zone == Zone.BOARD:
+            if pos.slot < 0 or pos.slot >= len(player.board):
+                return None
+            return player.board[pos.slot]
+        if pos.zone == Zone.SHOP:
+            if pos.slot < 0 or pos.slot >= len(player.store):
+                return None
+            item = player.store[pos.slot]
+            return item.unit
+        if pos.zone == Zone.HAND:
+            if pos.slot < 0 or pos.slot >= len(player.hand):
+                return None
+            item = player.hand[pos.slot]
+            return item.unit
+        return None
 
     def iter_board_units(self, side: int) -> Iterable[tuple[int, Unit]]:
         player = self.players_by_uid.get(side)
@@ -127,11 +139,16 @@ class EffectContext:
             return None
         return self._uid_to_pos.get(ref.uid)
 
+    def _clear_side_index(self, side: int) -> None:
+        stale_uids = [uid for uid, pos in self._uid_to_pos.items() if pos.side == side]
+        for uid in stale_uids:
+            self._uid_to_pos.pop(uid, None)
+
     def _reindex_side(self, side: int) -> None:
         player = self.players_by_uid.get(side)
         if not player:
             return
-
+        self._clear_side_index(side)
         # 1. BOARD
         for idx, unit in enumerate(player.board):
             self._uid_to_pos[unit.uid] = PosRef(side=side, zone=Zone.BOARD, slot=idx)
@@ -176,9 +193,6 @@ class EffectContext:
         unit.perm_hp_add += hp
         unit.recalc_stats()
 
-    def buff(self, target_ref: EntityRef, atk: int, hp: int) -> None:
-        self.buff_perm(target_ref, atk, hp)
-
     def buff_turn(self, target_ref: EntityRef, atk: int, hp: int) -> None:
         unit = self.resolve_unit(target_ref)
         if not unit:
@@ -206,21 +220,6 @@ class EffectContext:
                 results.append((idx, item.unit))
 
         return results
-
-    def buff_tavern_minion_at_index(self, side: int, index: int, atk: int, hp: int) -> None:
-        """
-        Баффает существо в конкретном слоте таверны (по индексу).
-        """
-        player = self.players_by_uid.get(side)
-        if not player:
-            return
-
-        if index < 0 or index >= len(player.store):
-            return
-
-        item = player.store[index]
-        if item.unit:
-            self.buff_perm(EntityRef(item.unit.uid), atk, hp)
 
     def attach_effect_perm(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
         unit = self.resolve_unit(target_ref)

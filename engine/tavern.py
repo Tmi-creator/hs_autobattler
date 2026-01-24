@@ -8,11 +8,11 @@ from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
 class TavernManager:
-    def __init__(self, pool, spell_pool, event_manager: EventManager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)):
+    def __init__(self, pool, spell_pool, event_manager: EventManager | None = None):
         self.pool = pool
         self.spell_pool = spell_pool
         self._uid_counter = 1000
-        self.event_manager = event_manager
+        self.event_manager = event_manager or EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
 
     def _get_next_uid(self):
         self._uid_counter += 1
@@ -83,7 +83,7 @@ class TavernManager:
         cnt_spells = len([u for u in player.store if u.spell])
         if cnt_spells >= SPELLS_PER_ROLL:
             return
-        spell_ids = self.spell_pool.draw_spells(SPELLS_PER_ROLL, player.tavern_tier)
+        spell_ids = self.spell_pool.draw_spells(SPELLS_PER_ROLL - cnt_spells, player.tavern_tier)
         for spell_id in spell_ids:
             spell = Spell.create_from_db(spell_id)
             player.store.append(StoreItem(spell=spell))

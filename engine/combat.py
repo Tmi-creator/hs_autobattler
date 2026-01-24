@@ -19,9 +19,9 @@ from .event_system import (
 
 
 class CombatManager:
-    def __init__(self, event_manager: EventManager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)):
+    def __init__(self, event_manager: EventManager | None = None):
         self.uid = 10000
-        self.event_manager = event_manager
+        self.event_manager = event_manager or EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
 
     def get_uid(self):
         self.uid += 1

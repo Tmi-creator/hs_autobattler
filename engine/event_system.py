@@ -31,7 +31,7 @@ class EventType(Enum):
     START_OF_TURN = auto()
     END_OF_TURN = auto()
     SPELL_CAST = auto()
-    UNIT_CREATED = auto()
+    MINION_ADDED_TO_SHOP = auto()
 
 
 @dataclass(frozen=True)
@@ -101,7 +101,7 @@ class EffectContext:
         self._event_queue = event_queue
         self._uid_to_pos: Dict[int, PosRef] = {}
         for player_id, player in players_by_uid.items():
-            self._reindex_side(player_id, player.board)
+            self._reindex_side(player_id)
 
     def resolve_unit(self, ref: Optional[EntityRef]) -> Optional[Unit]:
         if not ref:
@@ -127,13 +127,27 @@ class EffectContext:
             return None
         return self._uid_to_pos.get(ref.uid)
 
-    def _reindex_side(self, side: int, board: List[Unit]) -> None:
-        for idx, unit in enumerate(board):
+    def _reindex_side(self, side: int) -> None:
+        player = self.players_by_uid.get(side)
+        if not player:
+            return
+
+        # 1. BOARD
+        for idx, unit in enumerate(player.board):
             self._uid_to_pos[unit.uid] = PosRef(side=side, zone=Zone.BOARD, slot=idx)
+
+        # 2. HAND
+        for idx, card in enumerate(player.hand):
+            self._uid_to_pos[card.uid] = PosRef(side=side, zone=Zone.HAND, slot=idx)
+
+        # 3. SHOP
+        for idx, item in enumerate(player.store):
+            if item.unit:
+                self._uid_to_pos[item.unit.uid] = PosRef(side=side, zone=Zone.SHOP, slot=idx)
 
     def _reindex_all(self) -> None:
         for player_id, player in self.players_by_uid.items():
-            self._reindex_side(player_id, player.board)
+            self._reindex_side(player_id)
 
     def gain_gold(self, side: int, amount: int) -> None:
         player = self.players_by_uid.get(side)
@@ -181,6 +195,33 @@ class EffectContext:
         unit.combat_hp_add += hp
         unit.recalc_stats()
 
+    def iter_store_units(self, side: int) -> list[tuple[int, Unit]]:
+        results = []
+        player = self.players_by_uid.get(side)
+        if not player:
+            return []
+
+        for idx, item in enumerate(player.store):
+            if item.unit:
+                results.append((idx, item.unit))
+
+        return results
+
+    def buff_tavern_minion_at_index(self, side: int, index: int, atk: int, hp: int) -> None:
+        """
+        Баффает существо в конкретном слоте таверны (по индексу).
+        """
+        player = self.players_by_uid.get(side)
+        if not player:
+            return
+
+        if index < 0 or index >= len(player.store):
+            return
+
+        item = player.store[index]
+        if item.unit:
+            self.buff_perm(EntityRef(item.unit.uid), atk, hp)
+
     def attach_effect_perm(self, target_ref: EntityRef, effect_id: str, count: int = 1) -> None:
         unit = self.resolve_unit(target_ref)
         if not unit:
@@ -208,7 +249,7 @@ class EffectContext:
         index = max(0, min(insert_index, len(player.board)))
         unit = Unit.create_from_db(card_id, self._uid_provider(), side, is_golden)
         player.board.insert(index, unit)
-        self._reindex_side(side, player.board)
+        self._reindex_side(side)
         summoned = EntityRef(uid=unit.uid)
         pos = self._uid_to_pos.get(unit.uid)
         self.emit_event(

@@ -8,11 +8,11 @@ from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
 class TavernManager:
-    def __init__(self, pool, spell_pool):
+    def __init__(self, pool, spell_pool, event_manager: EventManager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)):
         self.pool = pool
         self.spell_pool = spell_pool
         self._uid_counter = 1000
-        self.event_manager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
+        self.event_manager = event_manager
 
     def _get_next_uid(self):
         self._uid_counter += 1

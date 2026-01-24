@@ -4,6 +4,11 @@ from typing import Dict, List, Callable
 from .configs import TIER_COPIES, CARD_DB, SPELL_DB
 from .enums import CardIDs, SpellIDs
 
+'''
+WE ASSUME THAT CARDS IN POOL ARE INFINITE, SO POOL CAN'T HAVE LESS CARDS THAN WE ASK
+USUALLY IT'S BECAUSE WE HAVE A LOT OF CARDS AND COPIES OF THEM
+'''
+
 
 class CardPool:
     def __init__(self):

@@ -282,6 +282,8 @@ class TavernManager:
                 self._check_triplet(player, chosen_item.unit.card_id)
                 return True, f"Discovered {chosen_item.unit.card_id}"
             # тут дальше будут спеллы раскапываться
+        if chosen_item.unit:
+            self.pool.return_cards([chosen_item.unit.card_id])  # return burned card
         return True, "Discovered (Burned)"
 
     def _check_triplet(self, player: Player, card_id: str):
@@ -357,6 +359,9 @@ class TavernManager:
 
         golden_unit.recalc_stats()
         golden_unit.restore_stats()
+
+        if len(player.hand) >= 10:
+            return
 
         player.hand.append(HandCard(uid=golden_unit.uid, unit=golden_unit))
 

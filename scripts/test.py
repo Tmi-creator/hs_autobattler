@@ -1,6 +1,6 @@
 import numpy as np
 from sb3_contrib import MaskablePPO
-from hs_env import HearthstoneEnv
+from src.hearthstone.env.hs_env import HearthstoneEnv
 from tqdm import tqdm
 
 

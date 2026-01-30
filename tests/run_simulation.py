@@ -1,12 +1,12 @@
 import random
 
-from engine.configs import CARD_DB
-from engine.enums import MechanicType, CardIDs, SpellIDs, Tags
-from engine.game import Game
-from engine.entities import HandCard, Player, Unit, Spell
-from engine.pool import CardPool, SpellPool
-from engine.tavern import TavernManager
-from engine.combat import CombatManager
+from src.hearthstone import CARD_DB
+from src.hearthstone import MechanicType, CardIDs, SpellIDs, Tags
+from src.hearthstone import Game
+from src.hearthstone import HandCard, Player, Unit, Spell
+from src.hearthstone import CardPool, SpellPool
+from src.hearthstone import TavernManager
+from src.hearthstone import CombatManager
 
 
 def print_player_state(player, name):

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hearthstone"
+version = "0.1.0"
+description = "RL Environment and Simulator for HS Battlegrounds"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "gymnasium",
+    "torch",
+    "stable-baselines3",
+    "sb3-contrib",
+    "wandb",
+    "tqdm"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",     # Авто-форматтер (советую!)
+    "ruff",      # Линтер (очень быстрый)
+    "mypy"       # Проверка типов
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

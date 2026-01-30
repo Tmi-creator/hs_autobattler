@@ -2,7 +2,6 @@ import os
 import random
 import numpy as np
 import torch
-import gymnasium as gym
 import wandb
 from wandb.integration.sb3 import WandbCallback
 
@@ -11,12 +10,10 @@ from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import VecNormalize
 
-from hs_env import HearthstoneEnv
+from src.hearthstone.env.hs_env import HearthstoneEnv
 
 
 # --- ГЛАВНАЯ ФУНКЦИЯ ДЕТЕРМИНИЗМА ---

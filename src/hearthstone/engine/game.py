@@ -1,10 +1,10 @@
-import random
-from typing import List, Tuple, Dict
-from .entities import Player, Unit
+from typing import List, Tuple
+
+from .combat import CombatManager
+from .entities import Player
 from .enums import BattleOutcome
 from .pool import CardPool, SpellPool
 from .tavern import TavernManager
-from .combat import CombatManager
 
 
 class Game:

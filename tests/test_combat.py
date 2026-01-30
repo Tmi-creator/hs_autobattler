@@ -1,6 +1,6 @@
-from src.hearthstone.engine import CombatManager
-from src.hearthstone.engine import Unit, Player
-from src.hearthstone.engine.configs import CardIDs
+from hearthstone.engine.combat import CombatManager
+from hearthstone.engine.entities import Unit, Player
+from hearthstone.engine.enums import CardIDs
 board1 = [Unit.create_from_db(CardIDs.ANNOY_O_TRON, 1, 1)]
 board2 = [Unit.create_from_db(CardIDs.SCALLYWAG, 2, 2)]
 

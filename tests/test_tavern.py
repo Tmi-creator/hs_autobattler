@@ -1,6 +1,6 @@
-from src.hearthstone.engine import Player
-from src.hearthstone.engine.pool import CardPool, SpellPool
-from src.hearthstone.engine.tavern import TavernManager
+from hearthstone.engine.entities import Player
+from hearthstone.engine.pool import CardPool, SpellPool
+from hearthstone.engine.tavern import TavernManager
 
 global_pool = CardPool()
 spell_pool = SpellPool()

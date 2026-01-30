@@ -13,7 +13,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.utils import set_random_seed
 
-from src.hearthstone.env.hs_env import HearthstoneEnv
+from hearthstone.env.hs_env import HearthstoneEnv
 
 
 # --- ГЛАВНАЯ ФУНКЦИЯ ДЕТЕРМИНИЗМА ---

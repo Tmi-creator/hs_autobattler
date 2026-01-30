@@ -1,8 +1,8 @@
 import unittest
-from src.hearthstone.engine.pool import CardPool, SpellPool
-from src.hearthstone.engine.tavern import TavernManager
-from src.hearthstone.engine import Player, Unit, HandCard, Spell
-from src.hearthstone.engine.enums import CardIDs, SpellIDs
+from hearthstone.engine.pool import CardPool, SpellPool
+from hearthstone.engine.tavern import TavernManager
+from hearthstone.engine.entities import Player, Unit, HandCard, Spell
+from hearthstone.engine.enums import CardIDs, SpellIDs
 
 
 class TestGoldenLogic(unittest.TestCase):

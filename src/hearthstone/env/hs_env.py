@@ -48,6 +48,8 @@ class HearthstoneEnv(gym.Env):
         # Action Space увеличен с 26 до 32
         self.action_space = spaces.Discrete(32)
 
+        self.opponent_model = None
+
         self.all_types = list(UnitType)
         self.num_types = len(self.all_types)  # 11
 
@@ -109,6 +111,9 @@ class HearthstoneEnv(gym.Env):
         self.pending_spell_hand_index = None
 
         return self._get_obs(), {}
+
+    def set_opponent(self, model):
+        self.opponent_model = model
 
     def step(self, action):
         self.steps_taken += 1
@@ -202,7 +207,7 @@ class HearthstoneEnv(gym.Env):
             return self._get_obs(), 0.0, False, truncated, {}
 
         elif action_type == "CANCEL_CAST":
-            return self._get_obs(), 0.0, False, truncated, {}
+            return self._get_obs(), -0.01, False, truncated, {}
 
         _, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
 
@@ -234,9 +239,8 @@ class HearthstoneEnv(gym.Env):
         if action_type == "UPGRADE":  # Поощряем прокачку таверны
             pass  # right now no need to up tavern
             reward += 0.5
-
-        if action_type == "DISCOVER_CHOICE":  # Раскопка это почти всегда хорошо
-            reward += 0.5
+        if action_type == "SWAP":
+            reward -= 0.01
 
         # Combat + EndOfTurn
         if action_type == "END_TURN" and not done:
@@ -304,8 +308,75 @@ class HearthstoneEnv(gym.Env):
         return power
 
     def _play_enemy_turn(self):
-        """Простейший бот: покупает рандомно, ставит всё, выбирает первое в раскопке"""
         p_idx = self.enemy_id
+
+        if self.opponent_model is None:
+            self._simple_bot_turn(p_idx)
+            return
+
+        self.is_targeting = False
+        self.pending_spell_hand_index = None
+
+        max_actions = 30
+
+        for _ in range(max_actions):
+            obs = self._get_obs(player_idx=p_idx)
+
+            masks = self.action_masks(player_idx=p_idx)
+
+            import torch
+            with torch.no_grad(): # no gradients
+                action, _ = self.opponent_model.predict(obs, action_masks=masks, deterministic=False)
+            action = int(action)
+
+            # === TARGET SPELL ===
+            if self.is_targeting:
+                if action == 0:  # CANCEL
+                    self.is_targeting = False
+                    self.pending_spell_hand_index = None
+                    continue
+
+                if 2 <= action <= 8:
+                    target_idx = action - 2
+                    hand_idx = self.pending_spell_hand_index
+
+                    self.game.step(p_idx, "PLAY", hand_index=hand_idx, target_index=target_idx)
+                    self.is_targeting = False
+                    self.pending_spell_hand_index = None
+                    continue
+                else:
+                    self.is_targeting = False
+                    self.pending_spell_hand_index = None
+                    continue
+
+            if action == 0:  # END_TURN
+                break
+
+            action_type, kwargs = self._decode_action_for_engine(action)
+
+            if action_type == "WAIT_FOR_TARGET":
+                self.pending_spell_hand_index = kwargs.get('hand_index')
+                self.is_targeting = True
+                continue
+
+            self.game.step(p_idx, action_type, **kwargs)
+
+        self.game.step(p_idx, "END_TURN")
+        self.is_targeting = False
+        self.pending_spell_hand_index = None
+
+    def _decode_action_for_engine(self, action):
+        if action == 1: return "ROLL", {}
+        if 2 <= action <= 8: return "BUY", {'index': action - 2}
+        if 9 <= action <= 15: return "SELL", {'index': action - 9}
+        if 16 <= action <= 25:
+            return "PLAY", {'hand_index': action - 16, 'insert_index': -1}
+        if 26 <= action <= 31:
+            return "SWAP", {'index_a': action - 26, 'index_b': action - 26 + 1}
+        return "UNKNOWN", {}
+
+    def _simple_bot_turn(self, p_idx):
+        """Простейший бот: покупает рандомно, ставит всё, выбирает первое в раскопке"""
         player = self.game.players[p_idx]
 
         if player.is_discovering and player.discovery.options:
@@ -339,9 +410,12 @@ class HearthstoneEnv(gym.Env):
 
         self.game.step(p_idx, "END_TURN")
 
-    def _get_obs(self):
-        p = self.game.players[self.my_player_id]
-        e = self.game.players[self.enemy_id]
+    def _get_obs(self, player_idx=None):
+        p_id = self.my_player_id if player_idx is None else player_idx
+        e_id = 1 - p_id
+
+        p = self.game.players[p_id]
+        e = self.game.players[e_id]
 
         # 1. Global (7)
         global_features = [
@@ -518,13 +592,14 @@ class HearthstoneEnv(gym.Env):
 
         return vec
 
-    def action_masks(self):
+    def action_masks(self, player_idx=None):
         """
         Возвращает булеву маску валидных действий:
         True - действие доступно, False - запрещено.
         Порядок индексов соответствует action_space (Discrete 32).
         """
-        player = self.game.players[self.my_player_id]
+        p_id = self.my_player_id if player_idx is None else player_idx
+        player = self.game.players[p_id]
         masks = [False] * 32
 
         # ban stupid swaps
@@ -575,7 +650,8 @@ class HearthstoneEnv(gym.Env):
 
         # SWAP (26-31)
         for i in range(6):
-            masks[26 + i] = (i + 1 < len(player.board))
+            masks[26 + i] = False  # now he's very stupid, so he cant handle this power of choice
+            # masks[26 + i] = (i + 1 < len(player.board))
 
         return masks
 

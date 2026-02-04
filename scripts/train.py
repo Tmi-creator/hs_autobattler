@@ -10,10 +10,12 @@ from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.utils import set_random_seed
 
 from hearthstone.env.hs_env import HearthstoneEnv
+
+from scripts.callbacks import GameLoggerCallback, SelfPlayCallback
 
 
 # --- ГЛАВНАЯ ФУНКЦИЯ ДЕТЕРМИНИЗМА ---
@@ -59,7 +61,7 @@ def main():
     # 1. Настройки
     config = {
         "policy_type": "MlpPolicy",
-        "total_timesteps": 300_000,
+        "total_timesteps": 500_000,
         "learning_rate": 0.0003,
         "gamma": 0.99,
         "batch_size": 256,
@@ -91,7 +93,7 @@ def main():
     print(f"Initializing {config['n_envs']} parallel environments...")
 
     # make_vec_env сама передаст seed + rank в каждый подпроцесс
-    env = DummyVecEnv(
+    env = SubprocVecEnv(
         [make_env(i, SEED) for i in range(config["n_envs"])]
     )
 
@@ -118,8 +120,16 @@ def main():
         seed=SEED,
         device="cuda" if torch.cuda.is_available() else "auto"
     )
+    logs_dir = f"logs/{run.id}"
+    os.makedirs(logs_dir, exist_ok=True)
 
     print(f"Starting training for {config['total_timesteps']} timesteps...")
+
+    # === CALLBACKS ===
+    game_logger = GameLoggerCallback(
+        check_freq=15000,
+        log_dir=logs_dir
+    )
 
     checkpoint_callback = CheckpointCallback(
         save_freq=50000 // config["n_envs"],
@@ -133,9 +143,14 @@ def main():
         verbose=2,
     )
 
+    self_play_callback = SelfPlayCallback(
+        update_freq=15000,
+        model_save_path=models_dir
+    )
+
     model.learn(
         total_timesteps=config["total_timesteps"],
-        callback=[checkpoint_callback, wandb_callback]
+        callback=[checkpoint_callback, wandb_callback, game_logger, self_play_callback]
     )
 
     model.save(f"{models_dir}/hs_final")

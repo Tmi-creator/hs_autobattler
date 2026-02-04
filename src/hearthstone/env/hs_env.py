@@ -40,11 +40,11 @@ class HearthstoneEnv(gym.Env):
         self.game = Game()
         self.my_player_id = 0
         self.enemy_id = 1
-        self.max_steps_per_episode = 1000
+        self.max_steps_per_episode = 500
         self.steps_taken = 0
 
         self.actions_in_turn = 0
-        self.max_actions_in_turn = 40
+        self.max_actions_in_turn = 30
         # Action Space увеличен с 26 до 32
         self.action_space = spaces.Discrete(32)
 

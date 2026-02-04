@@ -41,7 +41,7 @@ class GameLoggerCallback(BaseCallback):
             action_str = self._decode_action(int(action))
 
             log_lines.append(f"## Turn {self.eval_env.game.turn_count} | HP: {player.health} | Gold: {player.gold}")
-            log_lines.append(f"**Shop**: {self._format_shop(player.economy.store)}")
+            log_lines.append(f"**Shop**: {self._format_shop(player.store)}")
             log_lines.append(f"**Board**: {self._format_board(player.board)}")
             log_lines.append(f"**Hand**: {self._format_hand(player.hand)}")
             log_lines.append(f"> **ACTION**: `{action_str}`")

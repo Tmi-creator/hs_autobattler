@@ -267,6 +267,7 @@ class HearthstoneEnv(gym.Env):
             self.actions_in_turn = 0
             if player.gold > 2:
                 reward -= 0.1 * player.gold
+            self._auto_position_board(player)
             self._play_enemy_turn()
             done = self.game.game_over
 
@@ -293,6 +294,34 @@ class HearthstoneEnv(gym.Env):
                 reward -= 0.2 # punish for every move while not played
 
         return self._get_obs(), reward, done, truncated, {}
+
+    def _auto_position_board(self, player):
+        """
+        Эвристика для авто-расстановки (так как SWAP отключен):
+        1. Клив (Cleave) - бьет первым (максимальный вэлью).
+        2. Яд/Токсичность - чтобы убить жирного таунта врага.
+        3. Божественный щит + Высокая атака.
+        4. Просто высокая атака.
+        5. В самом конце (справа) - слабые юниты и таунты (если это "стенки").
+        """
+        if not player.board:
+            return
+
+        def sort_key(unit):
+            score = 0
+            # Приоритеты (чем выше score, тем левее стоит юнит)
+            if unit.has_cleave: score += 10000
+            if unit.has_poisonous or unit.has_venomous: score += 5000
+            if unit.has_divine_shield: score += 1000
+
+            # Сортируем по атаке (сильные бьют раньше)
+            score += unit.cur_atk
+
+            if unit.has_taunt and unit.cur_atk < 5: score -= 2000
+
+            return score
+
+        player.board.sort(key=sort_key, reverse=True)
 
     def _calculate_board_power(self, player):
         power = 0

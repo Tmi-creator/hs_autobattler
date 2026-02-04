@@ -73,7 +73,7 @@ SPELL_DB = {
     SpellIDs.TAVERN_COIN: {"name": "Tavern Coin", "tier": 1, "cost": 1, "effect": "GAIN_GOLD", "params": {"gold": 1}},
     SpellIDs.BANANA: {"name": "Banana", "tier": 1, "cost": 3, "effect": "BUFF_MINION", "params": {"atk": 2, "hp": 2}},
     SpellIDs.BLOOD_GEM: {"name": "Blood Gem", "tier": 0, "cost": 0, "effect": "BUFF_MINION",
-                         "params": {"atk": 1, "hp": 1}},
+                         "params": {"atk": 1, "hp": 1}, "pool": False,},
     SpellIDs.POINTY_ARROW: {"name": "Pointy Arrow", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
                             "params": {"atk": 4, "hp": 0}},
     SpellIDs.FORTIFY: {"name": "Fortify", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
@@ -85,13 +85,15 @@ SPELL_DB = {
         "cost": 0,
         "effect": "ATTACH_CRAB_DR",
         "params": {"effect_id": EffectIDs.CRAB_DEATHRATTLE, "count": 1},
-        "is_temporary": True
+        "is_temporary": True,
+        "pool": False,
     },
     SpellIDs.TRIPLET_REWARD: {
         "name": "Triple Reward",
         "tier": 1,
         "cost": 0,
         "effect": "DISCOVER_TIER_UP",
-        "is_temporary": False
+        "is_temporary": False,
+"pool": False,
     },
 }

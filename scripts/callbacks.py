@@ -41,6 +41,7 @@ class GameLoggerCallback(BaseCallback):
             action_str = self._decode_action(int(action))
 
             log_lines.append(f"## Turn {self.eval_env.game.turn_count} | HP: {player.health} | Gold: {player.gold}")
+            log_lines.append(f"**Shop**: {self._format_shop(player.economy.store)}")
             log_lines.append(f"**Board**: {self._format_board(player.board)}")
             log_lines.append(f"**Hand**: {self._format_hand(player.hand)}")
             log_lines.append(f"> **ACTION**: `{action_str}`")
@@ -66,13 +67,17 @@ class GameLoggerCallback(BaseCallback):
         return " | ".join([f"{u.card_id}({u.cur_atk}/{u.cur_hp})" for u in board]) if board else "Empty"
 
     def _format_hand(self, hand):
-        # Исправлено обращение к hand (там объекты HandCard, а не card_id напрямую)
         return ", ".join([c.unit.card_id if c.unit else c.spell.card_id for c in hand]) if hand else "Empty"
 
-    def _decode_action(self, action):
+    def _format_shop(self, shop):
+        return ", ".join([c.unit.card_id if c.unit else c.spell.card_id for c in shop]) if shop else "Empty"
+
+    def _decode_action(self, action, is_targeting=False):
         if action == 0: return "END_TURN"
         if action == 1: return "ROLL"
-        if 2 <= action <= 8: return f"BUY/TARGET_BOARD {action - 2}"
+        if 2 <= action <= 8:
+            if is_targeting: return f"TARGET_BOARD {action - 2}"
+            else: return f"BUY {action - 2}"
         if 9 <= action <= 15: return f"SELL {action - 9}"
         if 16 <= action <= 25: return f"PLAY {action - 16}"
         if 26 <= action <= 31: return f"SWAP {action - 26}"

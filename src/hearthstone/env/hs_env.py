@@ -127,6 +127,10 @@ class HearthstoneEnv(gym.Env):
         action_type = "UNKNOWN"
         kwargs = {}
 
+        reward = 0
+        done = False
+        info = "Unknown"
+
         if is_discovering:
             # В раскопке работают только слоты покупки как выбор (2-4 -> 0-2)
             if 2 <= action <= 4:
@@ -164,6 +168,25 @@ class HearthstoneEnv(gym.Env):
             elif 2 <= action <= 8:
                 action_type = "BUY"
                 kwargs['index'] = action - 2
+
+                # === [NEW] REWARD BEFORE BUY TRIPLE ===
+                buy_index = action - 2
+                if buy_index < len(player.store):
+                    store_item = player.store[buy_index]
+                    if store_item.unit:
+                        card_id = store_item.unit.card_id
+
+                        # count cards
+                        count_on_board = sum(1 for u in player.board if u.card_id == card_id)
+                        count_in_hand = sum(1 for c in player.hand if c.unit and c.unit.card_id == card_id)
+
+                        total_copies = count_on_board + count_in_hand
+                        # big reward for triple
+                        if total_copies == 2:
+                            reward += 2.5
+                        # not really big for pair
+                        elif total_copies == 1:
+                            reward += 0.5
             elif 9 <= action <= 15:
                 action_type = "SELL"
                 kwargs['index'] = action - 9
@@ -197,9 +220,6 @@ class HearthstoneEnv(gym.Env):
         p1_hp_before = self.game.players[self.enemy_id].health
 
         # Engine run
-        reward = 0
-        done = False
-        info = "Unknown"
 
         if action_type == "WAIT_FOR_TARGET":
             # Мы не идем в game.step, мы просто обновили внутреннее состояние
@@ -266,6 +286,12 @@ class HearthstoneEnv(gym.Env):
                 else:
                     reward -= 5.0
 
+        if len(player.hand) >= 10: # punish for bullshit blocking good cards in hand
+            reward -= 0.5
+        for card in player.hand:
+            if card.spell and card.spell.card_id == "S999":
+                reward -= 0.2 # punish for every move while not played
+
         return self._get_obs(), reward, done, truncated, {}
 
     def _calculate_board_power(self, player):
@@ -325,7 +351,7 @@ class HearthstoneEnv(gym.Env):
             masks = self.action_masks(player_idx=p_idx)
 
             import torch
-            with torch.no_grad(): # no gradients
+            with torch.no_grad():  # no gradients
                 action, _ = self.opponent_model.predict(obs, action_masks=masks, deterministic=False)
             action = int(action)
 
@@ -601,34 +627,36 @@ class HearthstoneEnv(gym.Env):
         p_id = self.my_player_id if player_idx is None else player_idx
         player = self.game.players[p_id]
         masks = [False] * 32
+        # [0] End Turn - always available
+        masks[0] = True
 
         # ban stupid swaps
         if self.actions_in_turn >= self.max_actions_in_turn:
             masks[0] = True  # Только End Turn
             return masks
 
-        # --- 1. ФАЗА РАСКОПКИ (Discovery) ---
+        # === 1. DISCOVERY PHASE ===
         if player.is_discovering:
             num_options = len(player.discovery.options)
             for i in range(num_options):
                 masks[2 + i] = True
             return masks
 
-        # --- 2. ФАЗА ВЫБОРА ЦЕЛИ (Targeting) ---
+        # === 2. TARGETING PHASE ===
         if self.is_targeting:
             masks[0] = True  # Cancel cast
             # idx: 2 + i
             board_len = len(player.board)
+            has_valid_target = board_len > 0
             for i in range(board_len):
                 masks[2 + i] = True
+            if has_valid_target:  # stop cast/cancel cycle
+                masks[0] = False
             return masks
 
-        # --- 3. ОБЫЧНАЯ ФАЗА ---
+        # === 3. DEFAULT PHASE ===
 
-        # [0] End Turn - always available
-        masks[0] = True
-
-        # [1] Roll - доступно, если есть 1 золотой
+        # [1] Roll - gold >= 1
         if player.gold >= 1:
             masks[1] = True
 

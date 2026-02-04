@@ -105,6 +105,8 @@ class SpellPool:
 
     def _initialize_pool(self):
         for spell_id, data in SPELL_DB.items():
+            if not data.get("pool", True):
+                continue
             tier = data["tier"]
             self.tiers.setdefault(tier, []).append(spell_id)
 

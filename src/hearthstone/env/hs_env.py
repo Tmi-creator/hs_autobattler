@@ -231,29 +231,12 @@ class HearthstoneEnv(gym.Env):
         elif action_type == "CANCEL_CAST":
             return self._get_obs(), -0.01, False, truncated, {}
 
-        done, info = self.game.step(self.my_player_id, action_type, **kwargs)
+        success, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
 
         # Errors
-        is_valid_action = (
-                info != "Not enough gold" and
-                info != "Board is full" and
-                info != "Hand is full" and
-                info != "Invalid index" and
-                info != "Invalid hand index" and
-                info != "Unknown Action" and
-                info != "Must choose discovery" and
-                info != "Player already ready" and
-                info != "Max tier reached" and
-                info != "Empty slot" and
-                info != "Invalid indices" and
-                info != "Same index" and
-                info != "Not discovering" and
-                info != "No spell to cast" and
-                info != "Invalid target"
-        )
-
-        if not is_valid_action:
+        if not success:
             return self._get_obs(), 0, self.game.game_over, truncated, {}
+
         current_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
         power_delta = (current_board_power - prev_board_power)
         if power_delta > 0:
@@ -414,11 +397,9 @@ class HearthstoneEnv(gym.Env):
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
                     continue
-
                 if 2 <= action <= 8:
                     target_idx = action - 2
                     hand_idx = self.pending_spell_hand_index
-
                     self.game.step(p_idx, "PLAY", hand_index=hand_idx, target_index=target_idx)
                     self.is_targeting = False
                     self.pending_spell_hand_index = None

@@ -31,22 +31,22 @@ class Game:
         for p in self.players:
             self.tavern.start_turn(p, self.turn_count)
 
-    def step(self, player_idx: int, action_type: str, **kwargs) -> Tuple[bool, str]:
+    def step(self, player_idx: int, action_type: str, **kwargs) -> Tuple[bool, bool, str]:
         """
-        Выполняет действие агента.
-        Возвращает: (Done, Info)
+        Make agent move
+        Return: [Success, Done, Info]
         """
         if self.game_over:
-            return True, "Game Over"
+            return True, True, "Game Over"
         player = self.players[player_idx]
         info = "Unknown Action"
 
         if player.is_discovering and action_type != "DISCOVER_CHOICE":
-            return False, "Must choose discovery"
+            return False, False, "Must choose discovery"
 
         if self.players_ready.get(player_idx, False) and action_type != "END_TURN":
-            return False, "Player already ready"
-
+            return False, False, "Player already ready"
+        success = False
         if action_type == "END_TURN":
             self.tavern.end_turn(player)
             self.players_ready[player_idx] = True
@@ -81,11 +81,11 @@ class Game:
             if not self.game_over:
                 self.players_ready = {0: False, 1: False}
 
-        return self.game_over, info
+        return success, self.game_over, info
 
     def _resolve_combat_phase(self, current_agent_idx: int):
         """
-        Проводит бой, начисляет урон, обновляет ход.
+        Init combat, deal damage, update turns.
         """
         p0, p1 = self.players[0], self.players[1]
 

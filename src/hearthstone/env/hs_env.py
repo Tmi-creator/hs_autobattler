@@ -376,7 +376,7 @@ class HearthstoneEnv(gym.Env):
         if self.opponent_model is None:
             self._simple_bot_turn(p_idx)
             return
-
+        player = self.game.players[p_idx]
         self.is_targeting = False
         self.pending_spell_hand_index = None
 
@@ -392,33 +392,37 @@ class HearthstoneEnv(gym.Env):
                 action, _ = self.opponent_model.predict(obs, action_masks=masks, deterministic=False)
             action = int(action)
 
-            # === TARGET SPELL ===
-            if self.is_targeting:
-                if action == 0:  # CANCEL
+            if action == 0:
+                if self.is_targeting:  # CANCEL
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
                     continue
+                else:
+                    break  # END TURN
+
+            # TARGET SPELL
+            if self.is_targeting:
                 if 2 <= action <= 8:
                     target_idx = action - 2
                     hand_idx = self.pending_spell_hand_index
                     self.game.step(p_idx, "PLAY", hand_index=hand_idx, target_index=target_idx)
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
-                    continue
-                else:
-                    self.is_targeting = False
-                    self.pending_spell_hand_index = None
-                    continue
-
-            if action == 0:  # END_TURN
-                break
+                continue
 
             action_type, kwargs = self._decode_action_for_engine(action)
 
-            if action_type == "WAIT_FOR_TARGET":
-                self.pending_spell_hand_index = kwargs.get('hand_index')
-                self.is_targeting = True
-                continue
+            if action_type == "PLAY":
+                h_idx = kwargs.get('hand_index')
+                if h_idx is not None and h_idx < len(player.hand):
+                    card = player.hand[h_idx]
+                    card_id = getattr(card.spell, 'card_id', None) if card.spell else getattr(card.unit, 'card_id',
+                                                                                              None)
+
+                    if card_id in SPELLS_REQUIRE_TARGET:
+                        self.pending_spell_hand_index = h_idx
+                        self.is_targeting = True
+                        continue
 
             self.game.step(p_idx, action_type, **kwargs)
 

@@ -57,9 +57,9 @@ CARD_DB = {
     CardIDs.FLIGHTY_SCOUT: {"name": "Flighty Scout", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.MURLOC]},
 
     # --- TIER 2 ---
-    CardIDs.LEAPFROGGER: {"name": "Leapfrogger", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.BEAST],
+    CardIDs.LEAPFROGGER: {"name": "Leapfrogger", "tier": 2, "atk": 4, "hp": 5, "type": [UnitType.BEAST],
                           "deathrattle": True},
-    CardIDs.MOLTEN_ROCK: {"name": "Molten Rock", "tier": 2, "atk": 2, "hp": 4, "type": [UnitType.ELEMENTAL],
+    CardIDs.MOLTEN_ROCK: {"name": "Molten Rock", "tier": 2, "atk": 4, "hp": 7, "type": [UnitType.ELEMENTAL],
                           "tags": {Tags.TAUNT}},
 
     # --- TOKENS ---

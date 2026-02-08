@@ -207,6 +207,8 @@ class HearthstoneEnv(gym.Env):
                         action_type = "PLAY"
                         kwargs['hand_index'] = h_idx
                         kwargs['insert_index'] = -1
+                        if card.spell and card.spell.card_id == "S999":
+                            reward += 3.0
                 else:
                     action_type = "INVALID_HAND_INDEX"
             elif 26 <= action <= 31:
@@ -229,7 +231,7 @@ class HearthstoneEnv(gym.Env):
         elif action_type == "CANCEL_CAST":
             return self._get_obs(), -0.01, False, truncated, {}
 
-        _, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
+        done, info = self.game.step(self.my_player_id, action_type, **kwargs)
 
         # Errors
         is_valid_action = (
@@ -267,6 +269,28 @@ class HearthstoneEnv(gym.Env):
             self.actions_in_turn = 0
             if player.gold > 2:
                 reward -= 0.1 * player.gold
+
+            if self.game.turn_count < 9:  # penalty in early game for waiting
+                if len(player.board) < 7:
+                    has_unit_in_hand = False
+                    for card in player.hand:
+                        if card.unit:
+                            has_unit_in_hand = True
+                            break
+
+                    if has_unit_in_hand:
+                        penalty = 1.5 if self.game.turn_count < 4 else 0.8
+                        reward -= penalty
+
+            # less pain for spells
+            has_utility_spell = False
+            for card in player.hand:
+                if card.spell and card.spell.card_id not in ["S999"]:
+                    has_utility_spell = True
+                    break
+            if has_utility_spell and len(player.board) > 0:
+                reward -= 0.5
+
             self._auto_position_board(player)
             self._play_enemy_turn()
             done = self.game.game_over
@@ -287,11 +311,11 @@ class HearthstoneEnv(gym.Env):
                 else:
                     reward -= 5.0
 
-        if len(player.hand) >= 10: # punish for bullshit blocking good cards in hand
+        if len(player.hand) >= 10:  # punish for bullshit blocking good cards in hand
             reward -= 0.5
         for card in player.hand:
             if card.spell and card.spell.card_id == "S999":
-                reward -= 0.2 # punish for every move while not played
+                reward -= 0.2  # punish for every move while not played
 
         return self._get_obs(), reward, done, truncated, {}
 

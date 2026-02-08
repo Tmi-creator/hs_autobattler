@@ -72,11 +72,12 @@ class CombatManager:
             for i in range(len(attacker_board)):
                 if attacker_board[attacker_idx].cur_atk == 0:
                     attacker_idx += 1
+                    if attacker_idx >= len(attacker_board):
+                        attacker_idx = 0
                 else:
                     make_attack = True
                     break
-                if attack_indices[attacker_player_idx] >= len(attacker_board):
-                    attack_indices[attacker_player_idx] = 0
+
             if not make_attack:
                 can_attack[attacker_player_idx] = 0
                 continue
@@ -103,7 +104,7 @@ class CombatManager:
                     return end_battle
 
             if attacker_unit.is_alive:
-                attack_indices[attacker_player_idx] += 1
+                attack_indices[attacker_player_idx] = attacker_idx + 1
 
             attacker_player_idx = 1 - attacker_player_idx
 

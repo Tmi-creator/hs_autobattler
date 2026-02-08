@@ -663,8 +663,6 @@ class HearthstoneEnv(gym.Env):
         p_id = self.my_player_id if player_idx is None else player_idx
         player = self.game.players[p_id]
         masks = [False] * 32
-        # [0] End Turn - always available
-        masks[0] = True
 
         # ban stupid swaps
         if self.actions_in_turn >= self.max_actions_in_turn:
@@ -691,6 +689,9 @@ class HearthstoneEnv(gym.Env):
             return masks
 
         # === 3. DEFAULT PHASE ===
+
+        # [0] End Turn - always available
+        masks[0] = True
 
         # [1] Roll - gold >= 1
         if player.gold >= 1:

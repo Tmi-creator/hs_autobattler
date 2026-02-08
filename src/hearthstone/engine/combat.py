@@ -50,11 +50,16 @@ class CombatManager:
             attacker_player_idx = random.choice([0, 1])
 
         attack_indices = [0, 0]
-
+        can_attack = [1, 1]
         while True:
             end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
             if end_battle[0] != BattleOutcome.NO_END:
                 return end_battle
+            if can_attack == [0, 0]:
+                return BattleOutcome.DRAW, 0
+            if can_attack[attacker_player_idx] == 0:
+                attacker_player_idx = 1 - attacker_player_idx
+                continue
             attacker_board = boards[attacker_player_idx]
             defender_board = boards[1 - attacker_player_idx]
 
@@ -62,6 +67,18 @@ class CombatManager:
                 attack_indices[attacker_player_idx] = 0
 
             attacker_idx = attack_indices[attacker_player_idx]
+            make_attack = False
+            for i in range(len(attacker_board)):
+                if attacker_board[attacker_idx].cur_atk == 0:
+                    attacker_idx += 1
+                else:
+                    make_attack = True
+                    break
+                if attack_indices[attacker_player_idx] >= len(attacker_board):
+                    attack_indices[attacker_player_idx] = 0
+            if not make_attack:
+                can_attack[attacker_player_idx] = 0
+                continue
             attacker_unit = attacker_board[attacker_idx]
             num_attacks = 1
             if attacker_unit.has_windfury:

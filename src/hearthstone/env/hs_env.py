@@ -5,19 +5,19 @@ from gymnasium import spaces
 
 from hearthstone.engine.game import Game
 from hearthstone.engine.enums import UnitType
-from hearthstone.engine.configs import CARD_DB
 from hearthstone.engine.effects import TRIGGER_REGISTRY
 from hearthstone.engine.event_system import EventType
 from hearthstone.engine.spells import SPELLS_REQUIRE_TARGET
+from hearthstone.engine.configs import CARD_DB, SPELL_DB
 
 # Константы нормализации
-MAX_ATK = 50.0
-MAX_HP = 50.0
-MAX_GOLD = 10.0
+MAX_ATK = 100.0
+MAX_HP = 100.0
+MAX_GOLD = 30.0
 MAX_TIER = 6.0
 MAX_COST = 10.0
 MAX_SPELL_DISCOUNT = 10.0
-MAX_CARDS_IN_GAME = 200
+MAX_CARDS_IN_GAME = 500
 
 
 class HearthstoneEnv(gym.Env):
@@ -36,6 +36,10 @@ class HearthstoneEnv(gym.Env):
 
     def __init__(self):
         super(HearthstoneEnv, self).__init__()
+
+        all_ids = sorted(list(CARD_DB.keys()) + list(SPELL_DB.keys()))
+
+        self.static_id_map = {cid: i + 1 for i, cid in enumerate(all_ids)}
 
         self.game = Game()
         self.my_player_id = 0
@@ -89,9 +93,6 @@ class HearthstoneEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0, high=1, shape=(total_obs_size,), dtype=np.float32
         )
-
-        self._card_id_map = {}
-        self._next_card_int = 1
 
         self.is_targeting = False
         self.pending_spell_hand_index = None
@@ -612,10 +613,7 @@ class HearthstoneEnv(gym.Env):
             u_types = []
 
         # Card ID
-        if card_id not in self._card_id_map:
-            self._card_id_map[card_id] = self._next_card_int
-            self._next_card_int += 1
-        cid_val = self._card_id_map[card_id] / MAX_CARDS_IN_GAME
+        cid_val = self.static_id_map.get(card_id, 0) / MAX_CARDS_IN_GAME
 
         # Сборка вектора
         vec = [

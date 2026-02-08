@@ -109,34 +109,25 @@ class CombatManager:
 
     def check_end_of_battle(self, board_1: List[Unit], board_2: List[Unit], player_1: Player, player_2: Player,
                             combat_players: dict[int, Player]) -> tuple[BattleOutcome, int]:
-        if not board_1 and not board_2:
+        if not board_1 or not board_2:
             self.event_manager.process_event(
                 Event(event_type=EventType.END_OF_COMBAT),
                 combat_players,
                 self.get_uid,
             )
+        if not board_1 and not board_2:
             return BattleOutcome.DRAW, 0
         if not board_1:
             damage = sum(u.tier for u in board_2) + player_2.tavern_tier
-            self.event_manager.process_event(
-                Event(event_type=EventType.END_OF_COMBAT),
-                combat_players,
-                self.get_uid,
-            )
             return BattleOutcome.LOSE, -damage
         if not board_2:
             damage = sum(u.tier for u in board_1) + player_1.tavern_tier
-            self.event_manager.process_event(
-                Event(event_type=EventType.END_OF_COMBAT),
-                combat_players,
-                self.get_uid,
-            )
             return BattleOutcome.WIN, damage
         return BattleOutcome.NO_END, 0
 
     def perform_attack(self, attacker: Unit, target: Unit, combat_players: dict[int, Player]) -> None:
         """
-        Реализация атаки существа со всеми доп механиками
+        Perform attack with all additional mechanics
         """
         attacker_ref = EntityRef(attacker.uid)
         target_ref = EntityRef(target.uid)
@@ -312,7 +303,7 @@ class CombatManager:
     def cleanup_dead(self, boards: List[List[Unit]], attack_indices: List[int],
                      combat_players: dict[int, Player]) -> None:
         """
-        Чистим стол при смерти существ и двигаем индекс атаки куда надо
+        Clean board after death and move attack indexes where they should be
         """
         for p_idx in range(2):
             board = boards[p_idx]

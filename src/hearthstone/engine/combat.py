@@ -41,6 +41,8 @@ class CombatManager:
             combat_players,
             self.get_uid,
         )
+        attack_indices = [0, 0]
+        self.cleanup_dead(boards, attack_indices, combat_players)
 
         if len(board_1) > len(board_2):
             attacker_player_idx = 0
@@ -49,7 +51,6 @@ class CombatManager:
         else:
             attacker_player_idx = random.choice([0, 1])
 
-        attack_indices = [0, 0]
         can_attack = [1, 1]
         while True:
             end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)

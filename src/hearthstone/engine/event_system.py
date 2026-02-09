@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
-from .effects import SYSTEM_TRIGGER_REGISTRY
 from .enums import Tags
 from .entities import HandCard, Player, Spell, Unit
 
@@ -77,11 +76,11 @@ EffectFn = Callable[["EffectContext", Event, int], None]
 
 @dataclass(frozen=True)
 class TriggerDef:
-    priority: int
     event_type: EventType
     condition: ConditionFn
     effect: EffectFn
     name: str = ""
+    priority: int = 0
 
 
 @dataclass(frozen=True)
@@ -301,6 +300,7 @@ class EventManager:
                         self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_uid)
 
     def collect_triggers(self, event: Event, ctx: EffectContext) -> List[TriggerInstance]:
+        from .effects import SYSTEM_TRIGGER_REGISTRY
         triggers: List[TriggerInstance] = []
         for player_id, player in ctx.players_by_uid.items():
             for slot, unit in enumerate(player.board):
@@ -354,26 +354,52 @@ class EventManager:
             ctx: EffectContext,
     ) -> List[TriggerInstance]:
         active_side = None
-        if event.source_pos:
-            active_side = event.source_pos.side
+        source_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        source_uid = None
+        if event.source:
+            source_uid = event.source.uid
+        elif event.snapshot:
+            source_uid = event.snapshot.uid
+
+        if source_pos:
+            active_side = source_pos.side
         elif event.source:
             pos = ctx.resolve_pos(event.source)
             active_side = pos.side if pos else None
 
         def sort_key(trigger: TriggerInstance) -> tuple:
+            trig_uid = trigger.trigger_uid
+
             pos = ctx.resolve_pos(EntityRef(trigger.trigger_uid))
             unit = ctx.resolve_unit(EntityRef(trigger.trigger_uid))
             unit_uid = unit.uid if unit else 0
+
+            is_source_trigger = (
+                    event.event_type == EventType.MINION_DIED
+                    and source_uid is not None
+                    and trig_uid == source_uid
+            )
+            # если это триггер умершего источника, а pos уже пропал из ctx (его popнули с доски),
+            # используем snapshot/source_pos чтобы не улетать в slot=999
+            if pos is None and is_source_trigger and source_pos is not None:
+                pos = source_pos
             slot = pos.slot if pos else 999
             side = pos.side if pos else -1
 
-            side_priority = 0 if active_side is None or side == active_side else 1
+            if side == -1:
+                side_priority = 2
+            elif active_side is None:
+                side_priority = 0
+            else:
+                side_priority = 0 if side == active_side else 1
+            group = 0 if is_source_trigger else 1
 
             return (
+                group,
                 -trigger.trigger_def.priority,
                 side_priority,
                 slot,
-                unit_uid
+                unit_uid,
             )
 
         return sorted(triggers, key=sort_key)

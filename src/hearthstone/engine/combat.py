@@ -2,7 +2,7 @@ from typing import List
 
 from .entities import Unit, Player
 import random
-
+from .auras import recalculate_board_auras
 from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
 from .enums import Tags, BattleOutcome
 from .event_system import (
@@ -320,7 +320,7 @@ class CombatManager:
                         pos=PosRef(side=unit.owner_id, zone=Zone.BOARD, slot=i),
                         atk=unit.cur_atk,
                         hp=unit.cur_hp,
-                        types=list(unit.type),
+                        types=list(unit.types),
                         tags=set(unit.tags),
                     )
                     death_event = Event(
@@ -351,3 +351,5 @@ class CombatManager:
 
                 else:
                     i += 1
+        recalculate_board_auras(boards[0])
+        recalculate_board_auras(boards[1])

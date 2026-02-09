@@ -55,7 +55,7 @@ def _spell_surf_spellcraft(ctx, event: Event, trigger_uid: int) -> None:
     ctx.attach_effect_turn(EntityRef(event.target.uid), EffectIDs.CRAB_DEATHRATTLE, 1)
 
 
-SPELL_TRIGGER_REGISTRY: Dict[SpellIDs, List[TriggerDef]] = {
+SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
     SpellIDs.TAVERN_COIN: [
         TriggerDef(
             event_type=EventType.SPELL_CAST,

@@ -55,12 +55,15 @@ CARD_DB = {
                          "deathrattle": True, "tags": {Tags.TAUNT}},
     CardIDs.MINTED_CORSAIR: {"name": "Minted Corsair", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.PIRATE]},
     CardIDs.FLIGHTY_SCOUT: {"name": "Flighty Scout", "tier": 1, "atk": 3, "hp": 3, "type": [UnitType.MURLOC]},
+    CardIDs.DIRE_WOLF_ALPHA: {"name": "Dire Wolf Alpha", "tier": 1, "atk": 1, "hp": 2, "type": [UnitType.BEAST]},
 
     # --- TIER 2 ---
     CardIDs.LEAPFROGGER: {"name": "Leapfrogger", "tier": 2, "atk": 4, "hp": 5, "type": [UnitType.BEAST],
                           "deathrattle": True},
     CardIDs.MOLTEN_ROCK: {"name": "Molten Rock", "tier": 2, "atk": 4, "hp": 7, "type": [UnitType.ELEMENTAL],
                           "tags": {Tags.TAUNT}},
+    CardIDs.MURLOC_WARLEADER: {"name": "Murloc Warleader", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.MURLOC]},
+    CardIDs.SOUTHSEA_CAPTAIN: {"name": "Southsea Captain", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.PIRATE]},
 
     # --- TOKENS ---
     CardIDs.TABBYCAT: {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},
@@ -73,7 +76,7 @@ SPELL_DB = {
     SpellIDs.TAVERN_COIN: {"name": "Tavern Coin", "tier": 1, "cost": 1, "effect": "GAIN_GOLD", "params": {"gold": 1}},
     SpellIDs.BANANA: {"name": "Banana", "tier": 1, "cost": 3, "effect": "BUFF_MINION", "params": {"atk": 2, "hp": 2}},
     SpellIDs.BLOOD_GEM: {"name": "Blood Gem", "tier": 0, "cost": 0, "effect": "BUFF_MINION",
-                         "params": {"atk": 1, "hp": 1}, "pool": False,},
+                         "params": {"atk": 1, "hp": 1}, "pool": False, },
     SpellIDs.POINTY_ARROW: {"name": "Pointy Arrow", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
                             "params": {"atk": 4, "hp": 0}},
     SpellIDs.FORTIFY: {"name": "Fortify", "tier": 1, "cost": 1, "effect": "BUFF_MINION",
@@ -94,6 +97,6 @@ SPELL_DB = {
         "cost": 0,
         "effect": "DISCOVER_TIER_UP",
         "is_temporary": False,
-"pool": False,
+        "pool": False,
     },
 }

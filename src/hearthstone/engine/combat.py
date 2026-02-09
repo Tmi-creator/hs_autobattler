@@ -332,6 +332,7 @@ class CombatManager:
                     extra_triggers = self._collect_death_triggers(unit, i)
 
                     board.pop(i)
+                    recalculate_board_auras(board)
 
                     if i < attack_indices[p_idx]:
                         attack_indices[p_idx] -= 1

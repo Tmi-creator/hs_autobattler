@@ -28,6 +28,8 @@ class Unit:
     aura_hp_add: int = 0  # баффы примененные аурой зависящей от расположения (вида соседние существа получают +1 атаки)
     aura_atk_add: int = 0
 
+    avenge_counter: int = 0
+
     attached_perm: Dict[str, int] = field(default_factory=dict)
     attached_turn: Dict[str, int] = field(default_factory=dict)
     attached_combat: Dict[str, int] = field(default_factory=dict)
@@ -110,6 +112,7 @@ class Unit:
             combat_atk_add=0,
             aura_hp_add=0,
             aura_atk_add=0,
+            avenge_counter=0,
         )
         unit.recalc_stats()
         unit.restore_stats()
@@ -124,6 +127,7 @@ class Unit:
     def reset_combat_layer(self) -> None:
         self.combat_hp_add = 0
         self.combat_atk_add = 0
+        self.avenge_counter = 0
         self.attached_combat = dict()
         self.recalc_stats()
 

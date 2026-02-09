@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Union
 
-from .enums import UnitType, CardIDs, SpellIDs, EffectIDs
+from .enums import UnitType, CardIDs, SpellIDs, EffectIDs, MechanicType
 from .event_system import EntityRef, Event, EventType, TriggerDef
 
 
@@ -12,6 +12,48 @@ def _is_self_play(ctx, event: Event, trigger_uid: int) -> bool:
 
 def _played_unit(ctx, event: Event):
     return ctx.resolve_unit(event.source)
+
+
+def _is_friendly_death_exclude_self(ctx, event: Event, trigger_uid: int) -> bool:
+    if event.event_type != EventType.MINION_DIED:
+        return False
+
+    dead_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if not dead_pos:
+        return False
+
+    owner_pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not owner_pos:
+        return False
+
+    return (dead_pos.side == owner_pos.side) and (event.source.uid != trigger_uid)
+
+
+def make_avenge_trigger(n: int, effect_fn, name: str = "Avenge"):
+    """
+    Make TriggerDef for Avenge mechanic (X).
+    n: How many allies should die
+    effect_fn: function that should play
+    """
+
+    def avenge_wrapper(ctx, event: Event, trigger_uid: int):
+        avenger = ctx.resolve_unit(EntityRef(trigger_uid))
+        if not avenger or not avenger.is_alive:
+            return
+
+        avenger.avenge_counter += 1
+
+        if avenger.avenge_counter >= n:
+            avenger.avenge_counter = 0
+            effect_fn(ctx, event, trigger_uid)
+
+    return TriggerDef(
+        event_type=EventType.MINION_DIED,
+        condition=_is_friendly_death_exclude_self,
+        effect=avenge_wrapper,
+        name=f"{name} (Avenge {n})",
+        priority=10
+    )
 
 
 def _gain_coin(ctx, event: Event, trigger_uid: int) -> None:
@@ -86,13 +128,6 @@ def _minted_corsair_coin(ctx, event: Event, trigger_uid: int) -> None:
     ctx.add_spell_to_hand(pos.side, SpellIDs.TAVERN_COIN)
 
 
-def _summon_golden_tabbycat(ctx, event, trigger_uid: int) -> None:
-    pos = ctx.resolve_pos(EntityRef(trigger_uid))
-    if not pos:
-        return
-    ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1, is_golden=True)
-
-
 TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
     CardIDs.SHELL_COLLECTOR: [
         TriggerDef(
@@ -160,6 +195,14 @@ TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
     ],
 }
 
+
+def _summon_golden_tabbycat(ctx, event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
+        return
+    ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1, is_golden=True)
+
+
 GOLDEN_TRIGGER_REGISTRY = {
     CardIDs.ALLEYCAT: [
         TriggerDef(
@@ -169,4 +212,33 @@ GOLDEN_TRIGGER_REGISTRY = {
             name="Golden Alleycat Battlecry",
         )
     ],
+}
+
+
+def _apply_elemental_buff(ctx, event: Event, trigger_uid: int) -> None:
+    unit = ctx.resolve_unit(event.source)
+    if not unit:
+        return
+    if UnitType.ELEMENTAL not in unit.type:
+        return
+    pos = ctx.resolve_pos(event.source)
+    if not pos:
+        return
+    player = ctx.players_by_uid.get(pos.side)
+    if not player:
+        return
+    buff_atk, buff_hp = player.mechanics.get_stat(MechanicType.ELEMENTAL_BUFF)
+    if buff_atk > 0 or buff_hp > 0:
+        ctx.buff_perm(event.source, buff_atk, buff_hp)
+
+
+SYSTEM_TRIGGER_REGISTRY = {
+    EventType.MINION_ADDED_TO_SHOP: [
+        TriggerDef(
+            event_type=EventType.MINION_ADDED_TO_SHOP,
+            condition=lambda ctx, e, ref: True,
+            effect=_apply_elemental_buff,
+            name="Global Elemental Buff"
+        )
+    ]
 }

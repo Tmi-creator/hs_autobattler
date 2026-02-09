@@ -5,7 +5,7 @@ from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
 from .enums import UnitType, SpellIDs
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
-
+from .auras import recalculate_board_auras
 
 class TavernManager:
     def __init__(self, pool, spell_pool, event_manager: EventManager | None = None):
@@ -185,6 +185,7 @@ class TavernManager:
         count_to_return = 3 if unit.is_golden else 1
         self.pool.return_cards([unit.card_id] * count_to_return)
 
+        recalculate_board_auras(player.board)
         return True, "Sold unit"
 
     def play_unit(self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1) -> Tuple[
@@ -215,6 +216,7 @@ class TavernManager:
         player.hand.pop(hand_index)
 
         player.board.insert(insert_index, unit)
+        recalculate_board_auras(player.board)
         if unit.is_golden:
             if len(player.hand) < 10:
                 reward_spell = Spell.create_from_db(SpellIDs.TRIPLET_REWARD)
@@ -371,7 +373,7 @@ class TavernManager:
             return
 
         player.hand.append(HandCard(uid=golden_unit.uid, unit=golden_unit))
-
+        recalculate_board_auras(player.board)
         self._check_triplet(player, card_id)
 
     def _cast_spell(self, player: Player, hand_index: int, target_index: int) -> Tuple[bool, str]:
@@ -418,6 +420,7 @@ class TavernManager:
         players_by_uid: Dict[int, Player] = {player.uid: player}
         self.event_manager.process_event(event, players_by_uid, self._get_next_uid, extra_triggers=[trigger])
         player.hand.pop(hand_index)
+        recalculate_board_auras(player.board)
         return True, f"Cast {spell.card_id}"
 
     def _resolve_battlecry(self, player: Player, unit: Unit, unit_index: int, target_index: int):
@@ -438,6 +441,7 @@ class TavernManager:
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
         self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
+        recalculate_board_auras(player.board)
 
     def swap_units(self, player: Player, index_a: int, index_b: int) -> Tuple[bool, str]:
         """
@@ -452,7 +456,7 @@ class TavernManager:
             return False, "Same index"
 
         player.board[index_a], player.board[index_b] = player.board[index_b], player.board[index_a]
-
+        recalculate_board_auras(player.board)
         return True, "Swapped"
 
     def end_turn(self, player: Player) -> None:

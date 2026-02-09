@@ -49,10 +49,14 @@ class CardIDs(str, Enum):
     IMPRISONER = "108"
     MINTED_CORSAIR = "109"
     FLIGHTY_SCOUT = "110"
+    DIRE_WOLF_ALPHA = "111"
+
 
     # --- TIER 2 ---
     LEAPFROGGER = "201"
     MOLTEN_ROCK = "202"
+    MURLOC_WARLEADER = "203"
+    SOUTHSEA_CAPTAIN = "204"
 
     # --- TOKENS ---
     TABBYCAT = "102t"

@@ -33,7 +33,7 @@ class Unit:
     attached_perm: Dict[str, int] = field(default_factory=dict)
     attached_turn: Dict[str, int] = field(default_factory=dict)
     attached_combat: Dict[str, int] = field(default_factory=dict)
-    type: List[UnitType] = field(default_factory=list)
+    types: List[UnitType] = field(default_factory=list)
     is_golden: bool = False
     is_frozen: bool = False
     tags: Set[Tags] = field(default_factory=set)
@@ -91,6 +91,10 @@ class Unit:
         new_cur_hp = self.max_hp - missing
         self.cur_hp = max(0, min(new_cur_hp, self.max_hp))
         self.cur_atk = self.max_atk
+
+    def reset_aura_layer(self):
+        self.aura_hp_add = 0
+        self.aura_atk_add = 0
 
     def restore_stats(self):
         self.cur_hp = self.max_hp

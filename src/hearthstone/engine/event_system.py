@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
+from .auras import recalculate_board_auras
 from .enums import Tags
 from .entities import HandCard, Player, Spell, Unit
 
@@ -259,6 +260,7 @@ class EffectContext:
                 source_pos=pos,
             )
         )
+        recalculate_board_auras(player.board)
         return summoned
 
     def emit_event(self, event: Event) -> None:
@@ -372,7 +374,7 @@ class EventManager:
 
             pos = ctx.resolve_pos(EntityRef(trigger.trigger_uid))
             unit = ctx.resolve_unit(EntityRef(trigger.trigger_uid))
-            unit_uid = unit.uid if unit else 0
+            unit_uid = unit.uid if unit else trig_uid
 
             is_source_trigger = (
                     event.event_type == EventType.MINION_DIED

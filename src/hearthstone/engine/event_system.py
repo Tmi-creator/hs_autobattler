@@ -6,7 +6,7 @@ from enum import Enum, auto
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
 from .auras import recalculate_board_auras
-from .enums import Tags
+from .enums import Tags, UnitType
 from .entities import HandCard, Player, Spell, Unit
 
 
@@ -55,7 +55,7 @@ class MinionSnapshot:
     pos: Optional[PosRef]
     atk: int
     hp: int
-    types: List
+    types: List[UnitType]
     tags: Set[Tags]
 
 

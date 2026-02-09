@@ -184,9 +184,21 @@ class CombatManager:
             for (victim_unit, victim_pos, victim_ref) in targets_list:
                 if not victim_unit.is_alive:
                     continue
+                hp_before = victim_unit.cur_hp
                 if victim_unit.has_divine_shield:
                     victim_unit.tags.discard(Tags.DIVINE_SHIELD)
                     actual_damage = 0
+                    self.event_manager.process_event(
+                        Event(
+                            event_type=EventType.DIVINE_SHIELD_LOST,
+                            source=victim_ref,
+                            target=source_ref,
+                            source_pos=victim_pos,
+                            target_pos=source_pos,
+                        ),
+                        combat_players,
+                        self.get_uid,
+                    )
                 else:
                     victim_unit.cur_hp -= dmg_amount
                     actual_damage = dmg_amount
@@ -194,6 +206,21 @@ class CombatManager:
                         victim_unit.cur_hp = 0
                         if has_venom:
                             venom_used = True
+
+                if actual_damage > 0 and actual_damage > hp_before:
+                    self.event_manager.process_event(
+                        Event(
+                            event_type=EventType.OVERKILL,
+                            source=source_ref,
+                            target=victim_ref,
+                            source_pos=source_pos,
+                            target_pos=victim_pos,
+                            value=actual_damage - hp_before  # how much overdmg
+                        ),
+                        combat_players,
+                        self.get_uid,
+                    )
+
                 if actual_damage > 0:
                     self.event_manager.process_event(
                         Event(

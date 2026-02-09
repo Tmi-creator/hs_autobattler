@@ -33,6 +33,8 @@ class EventType(Enum):
     END_OF_TURN = auto()
     SPELL_CAST = auto()
     MINION_ADDED_TO_SHOP = auto()
+    DIVINE_SHIELD_LOST = auto()
+    OVERKILL = auto()
 
 
 @dataclass(frozen=True)

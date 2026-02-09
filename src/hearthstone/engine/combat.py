@@ -146,79 +146,84 @@ class CombatManager:
             combat_players,
             self.get_uid,
         )
-        dmg_to_target = attacker.cur_atk
-        dmg_to_attacker = target.cur_atk
-        pre_target_hp = target.cur_hp
-        pre_attacker_hp = attacker.cur_hp
-        if dmg_to_target > 0 and target.has_divine_shield:
-            target.tags.discard(Tags.DIVINE_SHIELD)
-        else:
-            target.cur_hp -= dmg_to_target
-            if attacker.has_poisonous or attacker.has_venomous:
-                target.cur_hp = 0
-                attacker.tags.discard(Tags.VENOMOUS)
-        if dmg_to_attacker > 0 and attacker.has_divine_shield:
-            attacker.tags.discard(Tags.DIVINE_SHIELD)
-        else:
-            attacker.cur_hp -= dmg_to_attacker
-            if target.has_poisonous or target.has_venomous:
-                attacker.cur_hp = 0
-                target.tags.discard(Tags.VENOMOUS)
+        victims_data = []
 
-        actual_damage_to_target = max(0, pre_target_hp - target.cur_hp)
-        actual_damage_to_attacker = max(0, pre_attacker_hp - attacker.cur_hp)
+        if target_pos:
+            victims_data.append((target, target_pos, target_ref))
 
-        if actual_damage_to_target > 0:
-            self.event_manager.process_event(
-                Event(
-                    event_type=EventType.MINION_DAMAGED,
-                    source=attacker_ref,
-                    target=target_ref,
-                    source_pos=attacker_pos,
-                    target_pos=target_pos,
-                    value=actual_damage_to_target,
-                ),
-                combat_players,
-                self.get_uid,
-            )
-            self.event_manager.process_event(
-                Event(
-                    event_type=EventType.DAMAGE_DEALT,
-                    source=attacker_ref,
-                    target=target_ref,
-                    source_pos=attacker_pos,
-                    target_pos=target_pos,
-                    value=actual_damage_to_target,
-                ),
-                combat_players,
-                self.get_uid,
-            )
-        if actual_damage_to_attacker > 0:
-            self.event_manager.process_event(
-                Event(
-                    event_type=EventType.MINION_DAMAGED,
-                    source=target_ref,
-                    target=attacker_ref,
-                    source_pos=target_pos,
-                    target_pos=attacker_pos,
-                    value=actual_damage_to_attacker,
-                ),
-                combat_players,
-                self.get_uid,
-            )
-            self.event_manager.process_event(
-                Event(
-                    event_type=EventType.DAMAGE_DEALT,
-                    source=target_ref,
-                    target=attacker_ref,
-                    source_pos=target_pos,
-                    target_pos=attacker_pos,
-                    value=actual_damage_to_attacker,
-                ),
-                combat_players,
-                self.get_uid,
-            )
+        if attacker.has_cleave and target_pos:
+            defender_player = combat_players[target_pos.side]
+            defender_board = defender_player.board
 
+            real_idx = -1
+            for i, u in enumerate(defender_board):
+                if u.uid == target.uid:
+                    real_idx = i
+                    break
+
+            if real_idx != -1:
+                if real_idx > 0:
+                    left_u = defender_board[real_idx - 1]
+                    left_pos = self._find_pos(combat_players, left_u.uid)
+                    left_ref = EntityRef(left_u.uid)
+                    victims_data.insert(0, (left_u, left_pos, left_ref))
+
+                if real_idx < len(defender_board) - 1:
+                    right_u = defender_board[real_idx + 1]
+                    right_pos = self._find_pos(combat_players, right_u.uid)
+                    right_ref = EntityRef(right_u.uid)
+                    victims_data.append((right_u, right_pos, right_ref))
+
+        def _apply_damage_batch(source_unit, source_ref, source_pos, targets_list):
+            dmg_amount = source_unit.cur_atk
+            if dmg_amount <= 0:
+                return
+            has_poison = source_unit.has_poisonous
+            has_venom = source_unit.has_venomous
+            venom_used = False
+            for (victim_unit, victim_pos, victim_ref) in targets_list:
+                if not victim_unit.is_alive:
+                    continue
+                if victim_unit.has_divine_shield:
+                    victim_unit.tags.discard(Tags.DIVINE_SHIELD)
+                    actual_damage = 0
+                else:
+                    victim_unit.cur_hp -= dmg_amount
+                    actual_damage = dmg_amount
+                    if has_poison or has_venom:
+                        victim_unit.cur_hp = 0
+                        if has_venom:
+                            venom_used = True
+                if actual_damage > 0:
+                    self.event_manager.process_event(
+                        Event(
+                            event_type=EventType.MINION_DAMAGED,
+                            source=source_ref,
+                            target=victim_ref,
+                            source_pos=source_pos,
+                            target_pos=victim_pos,
+                            value=actual_damage,
+                        ),
+                        combat_players,
+                        self.get_uid,
+                    )
+                    self.event_manager.process_event(
+                        Event(
+                            event_type=EventType.DAMAGE_DEALT,
+                            source=source_ref,
+                            target=victim_ref,
+                            source_pos=source_pos,
+                            target_pos=victim_pos,
+                            value=actual_damage,
+                        ),
+                        combat_players,
+                        self.get_uid,
+                    )
+            if venom_used:
+                source_unit.tags.discard(Tags.VENOMOUS)
+
+        _apply_damage_batch(attacker, attacker_ref, attacker_pos, victims_data)
+        _apply_damage_batch(target, target_ref, target_pos, [(attacker, attacker_pos, attacker_ref)])
         self.event_manager.process_event(
             Event(
                 event_type=EventType.AFTER_ATTACK,

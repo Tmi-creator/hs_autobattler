@@ -253,6 +253,7 @@ class EffectContext:
         self._reindex_side(side)
         summoned = EntityRef(uid=unit.uid)
         pos = self._uid_to_pos.get(unit.uid)
+        recalculate_board_auras(player.board)
         self.emit_event(
             Event(
                 event_type=EventType.MINION_SUMMONED,
@@ -260,7 +261,6 @@ class EffectContext:
                 source_pos=pos,
             )
         )
-        recalculate_board_auras(player.board)
         return summoned
 
     def emit_event(self, event: Event) -> None:

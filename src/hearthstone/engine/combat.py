@@ -35,7 +35,8 @@ class CombatManager:
 
         boards = [i.board for i in combat_players.values()]
         board_1, board_2 = boards
-
+        recalculate_board_auras(board_1)
+        recalculate_board_auras(board_2)
         self.event_manager.process_event(
             Event(event_type=EventType.START_OF_COMBAT),
             combat_players,

@@ -107,7 +107,7 @@ class Unit:
     def combat_copy(self):
         unit = replace(
             self,
-            type=list(self.type),
+            types=list(self.types),
             tags=set(self.tags),
             attached_perm=dict(self.attached_perm),
             attached_turn=dict(self.attached_turn),
@@ -165,7 +165,7 @@ class Unit:
             cur_hp=data['hp'],
             cur_atk=data['atk'],
             tier=data['tier'],
-            type=list(data.get('type', [])),
+            types=list(data.get('type', [])),
             tags=set(data.get('tags', [])),
             is_golden=is_golden
         )

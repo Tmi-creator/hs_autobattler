@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
+from .effects import SYSTEM_TRIGGER_REGISTRY
 from .enums import Tags
 from .entities import HandCard, Player, Spell, Unit
 
@@ -76,6 +77,7 @@ EffectFn = Callable[["EffectContext", Event, int], None]
 
 @dataclass(frozen=True)
 class TriggerDef:
+    priority: int
     event_type: EventType
     condition: ConditionFn
     effect: EffectFn
@@ -335,6 +337,14 @@ class EventManager:
                                         stacks=count,
                                     )
                                 )
+        if event.event_type in SYSTEM_TRIGGER_REGISTRY:
+            for trig_def in SYSTEM_TRIGGER_REGISTRY[event.event_type]:
+                triggers.append(
+                    TriggerInstance(trigger_def=trig_def,
+                                    trigger_uid=0,
+                                    stacks=1,
+                                    )
+                )
         return triggers
 
     def order_triggers(
@@ -356,7 +366,14 @@ class EventManager:
             unit_uid = unit.uid if unit else 0
             slot = pos.slot if pos else 999
             side = pos.side if pos else -1
+
             side_priority = 0 if active_side is None or side == active_side else 1
-            return side_priority, slot, unit_uid
+
+            return (
+                -trigger.trigger_def.priority,
+                side_priority,
+                slot,
+                unit_uid
+            )
 
         return sorted(triggers, key=sort_key)

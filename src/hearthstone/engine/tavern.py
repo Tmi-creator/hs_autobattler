@@ -80,6 +80,14 @@ class TavernManager:
             for cid in new_ids:
                 new_unit = self._make_unit(player, cid)
                 player.store.append(StoreItem(unit=new_unit))
+                event = Event(
+                    event_type=EventType.MINION_ADDED_TO_SHOP,
+                    source=EntityRef(uid=new_unit.uid),
+                    source_pos=PosRef(side=player.uid, zone=Zone.SHOP, slot=len(player.store) - 1)
+                )
+                players = {player.uid: player}
+
+                self.event_manager.process_event(event, players, self._get_next_uid)
         cnt_spells = len([u for u in player.store if u.spell])
         if cnt_spells >= SPELLS_PER_ROLL:
             return
@@ -90,7 +98,6 @@ class TavernManager:
 
     def _make_unit(self, player: Player, cid: str) -> Unit:
         unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
-        # TODO: дописать сюда бафф элементалей через ивент
         return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:

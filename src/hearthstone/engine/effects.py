@@ -41,18 +41,21 @@ def make_avenge_trigger(n: int, effect_fn, name: str = "Avenge"):
         if not avenger or not avenger.is_alive:
             return
 
+        # correct limit because gold triggers twice
+        limit = n * 2 if avenger.is_golden else n
         avenger.avenge_counter += 1
-
-        if avenger.avenge_counter >= n:
+        if avenger.avenge_counter >= limit:
             avenger.avenge_counter = 0
-            effect_fn(ctx, event, trigger_uid)
+            repeats = 2 if avenger.is_golden else 1  # double the effect
+            for _ in range(repeats):
+                effect_fn(ctx, event, trigger_uid)
 
     return TriggerDef(
         event_type=EventType.MINION_DIED,
         condition=_is_friendly_death_exclude_self,
         effect=avenge_wrapper,
         name=f"{name} (Avenge {n})",
-        priority=10
+        priority=-10
     )
 
 
@@ -135,6 +138,7 @@ TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
             condition=_is_self_play,
             effect=_gain_coin,
             name="Shell Collector Battlecry",
+            priority=10,
         )
     ],
     CardIDs.ALLEYCAT: [
@@ -143,6 +147,7 @@ TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
             condition=_is_self_play,
             effect=_summon_tabbycat,
             name="Alleycat Battlecry",
+            priority=10,
         )
     ],
     CardIDs.SCALLYWAG: [
@@ -210,6 +215,7 @@ GOLDEN_TRIGGER_REGISTRY = {
             condition=_is_self_play,
             effect=_summon_golden_tabbycat,
             name="Golden Alleycat Battlecry",
+            priority=10,
         )
     ],
 }

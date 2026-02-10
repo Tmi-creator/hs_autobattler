@@ -51,6 +51,7 @@ class Game:
             self.tavern.end_turn(player)
             self.players_ready[player_idx] = True
             info = "Ready"
+            success = True
         elif action_type == "BUY":
             success, info = self.tavern.buy_unit(player, kwargs.get('index', -1))
         elif action_type == "SELL":

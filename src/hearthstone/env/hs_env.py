@@ -436,8 +436,15 @@ class HearthstoneEnv(gym.Env):
                     if card_id in SPELLS_REQUIRE_TARGET:
                         self.pending_spell_hand_index = h_idx
                         self.is_targeting = True
+                        self.pending_target_kind = "SPELL"
                         continue
-
+                    if card.unit and card.unit.has_magnetic:
+                        has_mech = any(UnitType.MECH in u.types for u in player.board)
+                        if has_mech:
+                            self.pending_spell_hand_index = h_idx
+                            self.is_targeting = True
+                            self.pending_target_kind = "MAGNETIZE"
+                            continue
             self.game.step(p_idx, action_type, **kwargs)
 
         self.game.step(p_idx, "END_TURN")

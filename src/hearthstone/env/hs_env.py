@@ -211,6 +211,7 @@ class HearthstoneEnv(gym.Env):
                         if has_mech:
                             self.is_targeting = True
                             self.pending_target_kind = "MAGNETIZE"
+                            self.pending_spell_hand_index = h_idx
                             action_type = "WAIT_FOR_TARGET"
                         else:
                             action_type = "PLAY"

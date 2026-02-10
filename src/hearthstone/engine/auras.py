@@ -56,7 +56,7 @@ def recalculate_board_auras(board: List[Unit]):
             for effect_id, count in attached_layer.items():
                 if effect_id in AURA_REGISTRY:
                     for _ in range(count):
-                        AURA_REGISTRY[effect_id](unit, board, i)
+                        AURA_REGISTRY[effect_id](Unit.create_from_db(CardIDs.TABBYCAT, -1, -1, False), board, i)
 
     for unit in board:
         unit.recalc_stats()

@@ -7,6 +7,7 @@ from .enums import UnitType, SpellIDs
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 from .auras import recalculate_board_auras
 
+
 class TavernManager:
     def __init__(self, pool, spell_pool, event_manager: EventManager | None = None):
         self.pool = pool
@@ -182,8 +183,11 @@ class TavernManager:
 
         unit = player.board.pop(board_index)
         player.gold += 1
-        count_to_return = 3 if unit.is_golden else 1
-        self.pool.return_cards([unit.card_id] * count_to_return)
+        cards_to_return = []
+        cards_to_return.extend([unit.card_id] * (3 if unit.is_golden else 1))
+        for cid, copies in unit.absorbed_pool_copies.items():
+            cards_to_return.extend([cid] * copies)
+        self.pool.return_cards(cards_to_return)
 
         recalculate_board_auras(player.board)
         return True, "Sold unit"
@@ -206,7 +210,31 @@ class TavernManager:
             return self._cast_spell(player, hand_index, target_index)
 
         unit = hand_card.unit
+        if unit and unit.has_magnetic and 0 <= target_index < len(player.board):
+            target = player.board[target_index]
+            if UnitType.MECH in target.types:
+                target_uid = target.uid
 
+                # first of all throw event MINION_PLAYED
+                event = Event(
+                    event_type=EventType.MINION_PLAYED,
+                    source=EntityRef(uid=unit.uid),
+                    target=EntityRef(uid=target_uid),
+                    source_pos=PosRef(side=player.uid, zone=Zone.HAND, slot=hand_index),
+                    target_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=target_index),
+                )
+                self.event_manager.process_event(event, {player.uid: player}, self._get_next_uid)
+
+                played_card = player.hand.pop(hand_index)
+
+                # idk what could happen with target but...
+                new_target = next((u for u in player.board if u.uid == target_uid), None)
+                if new_target is None:
+                    return True, "Magnetized (target disappeared logic error)"
+
+                new_target.magnetize_from(played_card.unit)
+                recalculate_board_auras(player.board)
+                return True, "Magnetized"
         if len(player.board) >= 7:
             return False, "Board is full"
         if insert_index == -1:

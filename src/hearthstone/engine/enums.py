@@ -16,7 +16,7 @@ class UnitType(Enum):
 
 
 class Tags(Enum):
-    IMMEDIATE_ATTACK = auto() # for immediate attacks
+    IMMEDIATE_ATTACK = auto()
     TAUNT = auto()
     DIVINE_SHIELD = auto()
     WINDFURY = auto()
@@ -25,6 +25,7 @@ class Tags(Enum):
     VENOMOUS = auto()
     CLEAVE = auto()
     STEALTH = auto()
+    MAGNETIC = auto()
 
 
 class BattleOutcome(Enum):
@@ -58,6 +59,7 @@ class CardIDs(str, Enum):
     MOLTEN_ROCK = "202"
     MURLOC_WARLEADER = "203"
     SOUTHSEA_CAPTAIN = "204"
+    ANNOY_O_MODULE = "205"
 
     # --- TOKENS ---
     TABBYCAT = "102t"

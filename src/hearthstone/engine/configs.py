@@ -64,6 +64,15 @@ CARD_DB = {
                           "tags": {Tags.TAUNT}},
     CardIDs.MURLOC_WARLEADER: {"name": "Murloc Warleader", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.MURLOC]},
     CardIDs.SOUTHSEA_CAPTAIN: {"name": "Southsea Captain", "tier": 2, "atk": 3, "hp": 3, "type": [UnitType.PIRATE]},
+    CardIDs.ANNOY_O_MODULE: {
+        "name": "Annoy-o-Module",
+        "tier": 2,
+        "atk": 2,
+        "hp": 4,
+        "type": [UnitType.MECH],
+        "tags": {Tags.MAGNETIC, Tags.TAUNT, Tags.DIVINE_SHIELD},
+        "is_token": False,
+    },
 
     # --- TOKENS ---
     CardIDs.TABBYCAT: {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},

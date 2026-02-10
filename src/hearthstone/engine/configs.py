@@ -67,7 +67,8 @@ CARD_DB = {
 
     # --- TOKENS ---
     CardIDs.TABBYCAT: {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},
-    CardIDs.PIRATE_TOKEN: {"name": "Pirate", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.PIRATE], "is_token": True},
+    CardIDs.PIRATE_TOKEN: {"name": "Pirate", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.PIRATE],
+                           "tags": [Tags.IMMEDIATE_ATTACK], "is_token": True},
     CardIDs.IMP_TOKEN: {"name": "Imp", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.DEMON], "is_token": True},
     CardIDs.CRAB_TOKEN: {"name": "Crab", "tier": 1, "atk": 3, "hp": 2, "type": [UnitType.BEAST], "is_token": True},
 }

@@ -7,7 +7,7 @@ AuraEffectFn = Callable[[Unit, List[Unit], int], None]
 
 
 def _dire_wolf_alpha_aura(source: Unit, board: List[Unit], idx: int):
-    """Neighbours gain +1\+0(Golden: +2\+0)"""
+    """Neighbours gain +1/+0(Golden: +2/+0)"""
     bonus = 1 if not source.is_golden else 2
 
     if idx > 0:

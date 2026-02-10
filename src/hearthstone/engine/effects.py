@@ -225,7 +225,7 @@ def _apply_elemental_buff(ctx, event: Event, trigger_uid: int) -> None:
     unit = ctx.resolve_unit(event.source)
     if not unit:
         return
-    if UnitType.ELEMENTAL not in unit.type:
+    if UnitType.ELEMENTAL not in unit.types:
         return
     pos = ctx.resolve_pos(event.source)
     if not pos:

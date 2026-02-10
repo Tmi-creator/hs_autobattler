@@ -157,6 +157,7 @@ class Unit:
             attached_perm=dict(self.attached_perm),
             attached_turn=dict(self.attached_turn),
             attached_combat=dict(),
+            absorbed_pool_copies=dict(self.absorbed_pool_copies),
             combat_hp_add=0,
             combat_atk_add=0,
             aura_hp_add=0,

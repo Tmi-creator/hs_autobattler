@@ -52,6 +52,11 @@ def recalculate_board_auras(board: List[Unit]):
     for i, unit in enumerate(board):
         if unit.card_id in AURA_REGISTRY:
             AURA_REGISTRY[unit.card_id](unit, board, i)
+        for attached_layer in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
+            for effect_id, count in attached_layer.items():
+                if effect_id in AURA_REGISTRY:
+                    for _ in range(count):
+                        AURA_REGISTRY[effect_id](unit, board, i)
 
     for unit in board:
         unit.recalc_stats()

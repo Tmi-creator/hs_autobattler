@@ -171,6 +171,7 @@ class TavernManager:
             return False, "Invalid index"
 
         unit = player.board[board_index]
+        uid = unit.uid
         source = EntityRef(uid=unit.uid)
         source_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=board_index)
         event = Event(
@@ -181,7 +182,10 @@ class TavernManager:
         players_by_uid: Dict[int, Player] = {player.uid: player}
         self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
 
-        unit = player.board.pop(board_index)
+        for i, u in enumerate(player.board):
+            if u.uid == uid:
+                unit = player.board.pop(i)
+                break
         player.gold += 1
         cards_to_return = []
         cards_to_return.extend([unit.card_id] * (3 if unit.is_golden else 1))
@@ -357,6 +361,7 @@ class TavernManager:
 
         merged_attached_perm = {}
         merged_attached_turn = {}
+        merged_absorbed_pool = {}
 
         def _collect_stats(u: Unit):
             nonlocal total_perm_hp, total_perm_atk, total_turn_hp, total_turn_atk
@@ -371,6 +376,8 @@ class TavernManager:
                 merged_attached_perm[k] = merged_attached_perm.get(k, 0) + v
             for k, v in u.attached_turn.items():
                 merged_attached_turn[k] = merged_attached_turn.get(k, 0) + v
+            for k, v in u.absorbed_pool_copies.items():
+                merged_absorbed_pool[k] = merged_absorbed_pool.get(k, 0) + v
 
         for idx in indices_to_pop_hand:
             _collect_stats(player.hand[idx].unit)
@@ -394,6 +401,7 @@ class TavernManager:
         golden_unit.attached_perm = merged_attached_perm
         golden_unit.attached_turn = merged_attached_turn
 
+        golden_unit.absorbed_pool_copies = merged_absorbed_pool
         golden_unit.recalc_stats()
         golden_unit.restore_stats()
 

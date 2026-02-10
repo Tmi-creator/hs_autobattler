@@ -60,6 +60,11 @@ class CardIDs(str, Enum):
     MURLOC_WARLEADER = "203"
     SOUTHSEA_CAPTAIN = "204"
     ANNOY_O_MODULE = "205"
+    SPAWN_OF_NZOTH = "206"
+    KABOOM_BOT = "207"
+
+    # --- TIER 3 ---
+    DEFLECT_O_BOT = "301"
 
     # --- TOKENS ---
     TABBYCAT = "102t"

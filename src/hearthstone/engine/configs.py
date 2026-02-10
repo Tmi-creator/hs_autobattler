@@ -73,6 +73,32 @@ CARD_DB = {
         "tags": {Tags.MAGNETIC, Tags.TAUNT, Tags.DIVINE_SHIELD},
         "is_token": False,
     },
+    CardIDs.SPAWN_OF_NZOTH: {
+        "name": "Spawn of N'Zoth",
+        "tier": 2,
+        "atk": 2,
+        "hp": 2,
+        "type": [UnitType.NEUTRAL],
+        "deathrattle": True
+    },
+    CardIDs.KABOOM_BOT: {
+        "name": "Kaboom Bot",
+        "tier": 2,
+        "atk": 2,
+        "hp": 2,
+        "type": [UnitType.MECH],
+        "deathrattle": True
+    },
+
+    # --- TIER 3 ---
+    CardIDs.DEFLECT_O_BOT: {
+        "name": "Deflect-o-Bot",
+        "tier": 3,
+        "atk": 3,
+        "hp": 2,
+        "type": [UnitType.MECH],
+        "tags": {Tags.DIVINE_SHIELD},
+    },
 
     # --- TOKENS ---
     CardIDs.TABBYCAT: {"name": "Tabbycat", "tier": 1, "atk": 1, "hp": 1, "type": [UnitType.BEAST], "is_token": True},

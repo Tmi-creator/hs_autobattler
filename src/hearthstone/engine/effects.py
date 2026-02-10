@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import random
 from typing import Dict, List, Union
 
-from .enums import UnitType, CardIDs, SpellIDs, EffectIDs, MechanicType
-from .event_system import EntityRef, Event, EventType, TriggerDef
+from .enums import UnitType, CardIDs, SpellIDs, EffectIDs, MechanicType, Tags
+from .event_system import EntityRef, Event, EventType, TriggerDef, PosRef, Zone
 
 
 def _is_self_play(ctx, event: Event, trigger_uid: int) -> bool:
@@ -131,6 +132,69 @@ def _minted_corsair_coin(ctx, event: Event, trigger_uid: int) -> None:
     ctx.add_spell_to_hand(pos.side, SpellIDs.TAVERN_COIN)
 
 
+def _spawn_of_nzoth_dr(ctx, event: Event, trigger_uid: int) -> None:
+    """Give your minions +1/+1 (Golden: +2/+2)"""
+
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if not pos:
+        return
+    player = ctx.players_by_uid.get(pos.side)
+    if not player:
+        return
+
+    for unit in player.board:
+        ctx.buff_combat(EntityRef(unit.uid), 1, 1)
+
+
+def _kaboom_bot_dr(ctx, event: Event, trigger_uid: int) -> None:
+    """Deal 4 damage to a random enemy minion"""
+    source_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if not source_pos:
+        return
+
+    enemy_side = 1 - source_pos.side
+    enemy_player = ctx.players_by_uid.get(enemy_side)
+
+    if not enemy_player or not enemy_player.board:
+        return
+
+    target = random.choice(enemy_player.board)
+
+    damage = 4
+    if target.has_divine_shield:
+        target.tags.discard(Tags.DIVINE_SHIELD)
+        ctx.emit_event(Event(
+            event_type=EventType.DIVINE_SHIELD_LOST,
+            source=EntityRef(target.uid),
+            source_pos=PosRef(side=enemy_side, zone=Zone.BOARD, slot=-1)
+        ))
+    else:
+        target.cur_hp -= damage
+        ctx.emit_event(Event(
+            event_type=EventType.MINION_DAMAGED,
+            source=EntityRef(trigger_uid),
+            target=EntityRef(target.uid),
+            value=damage
+        ))
+
+
+def _deflect_o_bot_trigger(ctx, event: Event, trigger_uid: int) -> None:
+    """Gain +1 Atk and DS when Mech summoned"""
+    summoned_unit = ctx.resolve_unit(event.source)
+    if not summoned_unit:
+        return
+    if UnitType.MECH not in summoned_unit.types:
+        return
+    if summoned_unit.uid == trigger_uid:
+        return
+    deflecto = ctx.resolve_unit(EntityRef(trigger_uid))
+    if not deflecto or not deflecto.is_alive:
+        return
+
+    ctx.buff_combat(EntityRef(trigger_uid), 2, 0)
+    deflecto.tags.add(Tags.DIVINE_SHIELD)
+
+
 TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
     CardIDs.SHELL_COLLECTOR: [
         TriggerDef(
@@ -196,6 +260,32 @@ TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
             condition=lambda ctx, event, trigger_uid: event.source is not None and event.source.uid == trigger_uid,
             effect=_summon_crab_token,
             name="Attached Crab Deathrattle",
+        )
+    ],
+    CardIDs.SPAWN_OF_NZOTH: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=lambda ctx, e, uid: e.source and e.source.uid == uid,  # Self death
+            effect=_spawn_of_nzoth_dr,
+            name="Spawn of N'Zoth DR"
+        )
+    ],
+    CardIDs.KABOOM_BOT: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=lambda ctx, e, uid: e.source and e.source.uid == uid,
+            effect=_kaboom_bot_dr,
+            name="Kaboom Bot DR"
+        )
+    ],
+    CardIDs.DEFLECT_O_BOT: [
+        TriggerDef(
+            event_type=EventType.MINION_SUMMONED,
+            # if someone else summoned on my side
+            condition=lambda ctx, e, uid: e.source_pos.side == ctx.resolve_pos(
+                EntityRef(uid)).side and e.source.uid != uid,
+            effect=_deflect_o_bot_trigger,
+            name="Deflect-o-Bot Trigger"
         )
     ],
 }

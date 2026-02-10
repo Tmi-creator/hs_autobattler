@@ -93,7 +93,7 @@ def _summon_crab_token(ctx, event: Event, trigger_uid: int) -> None:
 
 def _wrath_weaver_buff(ctx, event: Event, trigger_uid: int) -> None:
     played = _played_unit(ctx, event)
-    if not played or UnitType.DEMON not in played.type:
+    if not played or UnitType.DEMON not in played.types:
         return
     if _is_self_play(ctx, event, trigger_uid):
         return
@@ -114,7 +114,7 @@ def _swampstriker_buff(ctx, event: Event, trigger_uid: int) -> None:
     unit = _played_unit(ctx, event)
     if not unit:
         return
-    if UnitType.MURLOC not in unit.type:
+    if UnitType.MURLOC not in unit.types:
         return
     if _is_self_play(ctx, event, trigger_uid):
         return

@@ -38,6 +38,8 @@ class Unit:
     is_frozen: bool = False
     tags: Set[Tags] = field(default_factory=set)
 
+    absorbed_pool_copies: Dict[str, int] = field(default_factory=dict)
+
     @property
     def has_taunt(self):
         return Tags.TAUNT in self.tags
@@ -73,6 +75,45 @@ class Unit:
     @property
     def has_immediate_attack(self):
         return Tags.IMMEDIATE_ATTACK in self.tags
+
+    @property
+    def has_magnetic(self) -> bool:
+        return Tags.MAGNETIC in self.tags
+
+    def _merge_counter_dict(self, dst: Dict[str, int], src: Dict[str, int]) -> None:
+        for k, v in src.items():
+            dst[k] = dst.get(k, 0) + v
+
+    def magnetize_from(self, other: "Unit") -> None:
+        """
+        Inserts 'other' into current unit
+        Recalc stats, tags (not MAGNETIC), triggers and pool history
+        """
+        # 1. Pool counter (for selling)
+        other_base_copies = 3 if other.is_golden else 1
+        self.absorbed_pool_copies[other.card_id] = self.absorbed_pool_copies.get(other.card_id, 0) + other_base_copies
+        self._merge_counter_dict(self.absorbed_pool_copies, other.absorbed_pool_copies)
+
+        # 2. Recalc stats (base + perm -> perm)
+        self.perm_atk_add += other.base_atk + other.perm_atk_add
+        self.perm_hp_add += other.base_hp + other.perm_hp_add
+        self.turn_atk_add += other.turn_atk_add
+        self.turn_hp_add += other.turn_hp_add
+
+        # 3. Recalc tags
+        for t in other.tags:
+            if t != Tags.MAGNETIC:
+                self.tags.add(t)
+
+        # 4. Recalc effects
+        self._merge_counter_dict(self.attached_perm, other.attached_perm)
+        self._merge_counter_dict(self.attached_turn, other.attached_turn)
+
+        # 5. Recalc triggers
+        trigger_stacks = 2 if other.is_golden else 1
+        self.attached_perm[other.card_id] = self.attached_perm.get(other.card_id, 0) + trigger_stacks
+
+        self.recalc_stats()
 
     def recalc_stats(self) -> None:
         old_max_hp = self.max_hp

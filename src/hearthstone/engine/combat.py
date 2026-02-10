@@ -245,7 +245,8 @@ class CombatManager:
                     victim_unit.cur_hp -= dmg_amount
                     actual_damage = dmg_amount
                     if has_poison or has_venom:
-                        victim_unit.cur_hp = 0
+                        if victim_unit.cur_hp > 0:
+                            victim_unit.cur_hp = 0
                         if has_venom:
                             venom_used = True
 

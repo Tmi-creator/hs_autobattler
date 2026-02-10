@@ -66,23 +66,23 @@ class HearthstoneEnv(gym.Env):
         # [5] Is Frozen
         # [6] ATK
         # [7] HP
-        # [8..15] Keywords (Taunt, DS, WF, Poison, Venom, Reborn, Cleave, Immediate attack)
-        # [16] Is Golden
-        # [17] Is Token
-        # [18] Has Deathrattle (Native)
-        # [19] Has Battlecry (Play Effect)
-        # [20] Has End of Turn
-        # [21] Has Start of Combat
-        # [22] Has Sell Effect
-        # [23] Has Synergy (Engine)
-        # [24] Is Selected (Targeting Source)
-        # [25..36] Types (11)
+        # [8..16] Keywords (Taunt, DS, WF, Poison, Venom, Reborn, Cleave, Immediate attack, Magnetic)
+        # [17] Is Golden
+        # [18] Is Token
+        # [19] Has Deathrattle (Native)
+        # [20] Has Battlecry (Play Effect)
+        # [21] Has End of Turn
+        # [22] Has Start of Combat
+        # [23] Has Sell Effect
+        # [24] Has Synergy (Engine)
+        # [25] Is Selected (Targeting Source)
+        # [26..37] Types (11)
 
-        self.entity_features = 25 + self.num_types
+        self.entity_features = 26 + self.num_types
 
         # Размер вектора наблюдения:
-        # Global(7) + Board(7*36) + Hand(10*36) + Store(7*36) + Discover(3*36) + Enemy(3)
-        # 7 + 252 + 360 + 252 + 108 + 3 = 982
+        # Global(7) + Board(7*37) + Hand(10*37) + Store(7*37) + Discover(3*37) + Enemy(3)
+        # 7 + 259 + 370 + 259 + 111 + 3 = 1009
         total_obs_size = 7 + \
                          (7 * self.entity_features) + \
                          (10 * self.entity_features) + \
@@ -96,6 +96,7 @@ class HearthstoneEnv(gym.Env):
 
         self.is_targeting = False
         self.pending_spell_hand_index = None
+        self.pending_target_kind = None  # "SPELL" | "MAGNETIZE"
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -150,12 +151,14 @@ class HearthstoneEnv(gym.Env):
                 # Reset targeting after play
                 self.pending_spell_hand_index = None
                 self.is_targeting = False
+                self.pending_target_kind = None
 
             # button END TURN (0) as CANCEL
             elif action == 0:
                 action_type = "CANCEL_CAST"
                 self.pending_spell_hand_index = None
                 self.is_targeting = False
+                self.pending_target_kind = None
                 # Just reset state
 
             else:
@@ -170,7 +173,7 @@ class HearthstoneEnv(gym.Env):
                 action_type = "BUY"
                 kwargs['index'] = action - 2
 
-                # === [NEW] REWARD BEFORE BUY TRIPLE ===
+                # === REWARD BEFORE BUY TRIPLE ===
                 buy_index = action - 2
                 if buy_index < len(player.store):
                     store_item = player.store[buy_index]
@@ -203,6 +206,16 @@ class HearthstoneEnv(gym.Env):
                         self.pending_spell_hand_index = h_idx
                         self.is_targeting = True
                         action_type = "WAIT_FOR_TARGET"
+                    elif card.unit and card.unit.has_magnetic:  # try magnet mech
+                        has_mech = any(UnitType.MECH in u.types for u in player.board)
+                        if has_mech:
+                            self.is_targeting = True
+                            self.pending_target_kind = "MAGNETIZE"
+                            action_type = "WAIT_FOR_TARGET"
+                        else:
+                            action_type = "PLAY"
+                            kwargs['hand_index'] = h_idx
+                            kwargs['insert_index'] = -1
                     else:
                         # default
                         action_type = "PLAY"
@@ -527,7 +540,7 @@ class HearthstoneEnv(gym.Env):
         return zone_features
 
     def _encode_single_entity(self, item, index_in_zone=-1, zone_type="UNKNOWN"):
-        """Создание вектора сущности с анализом триггеров"""
+        """Create entity vector with trigger analysis"""
         unit = getattr(item, 'unit', None)
         spell = getattr(item, 'spell', None)
         is_frozen = getattr(item, 'is_frozen', False)
@@ -587,6 +600,7 @@ class HearthstoneEnv(gym.Env):
                 unit.has_venomous,
                 unit.has_reborn,
                 unit.has_cleave,
+                unit.has_magnetic,
                 unit.has_immediate_attack,
                 is_golden,
                 db_data.get('is_token', False),
@@ -599,7 +613,7 @@ class HearthstoneEnv(gym.Env):
                 has_synergy
             ]
 
-            u_types = unit.type
+            u_types = unit.types
 
         else:  # Spell
             card_id = spell.card_id
@@ -608,8 +622,8 @@ class HearthstoneEnv(gym.Env):
             is_spell = 1.0
             cur_atk = 0.0
             cur_hp = 0.0
-            flags = [False] * 15
-            flags[11] = True  # spell = battlecry
+            flags = [False] * 17
+            flags[12] = True  # spell = battlecry
 
             u_types = []
 
@@ -628,7 +642,7 @@ class HearthstoneEnv(gym.Env):
             cur_hp / MAX_HP,  # [7] HP
         ]
 
-        # Flags (15)
+        # Flags (17)
         vec.extend([1.0 if f else 0.0 for f in flags])
 
         # === Is Selected (Targeting) ===
@@ -678,9 +692,16 @@ class HearthstoneEnv(gym.Env):
             masks[0] = True  # Cancel cast
             # idx: 2 + i
             board_len = len(player.board)
+            if self.pending_target_kind == "MAGNETIZE":
+                # only MECHS
+                for i in range(min(board_len, 7)):
+                    if UnitType.MECH in player.board[i].types:
+                        masks[2 + i] = True
+            else:
+                # СПЕЛЛЫ / БАТТЛКРАИ (любая цель)
+                for i in range(min(board_len, 7)):
+                    masks[2 + i] = True
             has_valid_target = board_len > 0
-            for i in range(board_len):
-                masks[2 + i] = True
             if has_valid_target:  # stop cast/cancel cycle
                 masks[0] = False
             return masks

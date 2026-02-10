@@ -52,6 +52,12 @@ class CombatManager:
         else:
             attacker_player_idx = random.choice([0, 1])
 
+        def _find_target(target_board):
+            taunts = [u for u in target_board if u.has_taunt]
+            if taunts:
+                return random.choice(taunts)
+            return random.choice(target_board)
+
         can_attack = [1, 1]
         while True:
             end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
@@ -61,6 +67,46 @@ class CombatManager:
                 return BattleOutcome.DRAW, 0
             if can_attack[attacker_player_idx] == 0:
                 attacker_player_idx = 1 - attacker_player_idx
+                continue
+            # 1. Immediate Attack Batch
+            while True:
+                attack_queue = []
+                # Active Player First
+                scan_order = [attacker_player_idx, 1 - attacker_player_idx]
+                for side in scan_order:
+                    board = boards[side]
+                    for unit in board:
+                        if unit.is_alive and Tags.IMMEDIATE_ATTACK in unit.tags:
+                            attack_queue.append(unit)
+                            # discard RIGHT NOW because it goes infinite
+                            unit.tags.discard(Tags.IMMEDIATE_ATTACK)
+                if not attack_queue:
+                    break
+                # 1.2 Execute attacks
+                for unit in attack_queue:
+                    # Unit can die while wait its order
+                    if not unit.is_alive:
+                        continue
+
+                    attacker_side = -1  # find side by unit side
+                    if unit in boards[0]:
+                        attacker_side = 0
+                    elif unit in boards[1]:
+                        attacker_side = 1
+
+                    # how?
+                    if attacker_side == -1:
+                        print("what the f")
+                        continue
+
+                    enemy_side = 1 - attacker_side
+                    target = _find_target(boards[enemy_side])
+
+                    if target:
+                        self.perform_attack(unit, target, combat_players)
+                        # clean after every attack
+                        self.cleanup_dead(boards, attack_indices, combat_players)
+                # re-scan
                 continue
             attacker_board = boards[attacker_player_idx]
             defender_board = boards[1 - attacker_player_idx]
@@ -88,11 +134,7 @@ class CombatManager:
                 num_attacks += 1
 
             for i in range(num_attacks):
-                taunts = [u for u in defender_board if u.has_taunt]
-                if taunts:
-                    target = random.choice(taunts)
-                else:
-                    target = random.choice(defender_board)
+                target = _find_target(defender_board)
 
                 self.perform_attack(attacker_unit, target, combat_players)
 

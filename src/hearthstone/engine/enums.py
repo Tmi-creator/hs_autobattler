@@ -16,7 +16,7 @@ class UnitType(Enum):
 
 
 class Tags(Enum):
-    IMMEDIATE_ATTACK = auto()
+    IMMEDIATE_ATTACK = auto() # for immediate attacks
     TAUNT = auto()
     DIVINE_SHIELD = auto()
     WINDFURY = auto()

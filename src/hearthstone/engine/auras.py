@@ -2,7 +2,7 @@ from typing import List, Callable, Dict
 from .entities import Unit
 from .enums import CardIDs, UnitType
 
-# Aura function: источник aura, board and index источника
+# Aura function: aura source, board and source index
 AuraEffectFn = Callable[[Unit, List[Unit], int], None]
 
 
@@ -22,7 +22,7 @@ def _murloc_warleader_aura(source: Unit, board: List[Unit], idx: int):
 
     for i, unit in enumerate(board):
         if i == idx: continue  # dont buff self
-        if UnitType.MURLOC in unit.type:
+        if UnitType.MURLOC in unit.types:
             unit.aura_atk_add += atk_bonus
 
 
@@ -32,12 +32,12 @@ def _southsea_captain_aura(source: Unit, board: List[Unit], idx: int):
 
     for i, unit in enumerate(board):
         if i == idx: continue  # dont buff self
-        if UnitType.PIRATE in unit.type:
+        if UnitType.PIRATE in unit.types:
             unit.aura_atk_add += bonus
             unit.aura_hp_add += bonus
 
 
-# Реестр: CardID -> Функция ауры
+# Register: CardID -> Aura function
 AURA_REGISTRY: Dict[str, AuraEffectFn] = {
     CardIDs.DIRE_WOLF_ALPHA: _dire_wolf_alpha_aura,
     CardIDs.MURLOC_WARLEADER: _murloc_warleader_aura,

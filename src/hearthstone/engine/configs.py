@@ -34,7 +34,7 @@ COST_BUY = 3
 COST_REROLL = 1
 SPELLS_PER_ROLL = 1
 
-# Мини-база данных (MVP)
+# Database cards (MVP)
 CARD_DB = {
     CardIDs.WRATH_WEAVER: {"name": "Wrath Weaver", "tier": 1, "atk": 1, "hp": 3, "type": [UnitType.DEMON]},
     CardIDs.SHELL_COLLECTOR: {"name": "Shell Collector", "tier": 1, "atk": 2, "hp": 1, "type": [UnitType.NAGA]},

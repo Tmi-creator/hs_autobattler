@@ -59,7 +59,7 @@ def main():
 
     config = {
         "policy_type": "MlpPolicy",
-        "total_timesteps": 500_000,
+        "total_timesteps": 1500_000,
         "learning_rate": 0.0003,
         "gamma": 0.99,
         "batch_size": 256,

@@ -37,20 +37,21 @@ class CombatManager:
         board_1, board_2 = boards
         recalculate_board_auras(board_1)
         recalculate_board_auras(board_2)
-        self.event_manager.process_event(
-            Event(event_type=EventType.START_OF_COMBAT),
-            combat_players,
-            self.get_uid,
-        )
-        attack_indices = [0, 0]
-        self.cleanup_dead(boards, attack_indices, combat_players)
-
         if len(board_1) > len(board_2):
             attacker_player_idx = 0
         elif len(board_2) > len(board_1):
             attacker_player_idx = 1
         else:
             attacker_player_idx = random.choice([0, 1])
+        attacker_uid = player_1.uid if attacker_player_idx == 0 else player_2.uid
+        self.event_manager.process_event(
+            Event(event_type=EventType.START_OF_COMBAT,
+                  source_pos=PosRef(side=attacker_uid, zone=Zone.BOARD, slot=-1)),
+            combat_players,
+            self.get_uid,
+        )
+        attack_indices = [0, 0]
+        self.cleanup_dead(boards, attack_indices, combat_players)
 
         def _find_target(target_board):
             taunts = [u for u in target_board if u.has_taunt]

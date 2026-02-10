@@ -108,6 +108,9 @@ class CombatManager:
                         self.cleanup_dead(boards, attack_indices, combat_players)
                 # re-scan
                 continue
+            end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
+            if end_battle[0] != BattleOutcome.NO_END:
+                return end_battle
             attacker_board = boards[attacker_player_idx]
             defender_board = boards[1 - attacker_player_idx]
 

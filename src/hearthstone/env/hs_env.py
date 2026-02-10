@@ -692,17 +692,19 @@ class HearthstoneEnv(gym.Env):
             masks[0] = True  # Cancel cast
             # idx: 2 + i
             board_len = len(player.board)
+            valid_targets = 0
             if self.pending_target_kind == "MAGNETIZE":
                 # only MECHS
                 for i in range(min(board_len, 7)):
                     if UnitType.MECH in player.board[i].types:
                         masks[2 + i] = True
+                        valid_targets += 1
             else:
                 # СПЕЛЛЫ / БАТТЛКРАИ (любая цель)
                 for i in range(min(board_len, 7)):
                     masks[2 + i] = True
-            has_valid_target = board_len > 0
-            if has_valid_target:  # stop cast/cancel cycle
+                    valid_targets += 1
+            if valid_targets > 0:  # stop cast/cancel cycle
                 masks[0] = False
             return masks
 

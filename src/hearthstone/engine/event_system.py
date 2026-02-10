@@ -383,8 +383,8 @@ class EventManager:
                     and source_uid is not None
                     and trig_uid == source_uid
             )
-            # если это триггер умершего источника, а pos уже пропал из ctx (его popнули с доски),
-            # используем snapshot/source_pos чтобы не улетать в slot=999
+            # if its trigger of dead source, pos already gone from ctx (popped from board)
+            # use snapshot/source_pos to not get slot=999
             if pos is None and is_source_trigger and source_pos is not None:
                 pos = source_pos
             slot = pos.slot if pos else 999

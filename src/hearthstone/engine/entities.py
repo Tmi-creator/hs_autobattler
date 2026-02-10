@@ -7,9 +7,9 @@ from copy import deepcopy
 
 @dataclass
 class Unit:
-    uid: int  # уникальный id
-    card_id: str  # id карты
-    owner_id: int  # id игрока
+    uid: int  # unique id
+    card_id: str  # id of card
+    owner_id: int  # id of player
     tier: int
 
     base_hp: int
@@ -19,13 +19,13 @@ class Unit:
 
     cur_hp: int = 0
     cur_atk: int = 0
-    perm_hp_add: int = 0  # баффы примененные навсегда
+    perm_hp_add: int = 0  # permanent buffs
     perm_atk_add: int = 0
-    turn_hp_add: int = 0  # баффы примененные только на этот ход
+    turn_hp_add: int = 0  # buffs only for current turn
     turn_atk_add: int = 0
-    combat_hp_add: int = 0  # баффы примененные только на этот бой
+    combat_hp_add: int = 0  # buffs only for current fight
     combat_atk_add: int = 0
-    aura_hp_add: int = 0  # баффы примененные аурой зависящей от расположения (вида соседние существа получают +1 атаки)
+    aura_hp_add: int = 0  # aura buffs, depends on position (like neighbours gain +1\+0)
     aura_atk_add: int = 0
 
     avenge_counter: int = 0
@@ -69,6 +69,10 @@ class Unit:
     @property
     def has_stealth(self):
         return Tags.STEALTH in self.tags
+
+    @property
+    def has_immediate_attack(self):
+        return Tags.IMMEDIATE_ATTACK in self.tags
 
     def recalc_stats(self) -> None:
         old_max_hp = self.max_hp
@@ -137,7 +141,7 @@ class Unit:
 
     @staticmethod
     def create_from_db(card_id: str, uid: int, owner_id: int, is_golden: bool = False):
-        """Фабричный метод: создает юнита по ID из базы"""
+        """Fabric method: make unit by ID from database"""
         data = CARD_DB.get(card_id)
 
         if not data and isinstance(card_id, str):
@@ -241,7 +245,7 @@ class HandCard:
 @dataclass
 class EconomyState:
     """
-    Вся экономика игрока здесь
+    All player eco is here
     """
     gold: int = 3
     gold_next_turn: int = 0
@@ -259,13 +263,13 @@ class EconomyState:
 
 @dataclass
 class MechanicState:
-    """Глобальные баффы и счетчики механик"""
+    """Global buffs and mechanics counters"""
     modifiers: Dict[MechanicType, Tuple[int, int]] = field(
         default_factory=lambda: MECHANIC_DEFAULTS.copy()
     )
 
     def modify_stat(self, key: MechanicType, atk_add: int, hp_add: int):
-        """Универсальный метод баффа механики"""
+        """Universal method for mechanic buff"""
         current_atk, current_hp = self.modifiers.get(key, (0, 0))
         self.modifiers[key] = (current_atk + atk_add, current_hp + hp_add)
 
@@ -278,10 +282,10 @@ class DiscoveryState:
     is_active: bool = False
     options: List[StoreItem] = field(default_factory=list)
 
-    # Метаданные
+    # Metadata
     discover_tier: int = 1
     source: str = "Unknown"  # "Triplet", "HeroPower", "Primalfin"
-    is_exact_tier: bool = False  # True для триплетов, False для остальных
+    is_exact_tier: bool = False  # True for triple, False for others
 
 
 @dataclass

@@ -20,10 +20,10 @@ class TavernManager:
 
     def start_turn(self, player: Player, turn_number: int) -> None:
         """
-        Логика начала хода (Фаза вербовки):
-        1. Восстановить/увеличить золото.
-        2. Снизить стоимость улучшения таверны.
-        3. Обновить магазин (с учетом заморозки).
+        Logic StartOfTurn
+        1. Restore/up gold count
+        2. Lower up tavern cost
+        3. Restore shop (with freezing)
         """
         for unit in player.board:
             unit.reset_turn_layer()
@@ -54,7 +54,7 @@ class TavernManager:
         self._fill_tavern(player)
 
     def roll_tavern(self, player: Player) -> tuple[bool, str]:
-        """Платное обновление (1 золотой). Игнорирует заморозку (сбрасывает всё)."""
+        """Paid roll (1 gold). Ignore freeze (throw all)."""
         if player.gold < COST_REROLL:
             return False, "Not enough gold"
 
@@ -70,7 +70,7 @@ class TavernManager:
         return True, "Rolled"
 
     def _fill_tavern(self, player: Player) -> None:
-        """Вспомогательный метод: добивает магазин до максимума карт"""
+        """Supporting function: fill shop to max cards"""
         slots_total = TAVERN_SLOTS.get(player.tavern_tier)
         current_units = sum(1 for item in player.store if item.unit)
         slots_needed = slots_total - current_units
@@ -101,7 +101,7 @@ class TavernManager:
         return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:
-        """Повышение уровня таверны"""
+        """Up tavern level"""
         if player.tavern_tier >= 6:
             return False, "Max tier reached"
 
@@ -120,7 +120,7 @@ class TavernManager:
         return True, f"Upgraded to Tier {player.tavern_tier}"
 
     def toggle_freeze(self, player: Player) -> Tuple[bool, str]:
-        """Заморозить/Разморозить весь магазин"""
+        """Freeze/Unfreeze shop"""
 
         all_frozen = all(item.is_frozen for item in player.store)
         if all_frozen:
@@ -191,11 +191,11 @@ class TavernManager:
     def play_unit(self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1) -> Tuple[
         bool, str]:
         """
-        Разыгрывает карту из руки на стол в конкретную позицию.
+        Play card hand -> board in concrete position
         Args:
-            hand_index: Индекс карты в руке.
-            insert_index: Индекс на столе, куда поставить существо (0 - слева, len(board) - справа).
-            target_index: Индекс цели для Battlecry (если нужен).
+            hand_index: Card index in hand
+            insert_index: Index on board, where you should place unit (0 - left, len(board) - right)
+            target_index: Index target for battlecry or spell
         """
         if hand_index < 0 or hand_index >= len(player.hand):
             return False, "Invalid hand index"
@@ -231,9 +231,9 @@ class TavernManager:
         return True, "Played unit"
 
     def start_discovery(self, player: Player,
-                        source: str,  # Обязательно указываем источник (для логов)
-                        tier: Optional[int] = None,  # Если None - берем текущий таверн-тир
-                        exact_tier: bool = False,  # True для наград за триплеты
+                        source: str,  # source for logs
+                        tier: Optional[int] = None,  # None = current tavern tier
+                        exact_tier: bool = False,  # True for triple rewards
                         count: int = 3,
                         predicate=None) -> bool:
 
@@ -290,15 +290,15 @@ class TavernManager:
                 player.hand.append(HandCard(uid=chosen_item.unit.uid, unit=chosen_item.unit))
                 self._check_triplet(player, chosen_item.unit.card_id)
                 return True, f"Discovered {chosen_item.unit.card_id}"
-            # тут дальше будут спеллы раскапываться
+            # here we will discover spells
         if chosen_item.unit:
             self.pool.return_cards([chosen_item.unit.card_id])  # return burned card
         return True, "Discovered (Burned)"
 
     def _check_triplet(self, player: Player, card_id: str):
         """
-        Ищет 3 копии существа, объединяет их в золотое.
-        Временные баффы остаются временными, постоянные — постоянными.
+        Find 3 copies of unit, and unite in one gold
+        Timed buffs become times, const - const
         """
         hand_indices = [i for i, hc in enumerate(player.hand)
                         if hc.unit and hc.unit.card_id == card_id and not hc.unit.is_golden]
@@ -445,7 +445,7 @@ class TavernManager:
 
     def swap_units(self, player: Player, index_a: int, index_b: int) -> Tuple[bool, str]:
         """
-        Меняет местами двух существ на столе.
+        Swap two units on board
         """
         board_len = len(player.board)
 

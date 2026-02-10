@@ -18,22 +18,22 @@ from hearthstone.env.hs_env import HearthstoneEnv
 from scripts.callbacks import GameLoggerCallback, SelfPlayCallback
 
 
-# --- ГЛАВНАЯ ФУНКЦИЯ ДЕТЕРМИНИЗМА ---
+# === MAIN DETERMINISM FUNCTION ===
 def setup_determinism(seed: int):
-    # 1. Фиксируем хеширование строк (ВАЖНО для словарей и множеств)
-    # Это нужно делать до запуска любых других процессов, поэтому меняем os.environ
+    # 1. Fix string hashing (important for dicts and sets)
+    # should do it before all other processes, so change os.environ
     os.environ["PYTHONHASHSEED"] = str(seed)
 
-    # 2. Требование для детерминированных алгоритмов CUDA (Torch >= 1.7)
-    # Без этого torch.use_deterministic_algorithms(True) может выдать ошибку
+    # 2. Make CUDA determine algorithm (Torch >= 1.7)
+    # Without it torch.use_deterministic_algorithms(True) can throw error
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    # 3. Стандартные сиды
+    # 3. standard seeds
     random.seed(seed)
     np.random.seed(seed)
-    set_random_seed(seed)  # Фиксирует random, numpy и torch cpu
+    set_random_seed(seed)  # Fix random, numpy and torch cpu
 
-    # 4. Настройки PyTorch для GPU
+    # 4. Settings PyTorch for GPU
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
@@ -55,10 +55,8 @@ def make_env(rank, seed=0):
 
 def main():
     SEED = 42
-    # Вызываем настройку ДО всего остального
-    setup_determinism(SEED)
+    setup_determinism(SEED) # setup before all
 
-    # 1. Настройки
     config = {
         "policy_type": "MlpPolicy",
         "total_timesteps": 500_000,

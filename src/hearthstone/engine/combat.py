@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 from typing import List, Optional, Tuple
 
@@ -26,7 +28,7 @@ class CombatManager:
             TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
         )
 
-    def get_uid(self):
+    def get_uid(self) -> int:
         self.uid += 1
         return self.uid
 
@@ -239,7 +241,12 @@ class CombatManager:
                     right_ref = EntityRef(right_u.uid)
                     victims_data.append((right_u, right_pos, right_ref))
 
-        def _apply_damage_batch(source_unit, source_ref, source_pos, targets_list):
+        def _apply_damage_batch(
+            source_unit: Unit,
+            source_ref: EntityRef,
+            source_pos: Optional[PosRef],
+            targets_list: List[Tuple[Unit, Optional[PosRef], EntityRef]],
+        ) -> None:
             dmg_amount = source_unit.cur_atk
             if dmg_amount <= 0:
                 return
@@ -369,7 +376,12 @@ class CombatManager:
                         )
         if unit.has_reborn:
 
-            def _reborn_effect(ctx: EffectContext, event, trigger_uid, card_id=unit.card_id):
+            def _reborn_effect(
+                ctx: EffectContext,
+                event: Event,
+                trigger_uid: int,
+                card_id: str = unit.card_id,
+            ) -> None:
                 if not event.source_pos:
                     return
                 summoned_ref = ctx.summon(

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Callable, Dict, List
 
 from .entities import Unit
@@ -7,7 +9,7 @@ from .enums import CardIDs, UnitType
 AuraEffectFn = Callable[[Unit, List[Unit], int], None]
 
 
-def _dire_wolf_alpha_aura(source: Unit, board: List[Unit], idx: int):
+def _dire_wolf_alpha_aura(source: Unit, board: List[Unit], idx: int) -> None:
     """Neighbours gain +1/+0(Golden: +2/+0)"""
     bonus = 1 if not source.is_golden else 2
 
@@ -17,7 +19,7 @@ def _dire_wolf_alpha_aura(source: Unit, board: List[Unit], idx: int):
         board[idx + 1].aura_atk_add += bonus
 
 
-def _murloc_warleader_aura(source: Unit, board: List[Unit], idx: int):
+def _murloc_warleader_aura(source: Unit, board: List[Unit], idx: int) -> None:
     """Other murlocs gain +2/+0 (Golden: +4/+0)"""
     atk_bonus = 2 if not source.is_golden else 4
 
@@ -28,7 +30,7 @@ def _murloc_warleader_aura(source: Unit, board: List[Unit], idx: int):
             unit.aura_atk_add += atk_bonus
 
 
-def _southsea_captain_aura(source: Unit, board: List[Unit], idx: int):
+def _southsea_captain_aura(source: Unit, board: List[Unit], idx: int) -> None:
     """Other pirates gain +1/+1 (Golden: +2/+2)"""
     bonus = 1 if not source.is_golden else 2
 
@@ -48,7 +50,7 @@ AURA_REGISTRY: Dict[str, AuraEffectFn] = {
 }
 
 
-def recalculate_board_auras(board: List[Unit]):
+def recalculate_board_auras(board: List[Unit]) -> None:
     for unit in board:
         unit.reset_aura_layer()
 

@@ -3,10 +3,13 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Deque, Dict, List, Optional, Set
+
+if TYPE_CHECKING:
+    from .entities import Player
 
 from .auras import recalculate_board_auras
-from .entities import HandCard, Player, Spell, Unit
+from .entities import HandCard, Spell, Unit
 from .enums import Tags, UnitType
 
 
@@ -132,7 +135,7 @@ class EffectContext:
             return hand_item.unit
         return None
 
-    def iter_board_units(self, side: int) -> Iterable[tuple[int, Unit]]:
+    def iter_board_units(self, side: int) -> list[tuple[int, Unit]]:
         player = self.players_by_uid.get(side)
         if not player:
             return []
@@ -313,8 +316,8 @@ class EventManager:
         from .effects import SYSTEM_TRIGGER_REGISTRY
 
         triggers: List[TriggerInstance] = []
-        for player_id, player in ctx.players_by_uid.items():
-            for slot, unit in enumerate(player.board):
+        for _player_id, player in ctx.players_by_uid.items():
+            for _slot, unit in enumerate(player.board):
                 stacks_multiplier = 1
                 if unit.is_golden:
                     if unit.card_id in self.golden_trigger_registry:

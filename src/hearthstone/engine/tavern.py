@@ -1,4 +1,6 @@
-from typing import Dict, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .auras import recalculate_board_auras
 from .configs import COST_BUY, COST_REROLL, SPELLS_PER_ROLL, TAVERN_SLOTS, TIER_UPGRADE_COSTS
@@ -6,11 +8,14 @@ from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import HandCard, Player, Spell, StoreItem, Unit
 from .enums import SpellIDs, UnitType
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
+from .pool import CardPool, SpellPool
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
 class TavernManager:
-    def __init__(self, pool, spell_pool, event_manager: EventManager | None = None):
+    def __init__(
+        self, pool: CardPool, spell_pool: SpellPool, event_manager: EventManager | None = None
+    ):
         self.pool = pool
         self.spell_pool = spell_pool
         self._uid_counter = 1000
@@ -18,7 +23,7 @@ class TavernManager:
             TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
         )
 
-    def _get_next_uid(self):
+    def _get_next_uid(self) -> int:
         self._uid_counter += 1
         return self._uid_counter
 
@@ -195,7 +200,7 @@ class TavernManager:
                 unit = player.board.pop(i)
                 break
         player.gold += 1
-        cards_to_return = []
+        cards_to_return: List[str] = []
         cards_to_return.extend([unit.card_id] * (3 if unit.is_golden else 1))
         for cid, copies in unit.absorbed_pool_copies.items():
             cards_to_return.extend([cid] * copies)
@@ -280,7 +285,7 @@ class TavernManager:
         tier: Optional[int] = None,  # None = current tavern tier
         exact_tier: bool = False,  # True for triple rewards
         count: int = 3,
-        predicate=None,
+        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
     ) -> bool:
 
         if player.is_discovering:
@@ -295,7 +300,7 @@ class TavernManager:
         if not card_ids:
             return False
 
-        options = []
+        options: List[StoreItem] = []
         for cid in card_ids:
             unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
             options.append(StoreItem(unit=unit))
@@ -318,7 +323,7 @@ class TavernManager:
 
         chosen_item = player.discovery.options.pop(index)
 
-        remaining_ids = []
+        remaining_ids: List[str] = []
         for item in player.discovery.options:
             if item.unit:
                 remaining_ids.append(item.unit.card_id)
@@ -356,8 +361,8 @@ class TavernManager:
             return
 
         removed_count = 0
-        indices_to_pop_hand = []
-        indices_to_pop_board = []
+        indices_to_pop_hand: List[int] = []
+        indices_to_pop_board: List[int] = []
 
         for idx in hand_indices:
             if removed_count < 3:
@@ -378,7 +383,7 @@ class TavernManager:
         merged_attached_turn: Dict[str, int] = {}
         merged_absorbed_pool: Dict[str, int] = {}
 
-        def _collect_stats(u: Unit):
+        def _collect_stats(u: Unit) -> None:
             nonlocal total_perm_hp, total_perm_atk, total_turn_hp, total_turn_atk
 
             total_perm_hp += u.perm_hp_add

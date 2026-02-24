@@ -1,10 +1,16 @@
 import os
 import random
+import sys
+from pathlib import Path
 from typing import Callable, Protocol, TypedDict, cast
+
+# Добавляем корень проекта в sys.path, чтобы импорты из scripts и hearthstone работали везде
+root_path = Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
 
 import numpy as np
 import torch
-import wandb
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -12,8 +18,9 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from wandb.integration.sb3 import WandbCallback
 
+import wandb
+from hearthstone.env.hs_env import HearthstoneEnv
 from scripts.callbacks import GameLoggerCallback, SelfPlayCallback
-from src.hearthstone.env.hs_env import HearthstoneEnv
 
 
 class TrainConfig(TypedDict):
@@ -93,7 +100,7 @@ def main() -> None:
 
     config: TrainConfig = {
         "policy_type": "MlpPolicy",
-        "total_timesteps": 1500_000,
+        "total_timesteps": 100_000,
         "learning_rate": 0.0003,
         "gamma": 0.99,
         "batch_size": 256,

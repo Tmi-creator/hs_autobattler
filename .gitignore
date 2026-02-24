@@ -211,6 +211,10 @@ scripts/models/
 scripts/runs/
 scripts/logs/
 scripts/wandb/
+models/
+runs/
+logs/
+wandb/
 
 !src/hearthstone/env/
 !typings/hearthstone/env

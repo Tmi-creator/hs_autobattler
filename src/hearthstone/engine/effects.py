@@ -45,14 +45,14 @@ def _is_friendly_death_exclude_self(ctx: EffectContext, event: Event, trigger_ui
 
 def make_avenge_trigger(
     n: int, effect_fn: Callable[[EffectContext, Event, int], None], name: str = "Avenge"
-):
+) -> TriggerDef:
     """
     Make TriggerDef for Avenge mechanic (X).
     n: How many allies should die
     effect_fn: function that should play
     """
 
-    def avenge_wrapper(ctx: EffectContext, event: Event, trigger_uid: int):
+    def avenge_wrapper(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
         avenger = ctx.resolve_unit(EntityRef(trigger_uid))
         if not avenger or not avenger.is_alive:
             return

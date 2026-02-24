@@ -1,4 +1,5 @@
 import os
+from collections.abc import Sequence
 from typing import Protocol, cast
 
 import numpy as np
@@ -6,8 +7,8 @@ import wandb
 from sb3_contrib import MaskablePPO
 from stable_baselines3.common.callbacks import BaseCallback
 
-from src.hearthstone.engine.entities import HandCard, StoreItem, Unit
-from src.hearthstone.env.hs_env import HearthstoneEnv
+from hearthstone.engine.entities import HandCard, StoreItem, Unit
+from hearthstone.env.hs_env import HearthstoneEnv
 
 
 class SupportsPPOLoad(Protocol):
@@ -96,14 +97,14 @@ class GameLoggerCallback(BaseCallback):
         if wandb_api.run is not None:
             wandb_api.save(path)
 
-    def _format_board(self, board: list[Unit]) -> str:
+    def _format_board(self, board: Sequence[Unit]) -> str:
         return (
             " | ".join([f"{u.card_id}({u.cur_atk}/{u.cur_hp})" for u in board])
             if board
             else "Empty"
         )
 
-    def _format_hand(self, hand: list[HandCard]) -> str:
+    def _format_hand(self, hand: Sequence[HandCard]) -> str:
         return (
             ", ".join(
                 [c.unit.card_id if c.unit else (c.spell.card_id if c.spell else "") for c in hand]
@@ -112,7 +113,7 @@ class GameLoggerCallback(BaseCallback):
             else "Empty"
         )
 
-    def _format_shop(self, shop: list[StoreItem]) -> str:
+    def _format_shop(self, shop: Sequence[StoreItem]) -> str:
         return (
             ", ".join(
                 [c.unit.card_id if c.unit else (c.spell.card_id if c.spell else "") for c in shop]

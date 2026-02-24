@@ -60,7 +60,7 @@ class CombatManager:
         attack_indices = [0, 0]
         self.cleanup_dead(boards, attack_indices, combat_players)
 
-        def _find_target(target_board):
+        def _find_target(target_board: List[Unit]) -> Unit:
             taunts = [u for u in target_board if u.has_taunt]
             if taunts:
                 return random.choice(taunts)

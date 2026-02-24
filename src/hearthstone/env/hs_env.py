@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import math
 import random
-from typing import TYPE_CHECKING, Optional
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -8,6 +11,7 @@ from gymnasium import spaces
 
 from hearthstone.engine.configs import CARD_DB, SPELL_DB
 from hearthstone.engine.effects import TRIGGER_REGISTRY
+from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
 from hearthstone.engine.enums import UnitType
 from hearthstone.engine.event_system import EventType
 from hearthstone.engine.game import Game
@@ -26,7 +30,7 @@ MAX_SPELL_DISCOUNT = 10.0
 MAX_CARDS_IN_GAME = 500
 
 
-class HearthstoneEnv(gym.Env):
+class HearthstoneEnv(gym.Env[np.ndarray, int]):
     """
     RL Environment for Hearthstone Battlegrounds.
 
@@ -35,7 +39,7 @@ class HearthstoneEnv(gym.Env):
     1: Roll
     2-8: Buy (Slot 0-6) / DISCOVER_CHOICE (Option 0-2) / TARGET BOARD (Slot 0-6)
     9-15: Sell (Slot 0-6) / TARGET STORE (Slot 0-6)
-          [Not implemented in engine yet, usually spells target board]
+    [Not implemented in engine yet, usually spells target board]
     16-25: Play Hand (Card 0-9)
     26-31: Swap Right (Slot i <-> Slot i+1)
     26: 0<->1, 27: 1<->2 ... 31: 5<->6
@@ -110,6 +114,7 @@ class HearthstoneEnv(gym.Env):
 
     def reset(
         self,
+        *,
         seed: int | None = None,
         options: dict[str, object] | None = None,
     ) -> tuple[np.ndarray, dict[str, object]]:
@@ -140,12 +145,11 @@ class HearthstoneEnv(gym.Env):
         is_discovering = player.is_discovering
         prev_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
         # === ACTION MAPPING ===
-        action_type = "UNKNOWN"
-        kwargs = {}
+        action_type: str = "UNKNOWN"
+        kwargs: dict[str, int] = {}
 
         reward: float = 0.0
         done = False
-        info = "Unknown"
 
         if is_discovering:
             # (2-4 -> 0-2)
@@ -220,9 +224,9 @@ class HearthstoneEnv(gym.Env):
                 if h_idx < len(player.hand):
                     card = player.hand[h_idx]
                     card_id = (
-                        getattr(card.spell, "card_id", None)
+                        card.spell.card_id
                         if card.spell
-                        else getattr(card.unit, "card_id", None)
+                        else (card.unit.card_id if card.unit else None)
                     )
                     if card_id in SPELLS_REQUIRE_TARGET:
                         # GO INTO TARGET MODE
@@ -269,7 +273,7 @@ class HearthstoneEnv(gym.Env):
         elif action_type == "CANCEL_CAST":
             return self._get_obs(), -0.01, False, truncated, {}
 
-        success, done, info = self.game.step(self.my_player_id, action_type, **kwargs)
+        success, done, _ = self.game.step(self.my_player_id, action_type, **kwargs)
 
         # Errors
         if not success:
@@ -279,9 +283,6 @@ class HearthstoneEnv(gym.Env):
         power_delta = current_board_power - prev_board_power
         if power_delta > 0:
             reward += power_delta * 0.05
-        if action_type == "UPGRADE":  # give reward for up tavern
-            pass  # right now no need to up tavern
-            reward += 0.5
         if action_type == "SWAP":
             reward -= 0.01
 
@@ -340,7 +341,7 @@ class HearthstoneEnv(gym.Env):
 
         return self._get_obs(), reward, done, truncated, {}
 
-    def _auto_position_board(self, player):
+    def _auto_position_board(self, player: Player) -> None:
         """
         Эвристика для авто-расстановки (так как SWAP отключен):
         1. Клив (Cleave) - бьет первым (максимальный вэлью).
@@ -352,8 +353,8 @@ class HearthstoneEnv(gym.Env):
         if not player.board:
             return
 
-        def sort_key(unit):
-            score = 0
+        def sort_key(unit: Unit) -> int:
+            score: int = 0
             # Приоритеты (чем выше score, тем левее стоит юнит)
             if unit.has_cleave:
                 score += 10000
@@ -372,8 +373,8 @@ class HearthstoneEnv(gym.Env):
 
         player.board.sort(key=sort_key, reverse=True)
 
-    def _calculate_board_power(self, player):
-        power = 0
+    def _calculate_board_power(self, player: Player) -> float:
+        power: float = 0.0
         for unit in player.board:
             u_score = unit.cur_atk * 1.0 + unit.cur_hp * 0.8
 
@@ -411,7 +412,7 @@ class HearthstoneEnv(gym.Env):
 
         return power
 
-    def _play_enemy_turn(self):
+    def _play_enemy_turn(self) -> None:
         p_idx = self.enemy_id
 
         if self.opponent_model is None:
@@ -431,10 +432,10 @@ class HearthstoneEnv(gym.Env):
             import torch
 
             with torch.no_grad():  # no gradients
-                action, _ = self.opponent_model.predict(
+                raw_action, _ = self.opponent_model.predict(
                     obs, action_masks=masks, deterministic=False
                 )
-            action = int(action)
+            action: int = int(raw_action)
 
             if action == 0:
                 if self.is_targeting:  # CANCEL
@@ -448,7 +449,7 @@ class HearthstoneEnv(gym.Env):
             if self.is_targeting:
                 if 2 <= action <= 8:
                     target_idx = action - 2
-                    hand_idx = self.pending_spell_hand_index
+                    hand_idx: int | None = self.pending_spell_hand_index
                     self.game.step(p_idx, "PLAY", hand_index=hand_idx, target_index=target_idx)
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
@@ -460,10 +461,10 @@ class HearthstoneEnv(gym.Env):
                 h_idx = kwargs.get("hand_index")
                 if h_idx is not None and h_idx < len(player.hand):
                     card = player.hand[h_idx]
-                    card_id = (
-                        getattr(card.spell, "card_id", None)
+                    card_id: str | None = (
+                        card.spell.card_id
                         if card.spell
-                        else getattr(card.unit, "card_id", None)
+                        else (card.unit.card_id if card.unit else None)
                     )
 
                     if card_id in SPELLS_REQUIRE_TARGET:
@@ -484,7 +485,7 @@ class HearthstoneEnv(gym.Env):
         self.is_targeting = False
         self.pending_spell_hand_index = None
 
-    def _decode_action_for_engine(self, action):
+    def _decode_action_for_engine(self, action: int) -> tuple[str, dict[str, int]]:
         if action == 1:
             return "ROLL", {}
         if 2 <= action <= 8:
@@ -497,7 +498,7 @@ class HearthstoneEnv(gym.Env):
             return "SWAP", {"index_a": action - 26, "index_b": action - 26 + 1}
         return "UNKNOWN", {}
 
-    def _simple_bot_turn(self, p_idx):
+    def _simple_bot_turn(self, p_idx: int) -> None:
         """Simple bot: buy random, place all, pick first in discovery"""
         player = self.game.players[p_idx]
 
@@ -532,7 +533,7 @@ class HearthstoneEnv(gym.Env):
 
         self.game.step(p_idx, "END_TURN")
 
-    def _get_obs(self, player_idx=None):
+    def _get_obs(self, player_idx: int | None = None) -> np.ndarray:
         p_id = self.my_player_id if player_idx is None else player_idx
         e_id = 1 - p_id
 
@@ -566,8 +567,13 @@ class HearthstoneEnv(gym.Env):
             dtype=np.float32,
         )
 
-    def _encode_zone(self, items, n_slots, zone_type="UNKNOWN"):
-        zone_features = []
+    def _encode_zone(
+        self,
+        items: Sequence[Unit | HandCard | StoreItem],
+        n_slots: int,
+        zone_type: str = "UNKNOWN",
+    ) -> list[float]:
+        zone_features: list[float] = []
         for i in range(n_slots):
             if i < len(items):
                 zone_features.extend(
@@ -577,33 +583,40 @@ class HearthstoneEnv(gym.Env):
                 zone_features.extend([0.0] * self.entity_features)
         return zone_features
 
-    def _encode_single_entity(self, item, index_in_zone=-1, zone_type="UNKNOWN"):
+    def _encode_single_entity(
+        self,
+        item: Unit | HandCard | StoreItem,
+        index_in_zone: int = -1,
+        zone_type: str = "UNKNOWN",
+    ) -> list[float]:
         """Create entity vector with trigger analysis"""
-        unit = getattr(item, "unit", None)
-        spell = getattr(item, "spell", None)
-        is_frozen = getattr(item, "is_frozen", False)
-
-        if unit is None and spell is None and hasattr(item, "cur_hp"):
+        unit: Unit | None
+        spell: Spell | None
+        is_frozen: bool
+        if isinstance(item, Unit):
             unit = item
-
-        if unit is None and spell is None:
-            return [0.0] * self.entity_features
+            spell = None
+            is_frozen = False
+        else:
+            unit = item.unit
+            spell = item.spell
+            is_frozen = item.is_frozen if isinstance(item, StoreItem) else False
 
         # Initialize effect flags
-        has_battlecry = False
-        has_eot = False
-        has_soc = False
-        has_sell = False
-        has_synergy = False
+        has_battlecry: bool = False
+        has_eot: bool = False
+        has_soc: bool = False
+        has_sell: bool = False
+        has_synergy: bool = False
 
-        if unit:
+        if unit is not None:
             card_id = unit.card_id
             cost = 3.0
             tier = unit.tier
             is_spell = 0.0
 
-            cur_atk = unit.cur_atk
-            cur_hp = unit.cur_hp
+            cur_atk: float = float(unit.cur_atk)
+            cur_hp: float = float(unit.cur_hp)
             is_golden = unit.is_golden
 
             # --- Анализ триггеров ---
@@ -629,8 +642,8 @@ class HearthstoneEnv(gym.Env):
 
                 elif evt == EventType.MINION_SOLD:
                     has_sell = True
-            db_data = CARD_DB.get(card_id, {})
-            flags = [
+            db_data: dict[str, Any] = CARD_DB.get(card_id, {})
+            flags: list[bool] = [
                 unit.has_taunt,
                 unit.has_divine_shield,
                 unit.has_windfury,
@@ -641,8 +654,8 @@ class HearthstoneEnv(gym.Env):
                 unit.has_magnetic,
                 unit.has_immediate_attack,
                 is_golden,
-                db_data.get("is_token", False),
-                db_data.get("deathrattle", False),
+                bool(db_data.get("is_token", False)),
+                bool(db_data.get("deathrattle", False)),
                 has_battlecry,
                 has_eot,
                 has_soc,
@@ -652,9 +665,9 @@ class HearthstoneEnv(gym.Env):
 
             u_types = unit.types
 
-        else:  # Spell
+        elif spell is not None:  # Spell
             card_id = spell.card_id
-            cost = spell.cost
+            cost = float(spell.cost)
             tier = spell.tier
             is_spell = 1.0
             cur_atk = 0.0
@@ -663,6 +676,9 @@ class HearthstoneEnv(gym.Env):
             flags[12] = True  # spell = battlecry
 
             u_types = []
+
+        else:
+            return [0.0] * self.entity_features
 
         # Card ID
         cid_val = self.static_id_map.get(card_id, 0) / MAX_CARDS_IN_GAME
@@ -704,7 +720,7 @@ class HearthstoneEnv(gym.Env):
 
         return vec
 
-    def action_masks(self, player_idx: int | None = None) -> list[bool]:
+    def action_masks(self, player_idx: int | None = None) -> np.ndarray:
         """
         Return boolean masks valid actions
         True - action is available, False - banned
@@ -712,7 +728,7 @@ class HearthstoneEnv(gym.Env):
         """
         p_id = self.my_player_id if player_idx is None else player_idx
         player = self.game.players[p_id]
-        masks = [False] * 32
+        masks: np.ndarray = np.zeros(32, dtype=np.bool_)
 
         # ban stupid swaps
         if self.actions_in_turn >= self.max_actions_in_turn:
@@ -779,7 +795,7 @@ class HearthstoneEnv(gym.Env):
 
         return masks
 
-    def _can_play_card(self, player, card_index):
+    def _can_play_card(self, player: Player, card_index: int) -> bool:
         """
         Centralized check: can you play card from hand with index "card_index"
         """

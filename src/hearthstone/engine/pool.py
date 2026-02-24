@@ -12,12 +12,12 @@ USUALLY IT'S BECAUSE WE HAVE A LOT OF CARDS AND COPIES OF THEM
 
 
 class CardPool:
-    def __init__(self):
+    def __init__(self) -> None:
         # Структура: {1: ['101', '101'...], 2: ['201', ...]}
         self.tiers: Dict[int, List[str]] = {}
         self._initialize_pool()
 
-    def _initialize_pool(self):
+    def _initialize_pool(self) -> None:
         """Заполняет пул картами согласно конфигу TIER_COPIES"""
         for t in TIER_COPIES.keys():
             self.tiers[t] = []
@@ -105,11 +105,11 @@ class CardPool:
 
 
 class SpellPool:
-    def __init__(self):
+    def __init__(self) -> None:
         self.tiers: Dict[int, List[str]] = {}
         self._initialize_pool()
 
-    def _initialize_pool(self):
+    def _initialize_pool(self) -> None:
         for spell_id, data in SPELL_DB.items():
             if not data.get("pool", True):
                 continue

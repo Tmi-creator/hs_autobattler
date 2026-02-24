@@ -6,5 +6,8 @@
   ],
   "extraPaths": [
     "src"
-  ]
+  ],
+  "typeCheckingMode": "standard",
+  "useLibraryCodeForTypes": true,
+  "reportMissingModuleSource": false
 }

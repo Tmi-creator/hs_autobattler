@@ -4,10 +4,10 @@ from typing import Callable
 
 import pytest
 
-from src.hearthstone.engine.entities import Player, Unit
-from src.hearthstone.engine.enums import CardIDs
-from src.hearthstone.engine.game import Game
-from src.hearthstone.engine.tavern import TavernManager
+from hearthstone.engine.entities import Player, Unit
+from hearthstone.engine.enums import CardIDs
+from hearthstone.engine.game import Game
+from hearthstone.engine.tavern import TavernManager
 
 
 @pytest.fixture()

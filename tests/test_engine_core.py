@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from src.hearthstone.engine.configs import COST_BUY, COST_REROLL, TAVERN_SLOTS
-from src.hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
-from src.hearthstone.engine.enums import CardIDs, SpellIDs
+from hearthstone.engine.configs import COST_BUY, COST_REROLL, TAVERN_SLOTS
+from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
+from hearthstone.engine.enums import CardIDs, SpellIDs
 
 if TYPE_CHECKING:
-    from src.hearthstone.engine.game import Game
-    from src.hearthstone.engine.tavern import TavernManager
+    from hearthstone.engine.game import Game
+    from hearthstone.engine.tavern import TavernManager
 
 # ---------------------------------------------------------------------------
 #  Helpers

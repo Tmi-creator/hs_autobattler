@@ -4,7 +4,7 @@ import numpy as np
 from sb3_contrib import MaskablePPO
 from tqdm import tqdm
 
-from src.hearthstone.env.hs_env import HearthstoneEnv
+from hearthstone.env.hs_env import HearthstoneEnv
 
 
 class SupportsPPOLoad(Protocol):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from .combat import CombatManager
 from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
@@ -33,7 +33,7 @@ class Game:
         for p in self.players:
             self.tavern.start_turn(p, self.turn_count)
 
-    def step(self, player_idx: int, action_type: str, **kwargs) -> Tuple[bool, bool, str]:
+    def step(self, player_idx: int, action_type: str, **kwargs: Any) -> Tuple[bool, bool, str]:
         """
         Make agent move
         Return: [Success, Done, Info]

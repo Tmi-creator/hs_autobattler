@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import Callable
 
 import pytest
 
 from src.hearthstone.engine.entities import Player, Unit
 from src.hearthstone.engine.enums import CardIDs
 from src.hearthstone.engine.game import Game
-
-if TYPE_CHECKING:
-    from src.hearthstone.engine.tavern import TavernManager
+from src.hearthstone.engine.tavern import TavernManager
 
 
 @pytest.fixture()
@@ -29,9 +27,7 @@ def player(empty_game: Game) -> Player:
 @pytest.fixture()
 def tavern(empty_game: Game) -> TavernManager:
     """``TavernManager`` bound to *empty_game*."""
-    from src.hearthstone.engine.tavern import TavernManager
-
-    return cast(TavernManager, empty_game.tavern)
+    return empty_game.tavern
 
 
 @pytest.fixture()
@@ -47,8 +43,8 @@ def mock_unit(empty_game: Game) -> Callable[..., Unit]:
         owner_id: int = 0,
         is_golden: bool = False,
     ) -> Unit:
-        uid = empty_game.tavern._get_next_uid()
+        uid = empty_game.tavern.get_next_uid()
         raw_id = card_id.value if isinstance(card_id, CardIDs) else card_id
-        return cast(Unit, Unit.create_from_db(raw_id, uid, owner_id, is_golden))
+        return Unit.create_from_db(raw_id, uid, owner_id, is_golden)
 
     return _factory

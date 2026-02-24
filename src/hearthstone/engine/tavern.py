@@ -23,7 +23,7 @@ class TavernManager:
             TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
         )
 
-    def _get_next_uid(self) -> int:
+    def get_next_uid(self) -> int:
         self._uid_counter += 1
         return self._uid_counter
 
@@ -43,7 +43,7 @@ class TavernManager:
                 source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
             ),
             {player.uid: player},
-            self._get_next_uid,
+            self.get_next_uid,
         )
         max_gold = min(10, 3 + turn_number - 1)
         player.gold = max_gold + player.gold_next_turn
@@ -101,7 +101,7 @@ class TavernManager:
                 )
                 players = {player.uid: player}
 
-                self.event_manager.process_event(event, players, self._get_next_uid)
+                self.event_manager.process_event(event, players, self.get_next_uid)
         cnt_spells = len([u for u in player.store if u.spell])
         if cnt_spells >= SPELLS_PER_ROLL:
             return
@@ -111,7 +111,7 @@ class TavernManager:
             player.store.append(StoreItem(spell=spell))
 
     def _make_unit(self, player: Player, cid: str) -> Unit:
-        unit: Unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+        unit: Unit = Unit.create_from_db(cid, self.get_next_uid(), player.uid)
         return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:
@@ -173,7 +173,7 @@ class TavernManager:
             player.store.pop(store_index)
             player.gold -= cost
             player.spell_discount = 0
-            hand_card = HandCard(uid=self._get_next_uid(), spell=spell_ref)
+            hand_card = HandCard(uid=self.get_next_uid(), spell=spell_ref)
             player.hand.append(hand_card)
             return True, f"Bought {spell_ref.card_id}"
 
@@ -193,7 +193,7 @@ class TavernManager:
             source_pos=source_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
+        self.event_manager.process_event(event, players_by_uid, self.get_next_uid)
 
         for i, u in enumerate(player.board):
             if u.uid == uid:
@@ -243,7 +243,7 @@ class TavernManager:
                     source_pos=PosRef(side=player.uid, zone=Zone.HAND, slot=hand_index),
                     target_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=target_index),
                 )
-                self.event_manager.process_event(event, {player.uid: player}, self._get_next_uid)
+                self.event_manager.process_event(event, {player.uid: player}, self.get_next_uid)
 
                 player.hand.pop(hand_index)
 
@@ -273,7 +273,7 @@ class TavernManager:
 
                 reward_spell.params["tier"] = reward_tier
 
-                player.hand.append(HandCard(uid=self._get_next_uid(), spell=reward_spell))
+                player.hand.append(HandCard(uid=self.get_next_uid(), spell=reward_spell))
         self._resolve_battlecry(player, unit, insert_index, target_index)
 
         return True, "Played unit"
@@ -302,7 +302,7 @@ class TavernManager:
 
         options: List[StoreItem] = []
         for cid in card_ids:
-            unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+            unit = Unit.create_from_db(cid, self.get_next_uid(), player.uid)
             options.append(StoreItem(unit=unit))
 
         player.discovery.options = options
@@ -411,7 +411,7 @@ class TavernManager:
         for idx in sorted(indices_to_pop_board, reverse=True):
             player.board.pop(idx)
 
-        golden_unit = Unit.create_from_db(card_id, self._get_next_uid(), player.uid, is_golden=True)
+        golden_unit = Unit.create_from_db(card_id, self.get_next_uid(), player.uid, is_golden=True)
 
         golden_unit.perm_hp_add = total_perm_hp
         golden_unit.perm_atk_add = total_perm_atk
@@ -472,7 +472,7 @@ class TavernManager:
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
         self.event_manager.process_event(
-            event, players_by_uid, self._get_next_uid, extra_triggers=[trigger]
+            event, players_by_uid, self.get_next_uid, extra_triggers=[trigger]
         )
         player.hand.pop(hand_index)
         recalculate_board_auras(player.board)
@@ -495,7 +495,7 @@ class TavernManager:
             target_pos=target_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
+        self.event_manager.process_event(event, players_by_uid, self.get_next_uid)
         recalculate_board_auras(player.board)
 
     def swap_units(self, player: Player, index_a: int, index_b: int) -> Tuple[bool, str]:
@@ -521,7 +521,7 @@ class TavernManager:
                 source_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=-1),
             ),
             {player.uid: player},
-            self._get_next_uid,
+            self.get_next_uid,
         )
 
         player.hand[:] = [

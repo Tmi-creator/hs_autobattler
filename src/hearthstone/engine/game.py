@@ -1,4 +1,6 @@
-from typing import List, Tuple
+from __future__ import annotations
+
+from typing import List, Optional, Tuple
 
 from .combat import CombatManager
 from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
@@ -24,7 +26,7 @@ class Game:
 
         self.turn_count = 1
         self.game_over = False
-        self.winner_id = None
+        self.winner_id: Optional[int] = None
 
         self.players_ready = {0: False, 1: False}
 
@@ -84,7 +86,7 @@ class Game:
 
         return success, self.game_over, info
 
-    def _resolve_combat_phase(self, current_agent_idx: int):
+    def _resolve_combat_phase(self, current_agent_idx: int) -> None:
         """
         Init combat, deal damage, update turns.
         """

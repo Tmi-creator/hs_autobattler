@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Set, Tuple
@@ -42,39 +44,39 @@ class Unit:
     absorbed_pool_copies: Dict[str, int] = field(default_factory=dict)
 
     @property
-    def has_taunt(self):
+    def has_taunt(self) -> bool:
         return Tags.TAUNT in self.tags
 
     @property
-    def has_divine_shield(self):
+    def has_divine_shield(self) -> bool:
         return Tags.DIVINE_SHIELD in self.tags
 
     @property
-    def has_windfury(self):
+    def has_windfury(self) -> bool:
         return Tags.WINDFURY in self.tags
 
     @property
-    def has_poisonous(self):
+    def has_poisonous(self) -> bool:
         return Tags.POISONOUS in self.tags
 
     @property
-    def has_reborn(self):
+    def has_reborn(self) -> bool:
         return Tags.REBORN in self.tags
 
     @property
-    def has_venomous(self):
+    def has_venomous(self) -> bool:
         return Tags.VENOMOUS in self.tags
 
     @property
-    def has_cleave(self):
+    def has_cleave(self) -> bool:
         return Tags.CLEAVE in self.tags
 
     @property
-    def has_stealth(self):
+    def has_stealth(self) -> bool:
         return Tags.STEALTH in self.tags
 
     @property
-    def has_immediate_attack(self):
+    def has_immediate_attack(self) -> bool:
         return Tags.IMMEDIATE_ATTACK in self.tags
 
     @property
@@ -85,7 +87,7 @@ class Unit:
         for k, v in src.items():
             dst[k] = dst.get(k, 0) + v
 
-    def magnetize_from(self, other: "Unit") -> None:
+    def magnetize_from(self, other: Unit) -> None:
         """
         Inserts 'other' into current unit
         Recalc stats, tags (not MAGNETIC), triggers and pool history
@@ -142,19 +144,19 @@ class Unit:
         self.cur_hp = max(0, min(new_cur_hp, self.max_hp))
         self.cur_atk = self.max_atk
 
-    def reset_aura_layer(self):
+    def reset_aura_layer(self) -> None:
         self.aura_hp_add = 0
         self.aura_atk_add = 0
 
-    def restore_stats(self):
+    def restore_stats(self) -> None:
         self.cur_hp = self.max_hp
         self.cur_atk = self.max_atk
 
     @property
-    def is_alive(self):
+    def is_alive(self) -> bool:
         return self.cur_hp > 0
 
-    def combat_copy(self):
+    def combat_copy(self) -> Unit:
         unit = replace(
             self,
             types=list(self.types),
@@ -187,7 +189,7 @@ class Unit:
         self.recalc_stats()
 
     @staticmethod
-    def create_from_db(card_id: str, uid: int, owner_id: int, is_golden: bool = False) -> "Unit":
+    def create_from_db(card_id: str, uid: int, owner_id: int, is_golden: bool = False) -> Unit:
         """Fabric method: make unit by ID from database"""
         try:
             data = CARD_DB.get(CardIDs(card_id))
@@ -233,7 +235,7 @@ class Spell:
     is_temporary: bool = False
 
     @staticmethod
-    def create_from_db(card_id: str) -> "Spell":
+    def create_from_db(card_id: str) -> Spell:
         try:
             data = SPELL_DB.get(SpellIDs(card_id))
         except ValueError:
@@ -260,7 +262,7 @@ class StoreItem:
     is_frozen: bool = False
 
     @property
-    def card_id(self):
+    def card_id(self) -> str:
         if self.unit:
             return self.unit.card_id
         if self.spell:
@@ -275,7 +277,7 @@ class HandCard:
     spell: Optional[Spell] = None
 
     @property
-    def card_id(self):
+    def card_id(self) -> str:
         if self.unit:
             return self.unit.card_id
         if self.spell:
@@ -296,7 +298,7 @@ class EconomyState:
     up_cost: int = 5
     store: List[StoreItem] = field(default_factory=list)
 
-    def new_turn(self, turn_number: int):
+    def new_turn(self, turn_number: int) -> None:
         self.gold = min(10, 3 + turn_number - 1) + self.gold_next_turn
         self.gold_next_turn = 0
         if self.up_cost > 0 and turn_number != 1:
@@ -311,7 +313,7 @@ class MechanicState:
         default_factory=lambda: MECHANIC_DEFAULTS.copy()
     )
 
-    def modify_stat(self, key: MechanicType, atk_add: int, hp_add: int):
+    def modify_stat(self, key: MechanicType, atk_add: int, hp_add: int) -> None:
         """Universal method for mechanic buff"""
         current_atk, current_hp = self.modifiers.get(key, (0, 0))
         self.modifiers[key] = (current_atk + atk_add, current_hp + hp_add)
@@ -342,7 +344,7 @@ class Player:
 
     discovery: DiscoveryState = field(default_factory=DiscoveryState)
 
-    def combat_copy(self):
+    def combat_copy(self) -> Player:
         return Player(
             uid=self.uid,
             board=[u.combat_copy() for u in self.board],
@@ -361,7 +363,7 @@ class Player:
         return self.economy.gold
 
     @gold.setter
-    def gold(self, value: int):
+    def gold(self, value: int) -> None:
         self.economy.gold = value
 
     @property
@@ -369,7 +371,7 @@ class Player:
         return self.economy.gold_next_turn
 
     @gold_next_turn.setter
-    def gold_next_turn(self, value: int):
+    def gold_next_turn(self, value: int) -> None:
         self.economy.gold_next_turn = value
 
     @property
@@ -377,7 +379,7 @@ class Player:
         return self.economy.up_cost
 
     @up_cost.setter
-    def up_cost(self, value: int):
+    def up_cost(self, value: int) -> None:
         self.economy.up_cost = value
 
     @property
@@ -385,7 +387,7 @@ class Player:
         return self.economy.tavern_tier
 
     @tavern_tier.setter
-    def tavern_tier(self, value: int):
+    def tavern_tier(self, value: int) -> None:
         self.economy.tavern_tier = value
 
     @property
@@ -393,7 +395,7 @@ class Player:
         return self.economy.spell_discount
 
     @spell_discount.setter
-    def spell_discount(self, value: int):
+    def spell_discount(self, value: int) -> None:
         self.economy.spell_discount = value
 
     @property

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import random
-from typing import Dict, List
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from .entities import Unit
+    from .event_system import EffectContext
 
 from .enums import CardIDs, EffectIDs, MechanicType, SpellIDs, Tags, UnitType
 from .event_system import (
-    EffectContext,
-    EffectFn,
     EntityRef,
     Event,
     EventType,
@@ -20,7 +22,7 @@ def _is_self_play(ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
     return event.source is not None and event.source.uid == trigger_uid
 
 
-def _played_unit(ctx: EffectContext, event: Event):
+def _played_unit(ctx: EffectContext, event: Event) -> Optional[Unit]:
     return ctx.resolve_unit(event.source)
 
 
@@ -41,7 +43,9 @@ def _is_friendly_death_exclude_self(ctx: EffectContext, event: Event, trigger_ui
     )
 
 
-def make_avenge_trigger(n: int, effect_fn: EffectFn, name: str = "Avenge"):
+def make_avenge_trigger(
+    n: int, effect_fn: Callable[[EffectContext, Event, int], None], name: str = "Avenge"
+):
     """
     Make TriggerDef for Avenge mechanic (X).
     n: How many allies should die

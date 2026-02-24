@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 
 from hearthstone.engine.combat import CombatManager
@@ -6,15 +8,15 @@ from hearthstone.engine.enums import CardIDs, Tags, UnitType
 
 
 class TestNewMechanics(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.combat = CombatManager()
         self.uid_counter = 1000
 
-    def _make_unit(self, card_id, owner_id):
+    def _make_unit(self, card_id: str, owner_id: int) -> Unit:
         self.uid_counter += 1
         return Unit.create_from_db(card_id, self.uid_counter, owner_id)
 
-    def test_spawn_of_nzoth_deathrattle(self):
+    def test_spawn_of_nzoth_deathrattle(self) -> None:
         """
         Тест Порождения Н'Зота:
         Проверяем, что при смерти он баффает остальных существ +1/+1.
@@ -50,7 +52,7 @@ class TestNewMechanics(unittest.TestCase):
         self.assertEqual(cat1.cur_atk, 2)
         print("PASSED: Spawn buffed everyone")
 
-    def test_kaboom_bot_damage(self):
+    def test_kaboom_bot_damage(self) -> None:
         """
         Тест Взрывоопасного бота:
         Проверяем нанесение 4 ед. урона врагу при смерти.
@@ -81,7 +83,7 @@ class TestNewMechanics(unittest.TestCase):
         self.assertEqual(dummy.cur_hp, 6, "Бот должен нанести 4 урона (10 - 4 = 6)")
         print("PASSED: Kaboom Bot dealt damage")
 
-    def test_kaboom_bot_golden(self):
+    def test_kaboom_bot_golden(self) -> None:
         """
         Тест Золотого Взрывоопасного бота:
         Должен нанести 4 урона ДВАЖДЫ (сняв щит первым тиком и убив вторым, если хп мало).
@@ -114,7 +116,7 @@ class TestNewMechanics(unittest.TestCase):
         self.assertTrue(target.cur_hp <= 0, "Юнит должен умереть от второго взрыва")
         print("PASSED: Golden bot fired twice")
 
-    def test_deflect_o_bot_reset(self):
+    def test_deflect_o_bot_reset(self) -> None:
         """
         СЛОЖНЫЙ ТЕСТ: Дефлектобот + Реборн Механизм.
         Сценарий:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 
 from hearthstone.engine.entities import HandCard, Player, Spell, Unit
@@ -7,7 +9,7 @@ from hearthstone.engine.tavern import TavernManager
 
 
 class TestGoldenLogic(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.pool = CardPool()
         self.spell_pool = SpellPool()
         self.tavern = TavernManager(self.pool, self.spell_pool)
@@ -16,7 +18,7 @@ class TestGoldenLogic(unittest.TestCase):
         self.player.tavern_tier = 1
         self.card_id = CardIDs.WRATH_WEAVER  # 1/3 Demon
 
-    def test_triplet_stats_segregation(self):
+    def test_triplet_stats_segregation(self) -> None:
         """
         Проверяет, что при слиянии:
         - Перманентные баффы остаются перманентными.
@@ -70,7 +72,7 @@ class TestGoldenLogic(unittest.TestCase):
         self.assertEqual(golden.cur_atk, 4)
         print("✅ test_triplet_stats_segregation passed")
 
-    def test_triplet_reward_tier(self):
+    def test_triplet_reward_tier(self) -> None:
         """
         Проверяет получение награды и фиксацию Тира.
         """
@@ -109,7 +111,7 @@ class TestGoldenLogic(unittest.TestCase):
         self.assertEqual(recorded_tier, 5, f"Ожидался Тир 5, записан {recorded_tier}")
         print("✅ test_triplet_reward_tier passed")
 
-    def test_play_reward_starts_discovery(self):
+    def test_play_reward_starts_discovery(self) -> None:
         """
         Проверяет, что розыгрыш награды запускает правильную раскопку.
         """

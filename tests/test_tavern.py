@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from hearthstone.engine.entities import Player
 from hearthstone.engine.pool import CardPool, SpellPool
 from hearthstone.engine.tavern import TavernManager

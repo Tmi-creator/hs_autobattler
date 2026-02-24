@@ -190,7 +190,7 @@ class TestTavernLogic:
     ) -> None:
         player.gold = 0
 
-        success, info = tavern.roll_tavern(player)
+        success, _ = tavern.roll_tavern(player)
 
         assert not success
 

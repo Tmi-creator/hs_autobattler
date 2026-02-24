@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from hearthstone.engine.combat import CombatManager
 from hearthstone.engine.entities import Player, Unit
 from hearthstone.engine.enums import CardIDs

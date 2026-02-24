@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 
 from hearthstone.engine.combat import CombatManager
@@ -9,7 +11,7 @@ from hearthstone.engine.pool import CardPool, SpellPool
 from hearthstone.engine.tavern import TavernManager
 
 
-def print_player_state(player, name):
+def print_player_state(player: Player, name: str) -> None:
     print(f"--- {name} (HP: {player.health}, Gold: {player.gold}, Tier: {player.tavern_tier}) ---")
 
     board_str = " | ".join([f"{u.card_id} ({u.cur_atk}/{u.cur_hp})" for u in player.board])
@@ -25,7 +27,7 @@ def print_player_state(player, name):
     print("-" * 40)
 
 
-def simple_bot_turn(game, player_idx):
+def simple_bot_turn(game: Game, player_idx: int) -> None:
     """
     Простой бот с адаптированной логикой под RL-интерфейс (reward, done, info).
     """
@@ -82,7 +84,7 @@ def simple_bot_turn(game, player_idx):
     game.step(player_idx, "END_TURN")
 
 
-def run_simulation():
+def run_simulation() -> None:
     print("=== STARTING HS BATTLEGROUNDS SIMULATION ===")
     game = Game()
     max_turns = 30
@@ -131,7 +133,7 @@ def run_simulation():
         print("Result: Turn limit reached")
 
 
-def run_effect_smoke_tests():
+def run_effect_smoke_tests() -> None:
     print("\n=== RUNNING EFFECT SMOKE TESTS ===")
     pool = CardPool()
     spell_pool = SpellPool()
@@ -139,7 +141,7 @@ def run_effect_smoke_tests():
     player = Player(uid=0, board=[], hand=[])
 
     print("\n=== RUNNING ALLEYCAT TESTS ===")
-    alleycat = Unit.create_from_db(CardIDs.ALLEYCAT, tavern._get_next_uid(), player.uid)
+    alleycat = Unit.create_from_db(CardIDs.ALLEYCAT, tavern.get_next_uid(), player.uid)
     player.hand.append(HandCard(uid=alleycat.uid, unit=alleycat))
     tavern.play_unit(player, 0, 0, -1)
     assert len(player.board) == 2, "Alleycat should summon a token"
@@ -148,7 +150,7 @@ def run_effect_smoke_tests():
 
     print("\n=== RUNNING SHELL COLLECTOR TESTS ===")
     shell_collector = Unit.create_from_db(
-        CardIDs.SHELL_COLLECTOR, tavern._get_next_uid(), player.uid
+        CardIDs.SHELL_COLLECTOR, tavern.get_next_uid(), player.uid
     )
     player.hand.append(HandCard(uid=shell_collector.uid, unit=shell_collector))
     starting_gold = player.gold
@@ -160,12 +162,12 @@ def run_effect_smoke_tests():
     player = Player(uid=0, board=[], hand=[])
     cnt = 3
     wrath_weaver = [
-        Unit.create_from_db(CardIDs.WRATH_WEAVER, tavern._get_next_uid(), player.uid)
+        Unit.create_from_db(CardIDs.WRATH_WEAVER, tavern.get_next_uid(), player.uid)
         for _ in range(cnt)
     ]
     for i in range(cnt):
         player.board.append(wrath_weaver[i])
-    demon = Unit.create_from_db(CardIDs.IMPRISONER, tavern._get_next_uid(), player.uid)
+    demon = Unit.create_from_db(CardIDs.IMPRISONER, tavern.get_next_uid(), player.uid)
     player.hand.append(HandCard(uid=demon.uid, unit=demon))
     starting_health = player.health
     tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
@@ -179,12 +181,12 @@ def run_effect_smoke_tests():
     player = Player(uid=0, board=[], hand=[])
     cnt = 3
     swampstriker = [
-        Unit.create_from_db(CardIDs.SWAMPSTRIKER, tavern._get_next_uid(), player.uid)
+        Unit.create_from_db(CardIDs.SWAMPSTRIKER, tavern.get_next_uid(), player.uid)
         for _ in range(cnt)
     ]
     for i in range(cnt):
         player.board.append(swampstriker[i])
-    swampstriker1 = Unit.create_from_db(CardIDs.SWAMPSTRIKER, tavern._get_next_uid(), player.uid)
+    swampstriker1 = Unit.create_from_db(CardIDs.SWAMPSTRIKER, tavern.get_next_uid(), player.uid)
     player.hand.append(HandCard(uid=swampstriker1.uid, unit=swampstriker1))
     tavern.play_unit(player, len(player.hand) - 1, len(player.board), -1)
     assert all([swampstriker[i].max_atk == 2 for i in range(cnt)]), "Swampstriker should gain +1"
@@ -216,7 +218,7 @@ def run_effect_smoke_tests():
     print("PASSED")
 
     print("\n=== RUNNING SPELL TESTS ===")
-    target = Unit.create_from_db(CardIDs.WRATH_WEAVER, tavern._get_next_uid(), player.uid)
+    target = Unit.create_from_db(CardIDs.WRATH_WEAVER, tavern.get_next_uid(), player.uid)
     player.board.append(target)
     buff_spell = HandCard(uid=1, spell=Spell.create_from_db(SpellIDs.BANANA))
     player.hand.append(buff_spell)
@@ -238,7 +240,7 @@ def run_effect_smoke_tests():
 
     print("\n=== RUNNING MINTED CORSAIR TESTS ===")
     player = Player(uid=0, board=[], hand=[])
-    minted = Unit.create_from_db(CardIDs.MINTED_CORSAIR, tavern._get_next_uid(), player.uid)
+    minted = Unit.create_from_db(CardIDs.MINTED_CORSAIR, tavern.get_next_uid(), player.uid)
     player.board.append(minted)
     tavern.sell_unit(player, 0)
     assert any(c.spell and c.spell.card_id == SpellIDs.TAVERN_COIN for c in player.hand), (
@@ -248,7 +250,7 @@ def run_effect_smoke_tests():
 
     print("\n=== RUNNING TEMPORARY SPELL TESTS ===")
     player = Player(uid=0, board=[], hand=[])
-    unit = Unit.create_from_db(CardIDs.MINTED_CORSAIR, tavern._get_next_uid(), player.uid)
+    unit = Unit.create_from_db(CardIDs.MINTED_CORSAIR, tavern.get_next_uid(), player.uid)
     unit.cur_hp = 0
     player.board.append(unit)
     spell = HandCard(uid=101, spell=Spell.create_from_db(SpellIDs.SURF_SPELLCRAFT))
@@ -286,7 +288,7 @@ def run_effect_smoke_tests():
     print("Effect smoke tests passed.")
 
 
-def run_golden_tests():
+def run_golden_tests() -> None:
     print("\n=== ЗАПУСК ТЕСТОВ ЗОЛОТЫХ СУЩЕСТВ ===")
     pool = CardPool()
     spell_pool = SpellPool()
@@ -305,7 +307,7 @@ def run_golden_tests():
     player = Player(uid=0, board=[], hand=[])
 
     g_collector = Unit.create_from_db(
-        CardIDs.SHELL_COLLECTOR, tavern._get_next_uid(), player.uid, is_golden=True
+        CardIDs.SHELL_COLLECTOR, tavern.get_next_uid(), player.uid, is_golden=True
     )
     player.hand.append(HandCard(uid=g_collector.uid, unit=g_collector))
 
@@ -321,9 +323,7 @@ def run_golden_tests():
     print("\n[TEST] Спец. реализация (Golden Alleycat)")
     player = Player(uid=0, board=[], hand=[])
 
-    g_cat = Unit.create_from_db(
-        CardIDs.ALLEYCAT, tavern._get_next_uid(), player.uid, is_golden=True
-    )
+    g_cat = Unit.create_from_db(CardIDs.ALLEYCAT, tavern.get_next_uid(), player.uid, is_golden=True)
     player.hand.append(HandCard(uid=g_cat.uid, unit=g_cat))
 
     tavern.play_unit(player, 0, 0, -1)
@@ -386,7 +386,7 @@ def run_golden_tests():
     print("PASSED: Золотая Scallywag успешно призвала двух пиратов")
 
 
-def run_discovery_tests():
+def run_discovery_tests() -> None:
     print("\n=== ЗАПУСК ТЕСТОВ РАСКОПКИ (DISCOVERY) ===")
 
     # 1. Подготовка среды

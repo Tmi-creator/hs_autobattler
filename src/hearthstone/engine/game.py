@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 from .combat import CombatManager
-from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
+from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import Player
 from .enums import BattleOutcome
 from .event_system import EventManager
@@ -19,7 +19,7 @@ class Game:
 
         self.players: List[Player] = [
             Player(uid=0, board=[], hand=[], health=30),
-            Player(uid=1, board=[], hand=[], health=30)
+            Player(uid=1, board=[], hand=[], health=30),
         ]
 
         self.turn_count = 1
@@ -53,9 +53,9 @@ class Game:
             info = "Ready"
             success = True
         elif action_type == "BUY":
-            success, info = self.tavern.buy_unit(player, kwargs.get('index', -1))
+            success, info = self.tavern.buy_unit(player, kwargs.get("index", -1))
         elif action_type == "SELL":
-            success, info = self.tavern.sell_unit(player, kwargs.get('index', -1))
+            success, info = self.tavern.sell_unit(player, kwargs.get("index", -1))
         elif action_type == "ROLL":
             success, info = self.tavern.roll_tavern(player)
         elif action_type == "UPGRADE":
@@ -64,18 +64,18 @@ class Game:
             success, info = self.tavern.toggle_freeze(player)
         elif action_type == "PLAY":
             # kwargs: hand_index, insert_index, target_index
-            h_idx = kwargs.get('hand_index', -1)
-            i_idx = kwargs.get('insert_index', len(player.board))  # По умолчанию в конец
-            t_idx = kwargs.get('target_index', -1)
+            h_idx = kwargs.get("hand_index", -1)
+            i_idx = kwargs.get("insert_index", len(player.board))  # По умолчанию в конец
+            t_idx = kwargs.get("target_index", -1)
             success, info = self.tavern.play_unit(player, h_idx, i_idx, t_idx)
         elif action_type == "SWAP":
             # kwargs: index_a, index_b
-            a = kwargs.get('index_a', -1)
-            b = kwargs.get('index_b', -1)
+            a = kwargs.get("index_a", -1)
+            b = kwargs.get("index_b", -1)
             success, info = self.tavern.swap_units(player, a, b)
         elif action_type == "DISCOVER_CHOICE":
             # kwargs: index
-            success, info = self.tavern.make_discovery_choice(player, kwargs.get('index', -1))
+            success, info = self.tavern.make_discovery_choice(player, kwargs.get("index", -1))
 
         if all(self.players_ready.values()):
             self._resolve_combat_phase(player_idx)
@@ -101,8 +101,9 @@ class Game:
 
         if p0.health <= 0 or p1.health <= 0:
             self.game_over = True
-            self.winner_id = 0 if (p0.health > 0 >= p1.health) else (
-                1 if (p1.health > 0 >= p0.health) else None)
+            self.winner_id = (
+                0 if (p0.health > 0 >= p1.health) else (1 if (p1.health > 0 >= p0.health) else None)
+            )
             return
 
         self.turn_count += 1

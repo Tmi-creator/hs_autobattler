@@ -1,4 +1,5 @@
-from typing import List, Callable, Dict
+from typing import Callable, Dict, List
+
 from .entities import Unit
 from .enums import CardIDs, UnitType
 
@@ -21,7 +22,8 @@ def _murloc_warleader_aura(source: Unit, board: List[Unit], idx: int):
     atk_bonus = 2 if not source.is_golden else 4
 
     for i, unit in enumerate(board):
-        if i == idx: continue  # dont buff self
+        if i == idx:
+            continue  # dont buff self
         if UnitType.MURLOC in unit.types:
             unit.aura_atk_add += atk_bonus
 
@@ -31,7 +33,8 @@ def _southsea_captain_aura(source: Unit, board: List[Unit], idx: int):
     bonus = 1 if not source.is_golden else 2
 
     for i, unit in enumerate(board):
-        if i == idx: continue  # dont buff self
+        if i == idx:
+            continue  # dont buff self
         if UnitType.PIRATE in unit.types:
             unit.aura_atk_add += bonus
             unit.aura_hp_add += bonus
@@ -56,7 +59,9 @@ def recalculate_board_auras(board: List[Unit]):
             for effect_id, count in attached_layer.items():
                 if effect_id in AURA_REGISTRY:
                     for _ in range(count):
-                        AURA_REGISTRY[effect_id](Unit.create_from_db(CardIDs.TABBYCAT, -1, -1, False), board, i)
+                        AURA_REGISTRY[effect_id](
+                            Unit.create_from_db(CardIDs.TABBYCAT, -1, -1, False), board, i
+                        )
 
     for unit in board:
         unit.recalc_stats()

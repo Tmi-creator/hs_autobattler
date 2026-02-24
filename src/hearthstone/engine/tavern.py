@@ -80,7 +80,7 @@ class TavernManager:
 
     def _fill_tavern(self, player: Player) -> None:
         """Supporting function: fill shop to max cards"""
-        slots_total = TAVERN_SLOTS.get(player.tavern_tier)
+        slots_total = TAVERN_SLOTS.get(player.tavern_tier, 0)
         current_units = sum(1 for item in player.store if item.unit)
         slots_needed = slots_total - current_units
 
@@ -106,7 +106,7 @@ class TavernManager:
             player.store.append(StoreItem(spell=spell))
 
     def _make_unit(self, player: Player, cid: str) -> Unit:
-        unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+        unit: Unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
         return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:
@@ -150,27 +150,27 @@ class TavernManager:
         item = player.store[store_index]
 
         if item.unit:
+            unit_ref = item.unit
             if player.gold < COST_BUY:
                 return False, "Not enough gold"
-            item = player.store.pop(store_index)
-            item.is_frozen = False
+            player.store.pop(store_index)
             player.gold -= COST_BUY
-            hand_card = HandCard(uid=item.unit.uid, unit=item.unit)
+            hand_card = HandCard(uid=unit_ref.uid, unit=unit_ref)
             player.hand.append(hand_card)
-            self._check_triplet(player, item.unit.card_id)
-            return True, f"Bought {item.unit.card_id}"
+            self._check_triplet(player, unit_ref.card_id)
+            return True, f"Bought {unit_ref.card_id}"
 
         if item.spell:
-            cost = max(0, item.spell.cost - player.spell_discount)
+            spell_ref = item.spell
+            cost = max(0, spell_ref.cost - player.spell_discount)
             if player.gold < cost:
                 return False, "Not enough gold"
-            item = player.store.pop(store_index)
-            item.is_frozen = False
+            player.store.pop(store_index)
             player.gold -= cost
             player.spell_discount = 0
-            hand_card = HandCard(uid=self._get_next_uid(), spell=item.spell)
+            hand_card = HandCard(uid=self._get_next_uid(), spell=spell_ref)
             player.hand.append(hand_card)
-            return True, f"Bought {item.spell.card_id}"
+            return True, f"Bought {spell_ref.card_id}"
 
         return False, "Empty slot"
 
@@ -223,7 +223,9 @@ class TavernManager:
             return self._cast_spell(player, hand_index, target_index)
 
         unit = hand_card.unit
-        if unit and unit.has_magnetic and 0 <= target_index < len(player.board):
+        if unit is None:
+            return False, "No unit in hand card"
+        if unit.has_magnetic and 0 <= target_index < len(player.board):
             target = player.board[target_index]
             if UnitType.MECH in target.types:
                 target_uid = target.uid
@@ -238,14 +240,14 @@ class TavernManager:
                 )
                 self.event_manager.process_event(event, {player.uid: player}, self._get_next_uid)
 
-                played_card = player.hand.pop(hand_index)
+                player.hand.pop(hand_index)
 
                 # idk what could happen with target but...
                 new_target = next((u for u in player.board if u.uid == target_uid), None)
                 if new_target is None:
                     return True, "Magnetized (target disappeared logic error)"
 
-                new_target.magnetize_from(played_card.unit)
+                new_target.magnetize_from(unit)
                 recalculate_board_auras(player.board)
                 return True, "Magnetized"
         if len(player.board) >= 7:
@@ -372,9 +374,9 @@ class TavernManager:
         total_turn_hp = 0
         total_turn_atk = 0
 
-        merged_attached_perm = {}
-        merged_attached_turn = {}
-        merged_absorbed_pool = {}
+        merged_attached_perm: Dict[str, int] = {}
+        merged_attached_turn: Dict[str, int] = {}
+        merged_absorbed_pool: Dict[str, int] = {}
 
         def _collect_stats(u: Unit):
             nonlocal total_perm_hp, total_perm_atk, total_turn_hp, total_turn_atk
@@ -393,7 +395,8 @@ class TavernManager:
                 merged_absorbed_pool[k] = merged_absorbed_pool.get(k, 0) + v
 
         for idx in indices_to_pop_hand:
-            _collect_stats(player.hand[idx].unit)
+            if player.hand[idx].unit:
+                _collect_stats(player.hand[idx].unit)  # type: ignore[arg-type]
 
         for idx in indices_to_pop_board:
             _collect_stats(player.board[idx])

@@ -128,8 +128,8 @@ class EffectContext:
         if pos.zone == Zone.HAND:
             if pos.slot < 0 or pos.slot >= len(player.hand):
                 return None
-            item = player.hand[pos.slot]
-            return item.unit
+            hand_item = player.hand[pos.slot]
+            return hand_item.unit
         return None
 
     def iter_board_units(self, side: int) -> Iterable[tuple[int, Unit]]:

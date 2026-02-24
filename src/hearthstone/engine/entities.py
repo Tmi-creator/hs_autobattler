@@ -187,15 +187,12 @@ class Unit:
         self.recalc_stats()
 
     @staticmethod
-    def create_from_db(card_id: str, uid: int, owner_id: int, is_golden: bool = False):
+    def create_from_db(card_id: str, uid: int, owner_id: int, is_golden: bool = False) -> "Unit":
         """Fabric method: make unit by ID from database"""
-        data = CARD_DB.get(card_id)
-
-        if not data and isinstance(card_id, str):
-            try:
-                data = CARD_DB.get(CardIDs(card_id))
-            except ValueError:
-                pass
+        try:
+            data = CARD_DB.get(CardIDs(card_id))
+        except ValueError:
+            data = None
 
         if not data:
             raise ValueError(f"Card {card_id} not found in DB")
@@ -236,14 +233,11 @@ class Spell:
     is_temporary: bool = False
 
     @staticmethod
-    def create_from_db(card_id: str):
-        data = SPELL_DB.get(card_id)
-
-        if not data and isinstance(card_id, str):
-            try:
-                data = SPELL_DB.get(SpellIDs(card_id))
-            except ValueError:
-                pass
+    def create_from_db(card_id: str) -> "Spell":
+        try:
+            data = SPELL_DB.get(SpellIDs(card_id))
+        except ValueError:
+            data = None
 
         if not data:
             raise ValueError(f"Spell {card_id} not found in DB")

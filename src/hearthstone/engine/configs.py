@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 from .enums import CardIDs, EffectIDs, MechanicType, SpellIDs, Tags, UnitType
 
 TIER_COPIES = {1: 16, 2: 15, 3: 13, 4: 11, 5: 9, 6: 7}
@@ -15,7 +17,7 @@ COST_REROLL = 1
 SPELLS_PER_ROLL = 1
 
 # Database cards (MVP)
-CARD_DB = {
+CARD_DB: Dict[str, Any] = {
     CardIDs.WRATH_WEAVER: {
         "name": "Wrath Weaver",
         "tier": 1,
@@ -194,7 +196,7 @@ CARD_DB = {
     },
 }
 
-SPELL_DB = {
+SPELL_DB: Dict[str, Any] = {
     SpellIDs.TAVERN_COIN: {
         "name": "Tavern Coin",
         "tier": 1,

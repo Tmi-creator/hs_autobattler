@@ -343,7 +343,7 @@ class TavernManager:
             self.pool.return_cards([chosen_item.unit.card_id])  # return burned card
         return True, "Discovered (Burned)"
 
-    def _check_triplet(self, player: Player, card_id: str):
+    def _check_triplet(self, player: Player, card_id: str) -> None:
         """
         Find 3 copies of unit, and unite in one gold
         Timed buffs become times, const - const
@@ -478,7 +478,9 @@ class TavernManager:
         recalculate_board_auras(player.board)
         return True, f"Cast {spell.card_id}"
 
-    def _resolve_battlecry(self, player: Player, unit: Unit, unit_index: int, target_index: int):
+    def _resolve_battlecry(
+        self, player: Player, unit: Unit, unit_index: int, target_index: int
+    ) -> None:
         source = EntityRef(uid=unit.uid)
         source_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=unit_index)
         target_ref = None

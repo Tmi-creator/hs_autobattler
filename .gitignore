@@ -213,3 +213,4 @@ scripts/logs/
 scripts/wandb/
 
 !src/hearthstone/env/
+!typings/hearthstone/env

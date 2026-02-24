@@ -12,7 +12,7 @@ from .tavern import TavernManager
 
 
 class Game:
-    def __init__(self):
+    def __init__(self) -> None:
         self.pool = CardPool()
         self.spell_pool = SpellPool()
         self.event_manager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)

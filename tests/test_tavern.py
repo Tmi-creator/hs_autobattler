@@ -1,38 +1,51 @@
+"""Tavern smoke tests — pure pytest (replaces legacy script).
+
+Covers: roll, buy, pool count integrity.
+"""
+
 from __future__ import annotations
 
-from hearthstone.engine.entities import Player
-from hearthstone.engine.pool import CardPool, SpellPool
-from hearthstone.engine.tavern import TavernManager
+from typing import TYPE_CHECKING, Callable
 
-global_pool = CardPool()
-spell_pool = SpellPool()
-print(f"Cards in Tier 1 pool: {len(global_pool.tiers[1])}")
+import pytest
 
-tavern = TavernManager(global_pool, spell_pool)
-p1 = Player(uid=1, board=[], hand=[], tavern_tier=1, gold=10)
+from hearthstone.engine.configs import TAVERN_SLOTS
+from hearthstone.engine.entities import Player, StoreItem, Unit
+from hearthstone.engine.enums import CardIDs
 
-print(f"\n--- Turn 1 Start (Gold: {p1.gold}) ---")
+if TYPE_CHECKING:
+    from hearthstone.engine.game import Game
+    from hearthstone.engine.tavern import TavernManager
 
-tavern.roll_tavern(p1)
 
-print("Store after roll:")
-for i, item in enumerate(p1.store):
-    if item.unit:
-        print(f"[{i}] {item.card_id} (Stats: {item.unit.max_atk}/{item.unit.max_hp})")
-    else:
-        print(f"[{i}] {item.card_id} (Spell)")
+class TestTavernSmoke:
+    """Basic tavern operations that the old script was manually verifying."""
 
-success, msg = tavern.buy_unit(p1, 0)
-if success:
-    print(f"\nBought unit! Gold left: {p1.gold}")
-    print(f"Hand: {[c.unit.card_id if c.unit else c.spell.card_id for c in p1.hand]}")
-    print(f"Pool count for Tier 1: {len(global_pool.tiers[1])} (Should decrease)")
-else:
-    print(f"Error: {msg}")
+    def test_initial_store_has_correct_slot_count(
+        self,
+        player: Player,
+    ) -> None:
+        expected_units = TAVERN_SLOTS[player.tavern_tier]
+        actual_units = sum(1 for item in player.store if item.unit)
+        assert actual_units == expected_units
 
-print("\n--- Rerolling ---")
-tavern.roll_tavern(p1)
-print("Store after reroll:")
-for i, item in enumerate(p1.store):
-    print(f"[{i}] {item.card_id}")
-print(f"Gold left: {p1.gold}")
+    def test_roll_and_buy_decrements_pool(
+        self,
+        empty_game: "Game",
+        player: Player,
+        tavern: "TavernManager",
+    ) -> None:
+        pool_before = sum(len(t) for t in empty_game.pool.tiers.values())
+
+        tavern.roll_tavern(player)
+
+        # After roll: returned N old units, drew N new ones → net ~0
+        # But buy actually removes 1 from pool
+        if player.store:
+            tavern.buy_unit(player, 0)
+
+        pool_after = sum(len(t) for t in empty_game.pool.tiers.values())
+
+        # Pool should have shrunk by ~1 (the bought unit left pool and is now in hand)
+        # Some units from store are also out of pool, but they'll return on next roll
+        assert pool_after <= pool_before

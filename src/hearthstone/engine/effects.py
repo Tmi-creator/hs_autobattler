@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from .enums import CardIDs, EffectIDs, MechanicType, SpellIDs, Tags, UnitType
 from .event_system import (
@@ -210,7 +210,7 @@ def _deflect_o_bot_trigger(ctx: EffectContext, event: Event, trigger_uid: int) -
     deflecto.tags.add(Tags.DIVINE_SHIELD)
 
 
-TRIGGER_REGISTRY: Dict[Union[CardIDs, EffectIDs], List[TriggerDef]] = {
+TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
     CardIDs.SHELL_COLLECTOR: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,
@@ -320,7 +320,7 @@ def _summon_golden_tabbycat(ctx: EffectContext, event: Event, trigger_uid: int) 
     ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1, is_golden=True)
 
 
-GOLDEN_TRIGGER_REGISTRY = {
+GOLDEN_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
     CardIDs.ALLEYCAT: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,

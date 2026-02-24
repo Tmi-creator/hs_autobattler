@@ -1,5 +1,5 @@
 import random
-from typing import List
+from typing import List, Optional, Tuple
 
 from .auras import recalculate_board_auras
 from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
@@ -211,7 +211,7 @@ class CombatManager:
             combat_players,
             self.get_uid,
         )
-        victims_data = []
+        victims_data: List[Tuple[Unit, Optional[PosRef], EntityRef]] = []
 
         if target_pos:
             victims_data.append((target, target_pos, target_ref))

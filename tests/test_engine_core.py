@@ -5,13 +5,11 @@ Covers: Economy · Tavern logic · Triplets · Discovery · Edge-cases.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable
 
-import pytest
-
-from src.hearthstone.engine.configs import COST_BUY, COST_REROLL, TAVERN_SLOTS, TIER_UPGRADE_COSTS
+from src.hearthstone.engine.configs import COST_BUY, COST_REROLL, TAVERN_SLOTS
 from src.hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
-from src.hearthstone.engine.enums import CardIDs, SpellIDs, Tags, UnitType
+from src.hearthstone.engine.enums import CardIDs, SpellIDs
 
 if TYPE_CHECKING:
     from src.hearthstone.engine.game import Game
@@ -163,9 +161,6 @@ class TestTavernLogic:
         player: Player,
         tavern: "TavernManager",
     ) -> None:
-        old_unit_ids = [item.unit.card_id for item in player.store if item.unit]
-        pool_before = _pool_total(empty_game)
-
         tavern.roll_tavern(player)
 
         # Old units returned; new units drawn → net change depends on slot count.
@@ -297,7 +292,9 @@ class TestTriplets:
 
         golden_cards = [hc for hc in player.hand if hc.unit and hc.unit.is_golden]
         assert len(golden_cards) == 1
-        assert golden_cards[0].unit.card_id == cid
+        golden_unit = golden_cards[0].unit
+        assert golden_unit is not None
+        assert golden_unit.card_id == cid
 
     def test_triplet_golden_has_double_base_stats(
         self,

@@ -1,8 +1,9 @@
 import unittest
+
+from hearthstone.engine.entities import HandCard, Player, Spell, Unit
+from hearthstone.engine.enums import CardIDs, SpellIDs
 from hearthstone.engine.pool import CardPool, SpellPool
 from hearthstone.engine.tavern import TavernManager
-from hearthstone.engine.entities import Player, Unit, HandCard, Spell
-from hearthstone.engine.enums import CardIDs, SpellIDs
 
 
 class TestGoldenLogic(unittest.TestCase):
@@ -86,7 +87,6 @@ class TestGoldenLogic(unittest.TestCase):
 
         # В руке должен быть Золотой юнит, но ПОКА НЕТ награды (она дается при розыгрыше)
         self.assertEqual(len(self.player.hand), 1)
-        golden_card = self.player.hand[0]
 
         # Апаем таверну до 4 (симуляция стратегии "leveling")
         self.player.tavern_tier = 4
@@ -105,7 +105,7 @@ class TestGoldenLogic(unittest.TestCase):
         # Проверяем "запеченный" тир
         # Логика: При розыгрыше (play_unit) берется min(6, tavern_tier + 1)
         # Мы были на 4 тире -> Должен быть 5
-        recorded_tier = reward_card.spell.params.get('tier')
+        recorded_tier = reward_card.spell.params.get("tier")
         self.assertEqual(recorded_tier, 5, f"Ожидался Тир 5, записан {recorded_tier}")
         print("✅ test_triplet_reward_tier passed")
 
@@ -115,7 +115,7 @@ class TestGoldenLogic(unittest.TestCase):
         """
         # Создаем спелл-награду вручную с Тиром 6
         spell = Spell.create_from_db(SpellIDs.TRIPLET_REWARD)
-        spell.params['tier'] = 1
+        spell.params["tier"] = 1
         self.player.hand.append(HandCard(uid=999, spell=spell))
 
         # Разыгрываем (индекс 0)
@@ -128,5 +128,5 @@ class TestGoldenLogic(unittest.TestCase):
         print("✅ test_play_reward_starts_discovery passed")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 import math
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -34,7 +34,8 @@ class HearthstoneEnv(gym.Env):
     0: End Turn
     1: Roll
     2-8: Buy (Slot 0-6) / DISCOVER_CHOICE (Option 0-2) / TARGET BOARD (Slot 0-6)
-    9-15: Sell (Slot 0-6) / TARGET STORE (Slot 0-6) [Not implemented in engine yet, usually spells target board]
+    9-15: Sell (Slot 0-6) / TARGET STORE (Slot 0-6)
+          [Not implemented in engine yet, usually spells target board]
     16-25: Play Hand (Card 0-9)
     26-31: Swap Right (Slot i <-> Slot i+1)
     26: 0<->1, 27: 1<->2 ... 31: 5<->6
@@ -58,7 +59,7 @@ class HearthstoneEnv(gym.Env):
         # Action Space 26 -> 32
         self.action_space = spaces.Discrete(32)
 
-        self.opponent_model = None
+        self.opponent_model: Optional["MaskablePPO"] = None
 
         self.all_types = list(UnitType)
         self.num_types = len(self.all_types)  # 11
@@ -72,7 +73,8 @@ class HearthstoneEnv(gym.Env):
         # [5] Is Frozen
         # [6] ATK
         # [7] HP
-        # [8..16] Keywords (Taunt, DS, WF, Poison, Venom, Reborn, Cleave, Immediate attack, Magnetic)
+        # [8..16] Keywords (Taunt, DS, WF, Poison, Venom, Reborn, Cleave,
+        #         Immediate attack, Magnetic)
         # [17] Is Golden
         # [18] Is Token
         # [19] Has Deathrattle (Native)
@@ -102,9 +104,9 @@ class HearthstoneEnv(gym.Env):
             low=0, high=1, shape=(total_obs_size,), dtype=np.float32
         )
 
-        self.is_targeting = False
-        self.pending_spell_hand_index = None
-        self.pending_target_kind = None  # "SPELL" | "MAGNETIZE"
+        self.is_targeting: bool = False
+        self.pending_spell_hand_index: Optional[int] = None
+        self.pending_target_kind: Optional[str] = None  # "SPELL" | "MAGNETIZE"
 
     def reset(
         self,
@@ -141,7 +143,7 @@ class HearthstoneEnv(gym.Env):
         action_type = "UNKNOWN"
         kwargs = {}
 
-        reward = 0
+        reward: float = 0.0
         done = False
         info = "Unknown"
 
@@ -157,7 +159,11 @@ class HearthstoneEnv(gym.Env):
             # Use button BUY (2-8) for target on board (0-6)
             if 2 <= action <= 8:
                 action_type = "PLAY"  # Continue playing
-                kwargs["hand_index"] = self.pending_spell_hand_index
+                kwargs["hand_index"] = (
+                    self.pending_spell_hand_index
+                    if self.pending_spell_hand_index is not None
+                    else 0
+                )
                 kwargs["target_index"] = action - 2
 
                 # Reset targeting after play

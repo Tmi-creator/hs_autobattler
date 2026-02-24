@@ -1,8 +1,8 @@
 import unittest
+
 from hearthstone.engine.combat import CombatManager
 from hearthstone.engine.entities import Player, Unit
 from hearthstone.engine.enums import CardIDs, Tags, UnitType
-from hearthstone.engine.event_system import EventType, Event, EntityRef, PosRef, Zone
 
 
 class TestNewMechanics(unittest.TestCase):
@@ -165,5 +165,5 @@ class TestNewMechanics(unittest.TestCase):
         print("PASSED: Deflect-o-Bot successfully reset off Reborn")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

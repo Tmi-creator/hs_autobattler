@@ -1,13 +1,13 @@
 import random
-from typing import Dict, List, Callable
+from typing import Callable, Dict, List
 
-from .configs import TIER_COPIES, CARD_DB, SPELL_DB
+from .configs import CARD_DB, SPELL_DB, TIER_COPIES
 from .enums import CardIDs, SpellIDs
 
-'''
+"""
 WE ASSUME THAT CARDS IN POOL ARE INFINITE, SO POOL CAN'T HAVE LESS CARDS THAN WE ASK
 USUALLY IT'S BECAUSE WE HAVE A LOT OF CARDS AND COPIES OF THEM
-'''
+"""
 
 
 class CardPool:
@@ -22,10 +22,10 @@ class CardPool:
             self.tiers[t] = []
 
         for card_id, data in CARD_DB.items():
-            if data.get('is_token', False):
+            if data.get("is_token", False):
                 continue
 
-            tier = data['tier']
+            tier = data["tier"]
             count = TIER_COPIES.get(tier, 0)
 
             self.tiers[tier].extend([card_id] * count)
@@ -54,13 +54,18 @@ class CardPool:
         """Возвращает карты обратно в пул (при продаже или реролле)"""
         for cid in card_ids:
             if cid in CARD_DB:
-                if CARD_DB[cid].get('is_token', False):
+                if CARD_DB[cid].get("is_token", False):
                     continue
-                tier = CARD_DB[cid]['tier']
+                tier = CARD_DB[cid]["tier"]
                 self.tiers[tier].append(cid)
 
-    def draw_discovery_cards(self, count: int, tier: int, exact_tier: bool = False,
-                             predicate: Callable[[dict], bool] = None) -> List[str]:
+    def draw_discovery_cards(
+        self,
+        count: int,
+        tier: int,
+        exact_tier: bool = False,
+        predicate: Callable[[dict], bool] = None,
+    ) -> List[str]:
         """
         Выбирает count УНИКАЛЬНЫХ карт для раскопки и временно изымает их из пула.
         """
@@ -91,7 +96,7 @@ class CardPool:
         k = min(len(candidates), count)
         chosen_ids = random.sample(candidates, k)
         for cid in chosen_ids:
-            c_tier = CARD_DB[cid]['tier']
+            c_tier = CARD_DB[cid]["tier"]
             if cid in self.tiers[c_tier]:
                 self.tiers[c_tier].remove(cid)
 

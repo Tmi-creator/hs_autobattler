@@ -53,7 +53,6 @@ class CardIDs(str, Enum):
     FLIGHTY_SCOUT = "110"
     DIRE_WOLF_ALPHA = "111"
 
-
     # --- TIER 2 ---
     LEAPFROGGER = "201"
     MOLTEN_ROCK = "202"
@@ -83,6 +82,7 @@ class SpellIDs(str, Enum):
     SURF_SPELLCRAFT = "S007"
 
     TRIPLET_REWARD = "S999"
+
 
 class EffectIDs(str, Enum):
     CRAB_DEATHRATTLE = "E_DR_CRAB32"

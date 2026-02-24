@@ -1,11 +1,12 @@
+import random
 from typing import List
 
-from .entities import Unit, Player
-import random
 from .auras import recalculate_board_auras
-from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
-from .enums import Tags, BattleOutcome
+from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
+from .entities import Player, Unit
+from .enums import BattleOutcome, Tags
 from .event_system import (
+    EffectContext,
     EntityRef,
     Event,
     EventManager,
@@ -21,7 +22,9 @@ from .event_system import (
 class CombatManager:
     def __init__(self, event_manager: EventManager | None = None):
         self.uid = 10000
-        self.event_manager = event_manager or EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
+        self.event_manager = event_manager or EventManager(
+            TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
+        )
 
     def get_uid(self):
         self.uid += 1
@@ -45,8 +48,10 @@ class CombatManager:
             attacker_player_idx = random.choice([0, 1])
         attacker_uid = player_1.uid if attacker_player_idx == 0 else player_2.uid
         self.event_manager.process_event(
-            Event(event_type=EventType.START_OF_COMBAT,
-                  source_pos=PosRef(side=attacker_uid, zone=Zone.BOARD, slot=-1)),
+            Event(
+                event_type=EventType.START_OF_COMBAT,
+                source_pos=PosRef(side=attacker_uid, zone=Zone.BOARD, slot=-1),
+            ),
             combat_players,
             self.get_uid,
         )
@@ -61,7 +66,9 @@ class CombatManager:
 
         can_attack = [1, 1]
         while True:
-            end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
+            end_battle = self.check_end_of_battle(
+                board_1, board_2, player_1, player_2, combat_players
+            )
             if end_battle[0] != BattleOutcome.NO_END:
                 return end_battle
             if can_attack == [0, 0]:
@@ -107,7 +114,9 @@ class CombatManager:
                         self.perform_attack(unit, target, combat_players)
                         # clean after every attack
                         self.cleanup_dead(boards, attack_indices, combat_players)
-                        end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
+                        end_battle = self.check_end_of_battle(
+                            board_1, board_2, player_1, player_2, combat_players
+                        )
                         if end_battle[0] != BattleOutcome.NO_END:
                             return end_battle
                 # re-scan
@@ -146,7 +155,9 @@ class CombatManager:
 
                 if not attacker_unit.is_alive:
                     break
-                end_battle = self.check_end_of_battle(board_1, board_2, player_1, player_2, combat_players)
+                end_battle = self.check_end_of_battle(
+                    board_1, board_2, player_1, player_2, combat_players
+                )
                 if end_battle[0] != BattleOutcome.NO_END:
                     return end_battle
 
@@ -155,8 +166,14 @@ class CombatManager:
 
             attacker_player_idx = 1 - attacker_player_idx
 
-    def check_end_of_battle(self, board_1: List[Unit], board_2: List[Unit], player_1: Player, player_2: Player,
-                            combat_players: dict[int, Player]) -> tuple[BattleOutcome, int]:
+    def check_end_of_battle(
+        self,
+        board_1: List[Unit],
+        board_2: List[Unit],
+        player_1: Player,
+        player_2: Player,
+        combat_players: dict[int, Player],
+    ) -> tuple[BattleOutcome, int]:
         if not board_1 or not board_2:
             self.event_manager.process_event(
                 Event(event_type=EventType.END_OF_COMBAT),
@@ -173,7 +190,9 @@ class CombatManager:
             return BattleOutcome.WIN, damage
         return BattleOutcome.NO_END, 0
 
-    def perform_attack(self, attacker: Unit, target: Unit, combat_players: dict[int, Player]) -> None:
+    def perform_attack(
+        self, attacker: Unit, target: Unit, combat_players: dict[int, Player]
+    ) -> None:
         """
         Perform attack with all additional mechanics
         """
@@ -227,7 +246,7 @@ class CombatManager:
             has_poison = source_unit.has_poisonous
             has_venom = source_unit.has_venomous
             venom_used = False
-            for (victim_unit, victim_pos, victim_ref) in targets_list:
+            for victim_unit, victim_pos, victim_ref in targets_list:
                 if not victim_unit.is_alive:
                     continue
                 hp_before = victim_unit.cur_hp
@@ -262,7 +281,7 @@ class CombatManager:
                             target=victim_ref,
                             source_pos=source_pos,
                             target_pos=victim_pos,
-                            value=actual_damage - hp_before  # how much overdmg
+                            value=actual_damage - hp_before,  # how much overdmg
                         ),
                         combat_players,
                         self.get_uid,
@@ -297,7 +316,9 @@ class CombatManager:
                 source_unit.tags.discard(Tags.VENOMOUS)
 
         _apply_damage_batch(attacker, attacker_ref, attacker_pos, victims_data)
-        _apply_damage_batch(target, target_ref, target_pos, [(attacker, attacker_pos, attacker_ref)])
+        _apply_damage_batch(
+            target, target_ref, target_pos, [(attacker, attacker_pos, attacker_ref)]
+        )
         self.event_manager.process_event(
             Event(
                 event_type=EventType.AFTER_ATTACK,
@@ -328,9 +349,7 @@ class CombatManager:
             if trigger_def.event_type == EventType.MINION_DIED:
                 triggers.append(
                     TriggerInstance(
-                        trigger_def=trigger_def,
-                        trigger_uid=unit.uid,
-                        stacks=stacks_multiplier
+                        trigger_def=trigger_def, trigger_uid=unit.uid, stacks=stacks_multiplier
                     )
                 )
 
@@ -349,11 +368,13 @@ class CombatManager:
                             )
                         )
         if unit.has_reborn:
-            def _reborn_effect(ctx, event, trigger_uid, card_id=unit.card_id):
+
+            def _reborn_effect(ctx: EffectContext, event, trigger_uid, card_id=unit.card_id):
                 if not event.source_pos:
                     return
-                summoned_ref = ctx.summon(event.source_pos.side, card_id, event.source_pos.slot,
-                                          is_golden=unit.is_golden)
+                summoned_ref = ctx.summon(
+                    event.source_pos.side, card_id, event.source_pos.slot, is_golden=unit.is_golden
+                )
                 if summoned_ref:
                     reborn_unit = ctx.resolve_unit(summoned_ref)
                     if reborn_unit:
@@ -364,8 +385,9 @@ class CombatManager:
                 TriggerInstance(
                     trigger_def=TriggerDef(
                         event_type=EventType.MINION_DIED,
-                        condition=lambda ctx, event,
-                                         trigger_uid: event.source is not None and event.source.uid == trigger_uid,
+                        condition=lambda ctx, event, trigger_uid: (
+                            event.source is not None and event.source.uid == trigger_uid
+                        ),
                         effect=_reborn_effect,
                         name="Reborn",
                     ),
@@ -381,8 +403,9 @@ class CombatManager:
                     return PosRef(side=side, zone=Zone.BOARD, slot=slot)
         return None
 
-    def cleanup_dead(self, boards: List[List[Unit]], attack_indices: List[int],
-                     combat_players: dict[int, Player]) -> None:
+    def cleanup_dead(
+        self, boards: List[List[Unit]], attack_indices: List[int], combat_players: dict[int, Player]
+    ) -> None:
         """
         Clean board after death and move attack indexes where they should be
         """

@@ -2,54 +2,57 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from .enums import Tags, MechanicType, SpellIDs, EffectIDs
-from .event_system import EntityRef, Event, EventType, TriggerDef
+from .enums import EffectIDs, MechanicType, SpellIDs, Tags
+from .event_system import EffectContext, EntityRef, Event, EventType, TriggerDef
 
 
-def _spell_coin(ctx, event: Event, trigger_uid: int) -> None:
+def _spell_coin(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     if not event.source_pos:
         return
     ctx.gain_gold(event.source_pos.side, 1)
 
 
-def _spell_banana(ctx, event: Event, trigger_uid: int) -> None:
+def _spell_banana(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
     ctx.buff_perm(EntityRef(event.target.uid), 2, 2)
 
 
-def _spell_bloodgem(ctx, event: Event, trigger_uid: int) -> None:
-    if not event.target:
+def _spell_bloodgem(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    if not event.target or not event.source_pos:
         return
     player = ctx.players_by_uid.get(event.source_pos.side)
+    if not player:
+        return
     atk, hp = player.mechanics.get_stat(MechanicType.BLOOD_GEM)
     ctx.buff_perm(EntityRef(event.target.uid), atk, hp)
 
 
-def _spell_arrow(ctx, event: Event, trigger_uid: int) -> None:
+def _spell_arrow(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
     ctx.buff_perm(EntityRef(event.target.uid), 4, 0)
 
 
-def _spell_fortify(ctx, event: Event, trigger_uid: int) -> None:
+def _spell_fortify(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
     ctx.buff_perm(EntityRef(event.target.uid), 0, 3)
     unit = ctx.resolve_unit(EntityRef(event.target.uid))
-    unit.tags.add(Tags.TAUNT)
+    if unit:
+        unit.tags.add(Tags.TAUNT)
 
 
-def _spell_apple(ctx, event: Event, trigger_uid: int) -> None:
+def _spell_apple(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     if not event.source_pos:
         return
     side = event.source_pos.side
 
-    for idx, unit in ctx.iter_store_units(side):
+    for _, unit in ctx.iter_store_units(side):
         ctx.buff_perm(EntityRef(unit.uid), 1, 2)
 
 
-def _spell_surf_spellcraft(ctx, event: Event, trigger_uid: int) -> None:
+def _spell_surf_spellcraft(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     if not event.target:
         return
     ctx.attach_effect_turn(EntityRef(event.target.uid), EffectIDs.CRAB_DEATHRATTLE, 1)
@@ -112,7 +115,6 @@ SPELL_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Surf Spellcraft",
         )
     ],
-
 }
 
 SPELLS_REQUIRE_TARGET = {
@@ -120,5 +122,5 @@ SPELLS_REQUIRE_TARGET = {
     SpellIDs.BLOOD_GEM,
     SpellIDs.POINTY_ARROW,
     SpellIDs.FORTIFY,
-    SpellIDs.SURF_SPELLCRAFT
+    SpellIDs.SURF_SPELLCRAFT,
 }

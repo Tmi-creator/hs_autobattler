@@ -1,11 +1,12 @@
-from typing import Dict, Tuple, Optional
-from .entities import Player, Unit, HandCard, Spell, StoreItem
-from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS, SPELLS_PER_ROLL
-from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
-from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
-from .enums import UnitType, SpellIDs
-from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
+from typing import Dict, Optional, Tuple
+
 from .auras import recalculate_board_auras
+from .configs import COST_BUY, COST_REROLL, SPELLS_PER_ROLL, TAVERN_SLOTS, TIER_UPGRADE_COSTS
+from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
+from .entities import HandCard, Player, Spell, StoreItem, Unit
+from .enums import SpellIDs, UnitType
+from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
+from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
 class TavernManager:
@@ -13,7 +14,9 @@ class TavernManager:
         self.pool = pool
         self.spell_pool = spell_pool
         self._uid_counter = 1000
-        self.event_manager = event_manager or EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
+        self.event_manager = event_manager or EventManager(
+            TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
+        )
 
     def _get_next_uid(self):
         self._uid_counter += 1
@@ -30,9 +33,12 @@ class TavernManager:
             unit.reset_turn_layer()
             unit.restore_stats()
         self.event_manager.process_event(
-            Event(event_type=EventType.START_OF_TURN,
-                  source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
-                  ), {player.uid: player}, self._get_next_uid,
+            Event(
+                event_type=EventType.START_OF_TURN,
+                source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
+            ),
+            {player.uid: player},
+            self._get_next_uid,
         )
         max_gold = min(10, 3 + turn_number - 1)
         player.gold = max_gold + player.gold_next_turn
@@ -43,7 +49,9 @@ class TavernManager:
 
         frozen_items = [item for item in player.store if item.is_frozen]
 
-        not_frozen_units = [item.unit.card_id for item in player.store if not item.is_frozen and item.unit]
+        not_frozen_units = [
+            item.unit.card_id for item in player.store if not item.is_frozen and item.unit
+        ]
         self.pool.return_cards(not_frozen_units)
 
         player.store.clear()
@@ -84,7 +92,7 @@ class TavernManager:
                 event = Event(
                     event_type=EventType.MINION_ADDED_TO_SHOP,
                     source=EntityRef(uid=new_unit.uid),
-                    source_pos=PosRef(side=player.uid, zone=Zone.SHOP, slot=len(player.store) - 1)
+                    source_pos=PosRef(side=player.uid, zone=Zone.SHOP, slot=len(player.store) - 1),
                 )
                 players = {player.uid: player}
 
@@ -196,8 +204,9 @@ class TavernManager:
         recalculate_board_auras(player.board)
         return True, "Sold unit"
 
-    def play_unit(self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1) -> Tuple[
-        bool, str]:
+    def play_unit(
+        self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1
+    ) -> Tuple[bool, str]:
         """
         Play card hand -> board in concrete position
         Args:
@@ -255,19 +264,22 @@ class TavernManager:
 
                 reward_tier = min(6, player.tavern_tier + 1)
 
-                reward_spell.params['tier'] = reward_tier
+                reward_spell.params["tier"] = reward_tier
 
                 player.hand.append(HandCard(uid=self._get_next_uid(), spell=reward_spell))
         self._resolve_battlecry(player, unit, insert_index, target_index)
 
         return True, "Played unit"
 
-    def start_discovery(self, player: Player,
-                        source: str,  # source for logs
-                        tier: Optional[int] = None,  # None = current tavern tier
-                        exact_tier: bool = False,  # True for triple rewards
-                        count: int = 3,
-                        predicate=None) -> bool:
+    def start_discovery(
+        self,
+        player: Player,
+        source: str,  # source for logs
+        tier: Optional[int] = None,  # None = current tavern tier
+        exact_tier: bool = False,  # True for triple rewards
+        count: int = 3,
+        predicate=None,
+    ) -> bool:
 
         if player.is_discovering:
             return False
@@ -275,10 +287,7 @@ class TavernManager:
         target_tier = tier if tier is not None else player.tavern_tier
 
         card_ids = self.pool.draw_discovery_cards(
-            count=count,
-            tier=target_tier,
-            exact_tier=exact_tier,
-            predicate=predicate
+            count=count, tier=target_tier, exact_tier=exact_tier, predicate=predicate
         )
 
         if not card_ids:
@@ -332,10 +341,14 @@ class TavernManager:
         Find 3 copies of unit, and unite in one gold
         Timed buffs become times, const - const
         """
-        hand_indices = [i for i, hc in enumerate(player.hand)
-                        if hc.unit and hc.unit.card_id == card_id and not hc.unit.is_golden]
-        board_indices = [i for i, u in enumerate(player.board)
-                         if u.card_id == card_id and not u.is_golden]
+        hand_indices = [
+            i
+            for i, hc in enumerate(player.hand)
+            if hc.unit and hc.unit.card_id == card_id and not hc.unit.is_golden
+        ]
+        board_indices = [
+            i for i, u in enumerate(player.board) if u.card_id == card_id and not u.is_golden
+        ]
 
         if len(hand_indices) + len(board_indices) < 3:
             return
@@ -418,14 +431,10 @@ class TavernManager:
         if not spell:
             return False, "No spell to cast"
         if spell.card_id == SpellIDs.TRIPLET_REWARD:
-            discover_tier = spell.params.get('tier', 1)
+            discover_tier = spell.params.get("tier", 1)
 
             success = self.start_discovery(
-                player,
-                source="TripletReward",
-                tier=discover_tier,
-                exact_tier=True,
-                count=3
+                player, source="TripletReward", tier=discover_tier, exact_tier=True, count=3
             )
 
             if success:
@@ -454,7 +463,9 @@ class TavernManager:
             source_pos=source_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self._get_next_uid, extra_triggers=[trigger])
+        self.event_manager.process_event(
+            event, players_by_uid, self._get_next_uid, extra_triggers=[trigger]
+        )
         player.hand.pop(hand_index)
         recalculate_board_auras(player.board)
         return True, f"Cast {spell.card_id}"
@@ -497,14 +508,14 @@ class TavernManager:
 
     def end_turn(self, player: Player) -> None:
         self.event_manager.process_event(
-            Event(event_type=EventType.END_OF_TURN,
-                  source_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=-1)
-                  ),
+            Event(
+                event_type=EventType.END_OF_TURN,
+                source_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=-1),
+            ),
             {player.uid: player},
-            self._get_next_uid
+            self._get_next_uid,
         )
 
         player.hand[:] = [
-            hc for hc in player.hand
-            if not (hc.spell is not None and hc.spell.is_temporary)
+            hc for hc in player.hand if not (hc.spell is not None and hc.spell.is_temporary)
         ]

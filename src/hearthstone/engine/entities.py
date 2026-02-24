@@ -1,8 +1,9 @@
-from dataclasses import dataclass, replace, field
-from typing import Dict, List, Optional, Set, Tuple
-from .enums import UnitType, Tags, MechanicType, CardIDs, SpellIDs
-from .configs import CARD_DB, SPELL_DB, MECHANIC_DEFAULTS
 from copy import deepcopy
+from dataclasses import dataclass, field, replace
+from typing import Dict, List, Optional, Set, Tuple
+
+from .configs import CARD_DB, MECHANIC_DEFAULTS, SPELL_DB
+from .enums import CardIDs, MechanicType, SpellIDs, Tags, UnitType
 
 
 @dataclass
@@ -91,7 +92,9 @@ class Unit:
         """
         # 1. Pool counter (for selling)
         other_base_copies = 3 if other.is_golden else 1
-        self.absorbed_pool_copies[other.card_id] = self.absorbed_pool_copies.get(other.card_id, 0) + other_base_copies
+        self.absorbed_pool_copies[other.card_id] = (
+            self.absorbed_pool_copies.get(other.card_id, 0) + other_base_copies
+        )
         self._merge_counter_dict(self.absorbed_pool_copies, other.absorbed_pool_copies)
 
         # 2. Recalc stats (base + perm -> perm)
@@ -111,7 +114,9 @@ class Unit:
 
         # 5. Recalc triggers
         trigger_stacks = 2 if other.is_golden else 1
-        self.attached_perm[other.card_id] = self.attached_perm.get(other.card_id, 0) + trigger_stacks
+        self.attached_perm[other.card_id] = (
+            self.attached_perm.get(other.card_id, 0) + trigger_stacks
+        )
 
         self.recalc_stats()
 
@@ -119,18 +124,18 @@ class Unit:
         old_max_hp = self.max_hp
         old_cur_hp = self.cur_hp
         self.max_atk = (
-                self.base_atk
-                + self.perm_atk_add
-                + self.turn_atk_add
-                + self.combat_atk_add
-                + self.aura_atk_add
+            self.base_atk
+            + self.perm_atk_add
+            + self.turn_atk_add
+            + self.combat_atk_add
+            + self.aura_atk_add
         )
         self.max_hp = (
-                self.base_hp
-                + self.perm_hp_add
-                + self.turn_hp_add
-                + self.combat_hp_add
-                + self.aura_hp_add
+            self.base_hp
+            + self.perm_hp_add
+            + self.turn_hp_add
+            + self.combat_hp_add
+            + self.aura_hp_add
         )
         missing = max(old_max_hp - old_cur_hp, 0)
         new_cur_hp = self.max_hp - missing
@@ -197,8 +202,8 @@ class Unit:
 
         mult = 2 if is_golden else 1
 
-        base_hp = data['hp'] * mult
-        base_atk = data['atk'] * mult
+        base_hp = data["hp"] * mult
+        base_atk = data["atk"] * mult
 
         unit = Unit(
             uid=uid,
@@ -206,14 +211,14 @@ class Unit:
             owner_id=owner_id,
             base_hp=base_hp,
             base_atk=base_atk,
-            max_hp=data['hp'],
-            max_atk=data['atk'],
-            cur_hp=data['hp'],
-            cur_atk=data['atk'],
-            tier=data['tier'],
-            types=list(data.get('type', [])),
-            tags=set(data.get('tags', [])),
-            is_golden=is_golden
+            max_hp=data["hp"],
+            max_atk=data["atk"],
+            cur_hp=data["hp"],
+            cur_atk=data["atk"],
+            tier=data["tier"],
+            types=list(data.get("type", [])),
+            tags=set(data.get("tags", [])),
+            is_golden=is_golden,
         )
         unit.recalc_stats()
         unit.restore_stats()
@@ -289,6 +294,7 @@ class EconomyState:
     """
     All player eco is here
     """
+
     gold: int = 3
     gold_next_turn: int = 0
     tavern_tier: int = 1
@@ -306,6 +312,7 @@ class EconomyState:
 @dataclass
 class MechanicState:
     """Global buffs and mechanics counters"""
+
     modifiers: Dict[MechanicType, Tuple[int, int]] = field(
         default_factory=lambda: MECHANIC_DEFAULTS.copy()
     )

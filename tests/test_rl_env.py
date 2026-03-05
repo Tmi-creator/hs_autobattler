@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from hearthstone.engine.entities import HandCard, Spell, StoreItem, Unit
-from hearthstone.engine.enums import CardIDs, SpellIDs, Tags, UnitType
+from hearthstone.engine.enums import CardIDs, SpellIDs, Tags
 from hearthstone.env.hs_env import HearthstoneEnv
 
 

@@ -7,14 +7,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
 
-import pytest
-
 from hearthstone.engine.combat import CombatManager
 from hearthstone.engine.entities import Player, Unit
 from hearthstone.engine.enums import CardIDs, Tags, UnitType
 
 if TYPE_CHECKING:
-    from hearthstone.engine.game import Game
+    pass
 
 
 # ===================================================================

@@ -338,7 +338,7 @@ class CombatManager:
             self.get_uid,
         )
 
-    def _collect_death_triggers(self, unit: Unit, slot_index: int) -> List[TriggerInstance]:
+    def _collect_death_triggers(self, unit: Unit) -> List[TriggerInstance]:
         triggers = []
 
         stacks_multiplier = 1
@@ -444,7 +444,7 @@ class CombatManager:
                         source_pos=death_snapshot.pos,
                         snapshot=death_snapshot,
                     )
-                    extra_triggers = self._collect_death_triggers(unit, i)
+                    extra_triggers = self._collect_death_triggers(unit)
 
                     board.pop(i)
                     recalculate_board_auras(board)

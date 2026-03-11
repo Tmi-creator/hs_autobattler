@@ -1,5 +1,4 @@
 import os
-import random
 import sys
 from pathlib import Path
 from typing import Callable, Protocol, TypedDict, cast
@@ -68,8 +67,6 @@ def setup_determinism(seed: int) -> None:
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
     # 3. standard seeds
-    random.seed(seed)
-    np.random.seed(seed)
     set_random_seed(seed)  # Fix random, numpy and torch cpu
 
     # 4. Settings PyTorch for GPU

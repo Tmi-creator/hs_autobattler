@@ -348,17 +348,8 @@ class Player:
             uid=self.uid,
             board=[u.combat_copy() for u in self.board],
             hand=self.hand.copy(),
-            economy=EconomyState(
-                gold=self.economy.gold,
-                gold_next_turn=self.economy.gold_next_turn,
-                tavern_tier=self.economy.tavern_tier,
-                spell_discount=self.economy.spell_discount,
-                up_cost=self.economy.up_cost,
-                store=self.economy.store.copy(),
-            ),
-            mechanics=MechanicState(
-                modifiers=self.mechanics.modifiers.copy(),
-            ),
+            economy=replace(self.economy, store=self.economy.store.copy()),
+            mechanics=replace(self.mechanics, modifiers=self.mechanics.modifiers.copy()),
             health=self.health,
         )
 

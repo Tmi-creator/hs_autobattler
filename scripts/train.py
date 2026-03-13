@@ -10,6 +10,7 @@ if str(root_path) not in sys.path:
 
 import numpy as np
 import torch
+import wandb
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -17,7 +18,6 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from wandb.integration.sb3 import WandbCallback
 
-import wandb
 from hearthstone.env.hs_env import HearthstoneEnv
 from scripts.callbacks import GameLoggerCallback, SelfPlayCallback
 

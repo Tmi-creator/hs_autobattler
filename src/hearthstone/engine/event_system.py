@@ -3,10 +3,14 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Deque, Dict, List, Optional, Set
 
-from .enums import Tags
-from .entities import HandCard, Player, Spell, Unit
+if TYPE_CHECKING:
+    from .entities import Player
+
+from .auras import recalculate_board_auras
+from .entities import HandCard, Spell, Unit
+from .enums import Tags, UnitType
 
 
 class Zone(Enum):
@@ -32,6 +36,8 @@ class EventType(Enum):
     END_OF_TURN = auto()
     SPELL_CAST = auto()
     MINION_ADDED_TO_SHOP = auto()
+    DIVINE_SHIELD_LOST = auto()
+    OVERKILL = auto()
 
 
 @dataclass(frozen=True)
@@ -54,7 +60,7 @@ class MinionSnapshot:
     pos: Optional[PosRef]
     atk: int
     hp: int
-    types: List
+    types: List[UnitType]
     tags: Set[Tags]
 
 
@@ -80,6 +86,7 @@ class TriggerDef:
     condition: ConditionFn
     effect: EffectFn
     name: str = ""
+    priority: int = 0
 
 
 @dataclass(frozen=True)
@@ -91,16 +98,16 @@ class TriggerInstance:
 
 class EffectContext:
     def __init__(
-            self,
-            players_by_uid: Dict[int, Player],
-            uid_provider: Callable[[], int],
-            event_queue: Deque[Event],
+        self,
+        players_by_uid: Dict[int, Player],
+        uid_provider: Callable[[], int],
+        event_queue: Deque[Event],
     ):
         self.players_by_uid = players_by_uid
         self._uid_provider = uid_provider
         self._event_queue = event_queue
         self._uid_to_pos: Dict[int, PosRef] = {}
-        for player_id, player in players_by_uid.items():
+        for player_id, _ in players_by_uid.items():
             self._reindex_side(player_id)
 
     def resolve_unit(self, ref: Optional[EntityRef]) -> Optional[Unit]:
@@ -124,11 +131,11 @@ class EffectContext:
         if pos.zone == Zone.HAND:
             if pos.slot < 0 or pos.slot >= len(player.hand):
                 return None
-            item = player.hand[pos.slot]
-            return item.unit
+            hand_item = player.hand[pos.slot]
+            return hand_item.unit
         return None
 
-    def iter_board_units(self, side: int) -> Iterable[tuple[int, Unit]]:
+    def iter_board_units(self, side: int) -> list[tuple[int, Unit]]:
         player = self.players_by_uid.get(side)
         if not player:
             return []
@@ -163,7 +170,7 @@ class EffectContext:
                 self._uid_to_pos[item.unit.uid] = PosRef(side=side, zone=Zone.SHOP, slot=idx)
 
     def _reindex_all(self) -> None:
-        for player_id, player in self.players_by_uid.items():
+        for player_id, _ in self.players_by_uid.items():
             self._reindex_side(player_id)
 
     def gain_gold(self, side: int, amount: int) -> None:
@@ -210,7 +217,7 @@ class EffectContext:
         unit.recalc_stats()
 
     def iter_store_units(self, side: int) -> list[tuple[int, Unit]]:
-        results = []
+        results: list[tuple[int, Unit]] = []
         player = self.players_by_uid.get(side)
         if not player:
             return []
@@ -239,7 +246,9 @@ class EffectContext:
             return
         unit.attached_combat[effect_id] = unit.attached_combat.get(effect_id, 0) + count
 
-    def summon(self, side: int, card_id: str, insert_index: int, is_golden: bool = False) -> Optional[EntityRef]:
+    def summon(
+        self, side: int, card_id: str, insert_index: int, is_golden: bool = False
+    ) -> Optional[EntityRef]:  # noqa: E501
         player = self.players_by_uid.get(side)
         if not player:
             return None
@@ -251,6 +260,7 @@ class EffectContext:
         self._reindex_side(side)
         summoned = EntityRef(uid=unit.uid)
         pos = self._uid_to_pos.get(unit.uid)
+        recalculate_board_auras(player.board)
         self.emit_event(
             Event(
                 event_type=EventType.MINION_SUMMONED,
@@ -270,20 +280,22 @@ class EffectExecutor:
 
 
 class EventManager:
-    def __init__(self,
-                 trigger_registry: Dict[str, List[TriggerDef]],
-                 golden_trigger_registry: Dict[str, List[TriggerDef]] = None,
-                 executor: Optional[EffectExecutor] = None):
+    def __init__(
+        self,
+        trigger_registry: Dict[str, List[TriggerDef]],
+        golden_trigger_registry: Optional[Dict[str, List[TriggerDef]]] = None,
+        executor: Optional[EffectExecutor] = None,
+    ):
         self.trigger_registry = trigger_registry
         self.golden_trigger_registry = golden_trigger_registry or {}
         self.executor = executor or EffectExecutor()
 
     def process_event(
-            self,
-            event: Event,
-            players_by_uid: Dict[int, Player],
-            uid_provider: Callable[[], int],
-            extra_triggers: Optional[List[TriggerInstance]] = None,
+        self,
+        event: Event,
+        players_by_uid: Dict[int, Player],
+        uid_provider: Callable[[], int],
+        extra_triggers: Optional[List[TriggerInstance]] = None,
     ) -> None:
         queue: Deque[Event] = deque([event])
         ctx = EffectContext(players_by_uid, uid_provider, queue)
@@ -296,12 +308,16 @@ class EventManager:
             for trigger in self.order_triggers(triggers, current_event, ctx):
                 if trigger.trigger_def.condition(ctx, current_event, trigger.trigger_uid):
                     for _ in range(trigger.stacks):
-                        self.executor.run(trigger.trigger_def.effect, ctx, current_event, trigger.trigger_uid)
+                        self.executor.run(
+                            trigger.trigger_def.effect, ctx, current_event, trigger.trigger_uid
+                        )
 
     def collect_triggers(self, event: Event, ctx: EffectContext) -> List[TriggerInstance]:
+        from .effects import SYSTEM_TRIGGER_REGISTRY
+
         triggers: List[TriggerInstance] = []
-        for player_id, player in ctx.players_by_uid.items():
-            for slot, unit in enumerate(player.board):
+        for _player_id, player in ctx.players_by_uid.items():
+            for _slot, unit in enumerate(player.board):
                 stacks_multiplier = 1
                 if unit.is_golden:
                     if unit.card_id in self.golden_trigger_registry:
@@ -318,7 +334,7 @@ class EventManager:
                             TriggerInstance(
                                 trigger_def=trigger_def,
                                 trigger_uid=unit.uid,
-                                stacks=stacks_multiplier
+                                stacks=stacks_multiplier,
                             )
                         )
                 for attached in (unit.attached_perm, unit.attached_turn, unit.attached_combat):
@@ -335,28 +351,70 @@ class EventManager:
                                         stacks=count,
                                     )
                                 )
+        if event.event_type in SYSTEM_TRIGGER_REGISTRY:
+            for trig_def in SYSTEM_TRIGGER_REGISTRY[event.event_type]:
+                triggers.append(
+                    TriggerInstance(
+                        trigger_def=trig_def,
+                        trigger_uid=0,
+                        stacks=1,
+                    )
+                )
         return triggers
 
     def order_triggers(
-            self,
-            triggers: List[TriggerInstance],
-            event: Event,
-            ctx: EffectContext,
+        self,
+        triggers: List[TriggerInstance],
+        event: Event,
+        ctx: EffectContext,
     ) -> List[TriggerInstance]:
         active_side = None
-        if event.source_pos:
-            active_side = event.source_pos.side
+        source_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        source_uid = None
+        if event.source:
+            source_uid = event.source.uid
+        elif event.snapshot:
+            source_uid = event.snapshot.uid
+
+        if source_pos:
+            active_side = source_pos.side
         elif event.source:
             pos = ctx.resolve_pos(event.source)
             active_side = pos.side if pos else None
 
-        def sort_key(trigger: TriggerInstance) -> tuple:
+        def sort_key(trigger: TriggerInstance) -> tuple[int, int, int, int, int]:
+            trig_uid = trigger.trigger_uid
+
             pos = ctx.resolve_pos(EntityRef(trigger.trigger_uid))
             unit = ctx.resolve_unit(EntityRef(trigger.trigger_uid))
-            unit_uid = unit.uid if unit else 0
+            unit_uid = unit.uid if unit else trig_uid
+
+            is_source_trigger = (
+                event.event_type == EventType.MINION_DIED
+                and source_uid is not None
+                and trig_uid == source_uid
+            )
+            # if its trigger of dead source, pos already gone from ctx (popped from board)
+            # use snapshot/source_pos to not get slot=999
+            if pos is None and is_source_trigger and source_pos is not None:
+                pos = source_pos
             slot = pos.slot if pos else 999
             side = pos.side if pos else -1
-            side_priority = 0 if active_side is None or side == active_side else 1
-            return side_priority, slot, unit_uid
+
+            if side == -1:
+                side_priority = 2
+            elif active_side is None:
+                side_priority = 0
+            else:
+                side_priority = 0 if side == active_side else 1
+            group = 0 if is_source_trigger else 1
+
+            return (
+                group,
+                -trigger.trigger_def.priority,
+                side_priority,
+                slot,
+                unit_uid,
+            )
 
         return sorted(triggers, key=sort_key)

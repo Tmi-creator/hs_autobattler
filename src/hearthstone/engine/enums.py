@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import Enum, auto
 
 
@@ -16,6 +18,7 @@ class UnitType(Enum):
 
 
 class Tags(Enum):
+    IMMEDIATE_ATTACK = auto()
     TAUNT = auto()
     DIVINE_SHIELD = auto()
     WINDFURY = auto()
@@ -24,6 +27,7 @@ class Tags(Enum):
     VENOMOUS = auto()
     CLEAVE = auto()
     STEALTH = auto()
+    MAGNETIC = auto()
 
 
 class BattleOutcome(Enum):
@@ -49,10 +53,19 @@ class CardIDs(str, Enum):
     IMPRISONER = "108"
     MINTED_CORSAIR = "109"
     FLIGHTY_SCOUT = "110"
+    DIRE_WOLF_ALPHA = "111"
 
     # --- TIER 2 ---
     LEAPFROGGER = "201"
     MOLTEN_ROCK = "202"
+    MURLOC_WARLEADER = "203"
+    SOUTHSEA_CAPTAIN = "204"
+    ANNOY_O_MODULE = "205"
+    SPAWN_OF_NZOTH = "206"
+    KABOOM_BOT = "207"
+
+    # --- TIER 3 ---
+    DEFLECT_O_BOT = "301"
 
     # --- TOKENS ---
     TABBYCAT = "102t"
@@ -71,6 +84,7 @@ class SpellIDs(str, Enum):
     SURF_SPELLCRAFT = "S007"
 
     TRIPLET_REWARD = "S999"
+
 
 class EffectIDs(str, Enum):
     CRAB_DEATHRATTLE = "E_DR_CRAB32"

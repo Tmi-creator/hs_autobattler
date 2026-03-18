@@ -1,31 +1,32 @@
+from __future__ import annotations
+
 import random
-from typing import Dict, List, Callable
+from typing import Any, Callable, Dict, List, Optional
 
-from .configs import TIER_COPIES, CARD_DB, SPELL_DB
-from .enums import CardIDs, SpellIDs
+from .configs import CARD_DB, SPELL_DB, TIER_COPIES
 
-'''
+"""
 WE ASSUME THAT CARDS IN POOL ARE INFINITE, SO POOL CAN'T HAVE LESS CARDS THAN WE ASK
 USUALLY IT'S BECAUSE WE HAVE A LOT OF CARDS AND COPIES OF THEM
-'''
+"""
 
 
 class CardPool:
-    def __init__(self):
+    def __init__(self) -> None:
         # Структура: {1: ['101', '101'...], 2: ['201', ...]}
-        self.tiers: Dict[int, List[CardIDs]] = {}
+        self.tiers: Dict[int, List[str]] = {}
         self._initialize_pool()
 
-    def _initialize_pool(self):
+    def _initialize_pool(self) -> None:
         """Заполняет пул картами согласно конфигу TIER_COPIES"""
         for t in TIER_COPIES.keys():
             self.tiers[t] = []
 
         for card_id, data in CARD_DB.items():
-            if data.get('is_token', False):
+            if data.get("is_token", False):
                 continue
 
-            tier = data['tier']
+            tier = data["tier"]
             count = TIER_COPIES.get(tier, 0)
 
             self.tiers[tier].extend([card_id] * count)
@@ -50,17 +51,22 @@ class CardPool:
 
         return drawn_cards
 
-    def return_cards(self, card_ids: List[CardIDs]):
+    def return_cards(self, card_ids: List[str]) -> None:
         """Возвращает карты обратно в пул (при продаже или реролле)"""
         for cid in card_ids:
             if cid in CARD_DB:
-                if CARD_DB[cid].get('is_token', False):
+                if CARD_DB[cid].get("is_token", False):
                     continue
-                tier = CARD_DB[cid]['tier']
+                tier = int(CARD_DB[cid]["tier"])
                 self.tiers[tier].append(cid)
 
-    def draw_discovery_cards(self, count: int, tier: int, exact_tier: bool = False,
-                             predicate: Callable[[dict], bool] = None) -> List[str]:
+    def draw_discovery_cards(
+        self,
+        count: int,
+        tier: int,
+        exact_tier: bool = False,
+        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
+    ) -> List[str]:
         """
         Выбирает count УНИКАЛЬНЫХ карт для раскопки и временно изымает их из пула.
         """
@@ -81,7 +87,7 @@ class CardPool:
                 data = CARD_DB.get(card_id)
                 if not data:
                     continue
-                if predicate and not predicate(data):
+                if predicate is not None and not predicate(data):
                     continue
 
                 candidates.append(card_id)
@@ -89,9 +95,9 @@ class CardPool:
         if not candidates:
             return []
         k = min(len(candidates), count)
-        chosen_ids = random.sample(candidates, k)
+        chosen_ids: List[str] = random.sample(candidates, k)
         for cid in chosen_ids:
-            c_tier = CARD_DB[cid]['tier']
+            c_tier = int(CARD_DB[cid]["tier"])
             if cid in self.tiers[c_tier]:
                 self.tiers[c_tier].remove(cid)
 
@@ -99,19 +105,19 @@ class CardPool:
 
 
 class SpellPool:
-    def __init__(self):
+    def __init__(self) -> None:
         self.tiers: Dict[int, List[str]] = {}
         self._initialize_pool()
 
-    def _initialize_pool(self):
+    def _initialize_pool(self) -> None:
         for spell_id, data in SPELL_DB.items():
             if not data.get("pool", True):
                 continue
             tier = data["tier"]
             self.tiers.setdefault(tier, []).append(spell_id)
 
-    def draw_spells(self, count: int, max_tier: int) -> List[SpellIDs]:
-        drawn_spells = []
+    def draw_spells(self, count: int, max_tier: int) -> List[str]:
+        drawn_spells: List[str] = []
         available_tiers = [t for t in self.tiers.keys() if t <= max_tier]
         if not available_tiers:
             return drawn_spells

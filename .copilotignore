@@ -1,0 +1,7 @@
+models/
+runs/
+logs/
+wandb/
+.venv/
+__pycache__/
+*.zip

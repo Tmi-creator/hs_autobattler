@@ -1,37 +1,49 @@
-from typing import Dict, Tuple, Optional
-from .entities import Player, Unit, HandCard, Spell, StoreItem
-from .configs import TAVERN_SLOTS, COST_BUY, COST_REROLL, TIER_UPGRADE_COSTS, SPELLS_PER_ROLL
-from .effects import TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from .auras import recalculate_board_auras
+from .configs import COST_BUY, COST_REROLL, SPELLS_PER_ROLL, TAVERN_SLOTS, TIER_UPGRADE_COSTS
+from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
+from .entities import HandCard, Player, Spell, StoreItem, Unit
+from .enums import SpellIDs, UnitType
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
-from .enums import UnitType, SpellIDs
+from .pool import CardPool, SpellPool
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
 
 
 class TavernManager:
-    def __init__(self, pool, spell_pool, event_manager: EventManager | None = None):
+    def __init__(
+        self, pool: CardPool, spell_pool: SpellPool, event_manager: EventManager | None = None
+    ):
         self.pool = pool
         self.spell_pool = spell_pool
         self._uid_counter = 1000
-        self.event_manager = event_manager or EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
+        self.event_manager = event_manager or EventManager(
+            TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY
+        )
 
-    def _get_next_uid(self):
+    def get_next_uid(self) -> int:
         self._uid_counter += 1
         return self._uid_counter
 
     def start_turn(self, player: Player, turn_number: int) -> None:
         """
-        Логика начала хода (Фаза вербовки):
-        1. Восстановить/увеличить золото.
-        2. Снизить стоимость улучшения таверны.
-        3. Обновить магазин (с учетом заморозки).
+        Logic StartOfTurn
+        1. Restore/up gold count
+        2. Lower up tavern cost
+        3. Restore shop (with freezing)
         """
         for unit in player.board:
             unit.reset_turn_layer()
             unit.restore_stats()
         self.event_manager.process_event(
-            Event(event_type=EventType.START_OF_TURN,
-                  source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
-                  ), {player.uid: player}, self._get_next_uid,
+            Event(
+                event_type=EventType.START_OF_TURN,
+                source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0),
+            ),
+            {player.uid: player},
+            self.get_next_uid,
         )
         max_gold = min(10, 3 + turn_number - 1)
         player.gold = max_gold + player.gold_next_turn
@@ -42,7 +54,9 @@ class TavernManager:
 
         frozen_items = [item for item in player.store if item.is_frozen]
 
-        not_frozen_units = [item.unit.card_id for item in player.store if not item.is_frozen and item.unit]
+        not_frozen_units = [
+            item.unit.card_id for item in player.store if not item.is_frozen and item.unit
+        ]
         self.pool.return_cards(not_frozen_units)
 
         player.store.clear()
@@ -54,7 +68,7 @@ class TavernManager:
         self._fill_tavern(player)
 
     def roll_tavern(self, player: Player) -> tuple[bool, str]:
-        """Платное обновление (1 золотой). Игнорирует заморозку (сбрасывает всё)."""
+        """Paid roll (1 gold). Ignore freeze (throw all)."""
         if player.gold < COST_REROLL:
             return False, "Not enough gold"
 
@@ -70,8 +84,8 @@ class TavernManager:
         return True, "Rolled"
 
     def _fill_tavern(self, player: Player) -> None:
-        """Вспомогательный метод: добивает магазин до максимума карт"""
-        slots_total = TAVERN_SLOTS.get(player.tavern_tier)
+        """Supporting function: fill shop to max cards"""
+        slots_total = TAVERN_SLOTS.get(player.tavern_tier, 0)
         current_units = sum(1 for item in player.store if item.unit)
         slots_needed = slots_total - current_units
 
@@ -80,6 +94,14 @@ class TavernManager:
             for cid in new_ids:
                 new_unit = self._make_unit(player, cid)
                 player.store.append(StoreItem(unit=new_unit))
+                event = Event(
+                    event_type=EventType.MINION_ADDED_TO_SHOP,
+                    source=EntityRef(uid=new_unit.uid),
+                    source_pos=PosRef(side=player.uid, zone=Zone.SHOP, slot=len(player.store) - 1),
+                )
+                players = {player.uid: player}
+
+                self.event_manager.process_event(event, players, self.get_next_uid)
         cnt_spells = len([u for u in player.store if u.spell])
         if cnt_spells >= SPELLS_PER_ROLL:
             return
@@ -89,12 +111,11 @@ class TavernManager:
             player.store.append(StoreItem(spell=spell))
 
     def _make_unit(self, player: Player, cid: str) -> Unit:
-        unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
-        # TODO: дописать сюда бафф элементалей через ивент
+        unit: Unit = Unit.create_from_db(cid, self.get_next_uid(), player.uid)
         return unit
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:
-        """Повышение уровня таверны"""
+        """Up tavern level"""
         if player.tavern_tier >= 6:
             return False, "Max tier reached"
 
@@ -113,7 +134,7 @@ class TavernManager:
         return True, f"Upgraded to Tier {player.tavern_tier}"
 
     def toggle_freeze(self, player: Player) -> Tuple[bool, str]:
-        """Заморозить/Разморозить весь магазин"""
+        """Freeze/Unfreeze shop"""
 
         all_frozen = all(item.is_frozen for item in player.store)
         if all_frozen:
@@ -134,27 +155,27 @@ class TavernManager:
         item = player.store[store_index]
 
         if item.unit:
+            unit_ref = item.unit
             if player.gold < COST_BUY:
                 return False, "Not enough gold"
-            item = player.store.pop(store_index)
-            item.is_frozen = False
+            player.store.pop(store_index)
             player.gold -= COST_BUY
-            hand_card = HandCard(uid=item.unit.uid, unit=item.unit)
+            hand_card = HandCard(uid=unit_ref.uid, unit=unit_ref)
             player.hand.append(hand_card)
-            self._check_triplet(player, item.unit.card_id)
-            return True, f"Bought {item.unit.card_id}"
+            self._check_triplet(player, unit_ref.card_id)
+            return True, f"Bought {unit_ref.card_id}"
 
         if item.spell:
-            cost = max(0, item.spell.cost - player.spell_discount)
+            spell_ref = item.spell
+            cost = max(0, spell_ref.cost - player.spell_discount)
             if player.gold < cost:
                 return False, "Not enough gold"
-            item = player.store.pop(store_index)
-            item.is_frozen = False
+            player.store.pop(store_index)
             player.gold -= cost
             player.spell_discount = 0
-            hand_card = HandCard(uid=self._get_next_uid(), spell=item.spell)
+            hand_card = HandCard(uid=self.get_next_uid(), spell=spell_ref)
             player.hand.append(hand_card)
-            return True, f"Bought {item.spell.card_id}"
+            return True, f"Bought {spell_ref.card_id}"
 
         return False, "Empty slot"
 
@@ -163,6 +184,7 @@ class TavernManager:
             return False, "Invalid index"
 
         unit = player.board[board_index]
+        uid = unit.uid
         source = EntityRef(uid=unit.uid)
         source_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=board_index)
         event = Event(
@@ -171,23 +193,31 @@ class TavernManager:
             source_pos=source_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
+        self.event_manager.process_event(event, players_by_uid, self.get_next_uid)
 
-        unit = player.board.pop(board_index)
+        for i, u in enumerate(player.board):
+            if u.uid == uid:
+                unit = player.board.pop(i)
+                break
         player.gold += 1
-        count_to_return = 3 if unit.is_golden else 1
-        self.pool.return_cards([unit.card_id] * count_to_return)
+        cards_to_return: List[str] = []
+        cards_to_return.extend([unit.card_id] * (3 if unit.is_golden else 1))
+        for cid, copies in unit.absorbed_pool_copies.items():
+            cards_to_return.extend([cid] * copies)
+        self.pool.return_cards(cards_to_return)
 
+        recalculate_board_auras(player.board)
         return True, "Sold unit"
 
-    def play_unit(self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1) -> Tuple[
-        bool, str]:
+    def play_unit(
+        self, player: Player, hand_index: int, insert_index: int = -1, target_index: int = -1
+    ) -> Tuple[bool, str]:
         """
-        Разыгрывает карту из руки на стол в конкретную позицию.
+        Play card hand -> board in concrete position
         Args:
-            hand_index: Индекс карты в руке.
-            insert_index: Индекс на столе, куда поставить существо (0 - слева, len(board) - справа).
-            target_index: Индекс цели для Battlecry (если нужен).
+            hand_index: Card index in hand
+            insert_index: Index on board, where you should place unit (0 - left, len(board) - right)
+            target_index: Index target for battlecry or spell
         """
         if hand_index < 0 or hand_index >= len(player.hand):
             return False, "Invalid hand index"
@@ -198,7 +228,33 @@ class TavernManager:
             return self._cast_spell(player, hand_index, target_index)
 
         unit = hand_card.unit
+        if unit is None:
+            return False, "No unit in hand card"
+        if unit.has_magnetic and 0 <= target_index < len(player.board):
+            target = player.board[target_index]
+            if UnitType.MECH in target.types:
+                target_uid = target.uid
 
+                # first of all throw event MINION_PLAYED
+                event = Event(
+                    event_type=EventType.MINION_PLAYED,
+                    source=EntityRef(uid=unit.uid),
+                    target=EntityRef(uid=target_uid),
+                    source_pos=PosRef(side=player.uid, zone=Zone.HAND, slot=hand_index),
+                    target_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=target_index),
+                )
+                self.event_manager.process_event(event, {player.uid: player}, self.get_next_uid)
+
+                player.hand.pop(hand_index)
+
+                # idk what could happen with target but...
+                new_target = next((u for u in player.board if u.uid == target_uid), None)
+                if new_target is None:
+                    return True, "Magnetized (target disappeared logic error)"
+
+                new_target.magnetize_from(unit)
+                recalculate_board_auras(player.board)
+                return True, "Magnetized"
         if len(player.board) >= 7:
             return False, "Board is full"
         if insert_index == -1:
@@ -208,25 +264,29 @@ class TavernManager:
         player.hand.pop(hand_index)
 
         player.board.insert(insert_index, unit)
+        recalculate_board_auras(player.board)
         if unit.is_golden:
             if len(player.hand) < 10:
                 reward_spell = Spell.create_from_db(SpellIDs.TRIPLET_REWARD)
 
                 reward_tier = min(6, player.tavern_tier + 1)
 
-                reward_spell.params['tier'] = reward_tier
+                reward_spell.params["tier"] = reward_tier
 
-                player.hand.append(HandCard(uid=self._get_next_uid(), spell=reward_spell))
+                player.hand.append(HandCard(uid=self.get_next_uid(), spell=reward_spell))
         self._resolve_battlecry(player, unit, insert_index, target_index)
 
         return True, "Played unit"
 
-    def start_discovery(self, player: Player,
-                        source: str,  # Обязательно указываем источник (для логов)
-                        tier: Optional[int] = None,  # Если None - берем текущий таверн-тир
-                        exact_tier: bool = False,  # True для наград за триплеты
-                        count: int = 3,
-                        predicate=None) -> bool:
+    def start_discovery(
+        self,
+        player: Player,
+        source: str,  # source for logs
+        tier: Optional[int] = None,  # None = current tavern tier
+        exact_tier: bool = False,  # True for triple rewards
+        count: int = 3,
+        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
+    ) -> bool:
 
         if player.is_discovering:
             return False
@@ -234,18 +294,15 @@ class TavernManager:
         target_tier = tier if tier is not None else player.tavern_tier
 
         card_ids = self.pool.draw_discovery_cards(
-            count=count,
-            tier=target_tier,
-            exact_tier=exact_tier,
-            predicate=predicate
+            count=count, tier=target_tier, exact_tier=exact_tier, predicate=predicate
         )
 
         if not card_ids:
             return False
 
-        options = []
+        options: List[StoreItem] = []
         for cid in card_ids:
-            unit = Unit.create_from_db(cid, self._get_next_uid(), player.uid)
+            unit = Unit.create_from_db(cid, self.get_next_uid(), player.uid)
             options.append(StoreItem(unit=unit))
 
         player.discovery.options = options
@@ -266,7 +323,7 @@ class TavernManager:
 
         chosen_item = player.discovery.options.pop(index)
 
-        remaining_ids = []
+        remaining_ids: List[str] = []
         for item in player.discovery.options:
             if item.unit:
                 remaining_ids.append(item.unit.card_id)
@@ -281,27 +338,31 @@ class TavernManager:
                 player.hand.append(HandCard(uid=chosen_item.unit.uid, unit=chosen_item.unit))
                 self._check_triplet(player, chosen_item.unit.card_id)
                 return True, f"Discovered {chosen_item.unit.card_id}"
-            # тут дальше будут спеллы раскапываться
+            # here we will discover spells
         if chosen_item.unit:
             self.pool.return_cards([chosen_item.unit.card_id])  # return burned card
         return True, "Discovered (Burned)"
 
-    def _check_triplet(self, player: Player, card_id: str):
+    def _check_triplet(self, player: Player, card_id: str) -> None:
         """
-        Ищет 3 копии существа, объединяет их в золотое.
-        Временные баффы остаются временными, постоянные — постоянными.
+        Find 3 copies of unit, and unite in one gold
+        Timed buffs become times, const - const
         """
-        hand_indices = [i for i, hc in enumerate(player.hand)
-                        if hc.unit and hc.unit.card_id == card_id and not hc.unit.is_golden]
-        board_indices = [i for i, u in enumerate(player.board)
-                         if u.card_id == card_id and not u.is_golden]
+        hand_indices = [
+            i
+            for i, hc in enumerate(player.hand)
+            if hc.unit and hc.unit.card_id == card_id and not hc.unit.is_golden
+        ]
+        board_indices = [
+            i for i, u in enumerate(player.board) if u.card_id == card_id and not u.is_golden
+        ]
 
         if len(hand_indices) + len(board_indices) < 3:
             return
 
         removed_count = 0
-        indices_to_pop_hand = []
-        indices_to_pop_board = []
+        indices_to_pop_hand: List[int] = []
+        indices_to_pop_board: List[int] = []
 
         for idx in hand_indices:
             if removed_count < 3:
@@ -318,10 +379,11 @@ class TavernManager:
         total_turn_hp = 0
         total_turn_atk = 0
 
-        merged_attached_perm = {}
-        merged_attached_turn = {}
+        merged_attached_perm: Dict[str, int] = {}
+        merged_attached_turn: Dict[str, int] = {}
+        merged_absorbed_pool: Dict[str, int] = {}
 
-        def _collect_stats(u: Unit):
+        def _collect_stats(u: Unit) -> None:
             nonlocal total_perm_hp, total_perm_atk, total_turn_hp, total_turn_atk
 
             total_perm_hp += u.perm_hp_add
@@ -334,9 +396,12 @@ class TavernManager:
                 merged_attached_perm[k] = merged_attached_perm.get(k, 0) + v
             for k, v in u.attached_turn.items():
                 merged_attached_turn[k] = merged_attached_turn.get(k, 0) + v
+            for k, v in u.absorbed_pool_copies.items():
+                merged_absorbed_pool[k] = merged_absorbed_pool.get(k, 0) + v
 
         for idx in indices_to_pop_hand:
-            _collect_stats(player.hand[idx].unit)
+            if player.hand[idx].unit:
+                _collect_stats(player.hand[idx].unit)  # type: ignore[arg-type]
 
         for idx in indices_to_pop_board:
             _collect_stats(player.board[idx])
@@ -346,7 +411,7 @@ class TavernManager:
         for idx in sorted(indices_to_pop_board, reverse=True):
             player.board.pop(idx)
 
-        golden_unit = Unit.create_from_db(card_id, self._get_next_uid(), player.uid, is_golden=True)
+        golden_unit = Unit.create_from_db(card_id, self.get_next_uid(), player.uid, is_golden=True)
 
         golden_unit.perm_hp_add = total_perm_hp
         golden_unit.perm_atk_add = total_perm_atk
@@ -357,6 +422,7 @@ class TavernManager:
         golden_unit.attached_perm = merged_attached_perm
         golden_unit.attached_turn = merged_attached_turn
 
+        golden_unit.absorbed_pool_copies = merged_absorbed_pool
         golden_unit.recalc_stats()
         golden_unit.restore_stats()
 
@@ -364,7 +430,7 @@ class TavernManager:
             return
 
         player.hand.append(HandCard(uid=golden_unit.uid, unit=golden_unit))
-
+        recalculate_board_auras(player.board)
         self._check_triplet(player, card_id)
 
     def _cast_spell(self, player: Player, hand_index: int, target_index: int) -> Tuple[bool, str]:
@@ -373,14 +439,10 @@ class TavernManager:
         if not spell:
             return False, "No spell to cast"
         if spell.card_id == SpellIDs.TRIPLET_REWARD:
-            discover_tier = spell.params.get('tier', 1)
+            discover_tier = spell.params.get("tier", 1)
 
             success = self.start_discovery(
-                player,
-                source="TripletReward",
-                tier=discover_tier,
-                exact_tier=True,
-                count=3
+                player, source="TripletReward", tier=discover_tier, exact_tier=True, count=3
             )
 
             if success:
@@ -409,11 +471,16 @@ class TavernManager:
             source_pos=source_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self._get_next_uid, extra_triggers=[trigger])
+        self.event_manager.process_event(
+            event, players_by_uid, self.get_next_uid, extra_triggers=[trigger]
+        )
         player.hand.pop(hand_index)
+        recalculate_board_auras(player.board)
         return True, f"Cast {spell.card_id}"
 
-    def _resolve_battlecry(self, player: Player, unit: Unit, unit_index: int, target_index: int):
+    def _resolve_battlecry(
+        self, player: Player, unit: Unit, unit_index: int, target_index: int
+    ) -> None:
         source = EntityRef(uid=unit.uid)
         source_pos = PosRef(side=player.uid, zone=Zone.BOARD, slot=unit_index)
         target_ref = None
@@ -430,11 +497,12 @@ class TavernManager:
             target_pos=target_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self._get_next_uid)
+        self.event_manager.process_event(event, players_by_uid, self.get_next_uid)
+        recalculate_board_auras(player.board)
 
     def swap_units(self, player: Player, index_a: int, index_b: int) -> Tuple[bool, str]:
         """
-        Меняет местами двух существ на столе.
+        Swap two units on board
         """
         board_len = len(player.board)
 
@@ -445,19 +513,19 @@ class TavernManager:
             return False, "Same index"
 
         player.board[index_a], player.board[index_b] = player.board[index_b], player.board[index_a]
-
+        recalculate_board_auras(player.board)
         return True, "Swapped"
 
     def end_turn(self, player: Player) -> None:
         self.event_manager.process_event(
-            Event(event_type=EventType.END_OF_TURN,
-                  source_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=-1)
-                  ),
+            Event(
+                event_type=EventType.END_OF_TURN,
+                source_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=-1),
+            ),
             {player.uid: player},
-            self._get_next_uid
+            self.get_next_uid,
         )
 
         player.hand[:] = [
-            hc for hc in player.hand
-            if not (hc.spell is not None and hc.spell.is_temporary)
+            hc for hc in player.hand if not (hc.spell is not None and hc.spell.is_temporary)
         ]

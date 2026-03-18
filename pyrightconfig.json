@@ -1,0 +1,13 @@
+{
+  "include": [
+    "src",
+    "scripts",
+    "tests"
+  ],
+  "extraPaths": [
+    "src"
+  ],
+  "typeCheckingMode": "standard",
+  "useLibraryCodeForTypes": true,
+  "reportMissingModuleSource": false
+}

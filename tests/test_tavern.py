@@ -5,13 +5,10 @@ Covers: roll, buy, pool count integrity.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
-
-import pytest
+from typing import TYPE_CHECKING
 
 from hearthstone.engine.configs import TAVERN_SLOTS
-from hearthstone.engine.entities import Player, StoreItem, Unit
-from hearthstone.engine.enums import CardIDs
+from hearthstone.engine.entities import Player
 
 if TYPE_CHECKING:
     from hearthstone.engine.game import Game

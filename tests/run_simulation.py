@@ -203,9 +203,9 @@ def run_effect_smoke_tests() -> None:
         1: Player(uid=1, board=opponent_board, hand=[]),
     }
     combat.cleanup_dead([board, opponent_board], [0, 0], combat_players)
-    assert board and board[0].card_id == CardIDs.PIRATE_TOKEN, (
-        "Scallywag deathrattle should summon a token"
-    )
+    assert (
+        board and board[0].card_id == CardIDs.PIRATE_TOKEN
+    ), "Scallywag deathrattle should summon a token"
     print("PASSED")
 
     print("\n=== RUNNING COIN TESTS ===")
@@ -243,9 +243,9 @@ def run_effect_smoke_tests() -> None:
     minted = Unit.create_from_db(CardIDs.MINTED_CORSAIR, tavern.get_next_uid(), player.uid)
     player.board.append(minted)
     tavern.sell_unit(player, 0)
-    assert any(c.spell and c.spell.card_id == SpellIDs.TAVERN_COIN for c in player.hand), (
-        "Minted Corsair should grant a coin"
-    )
+    assert any(
+        c.spell and c.spell.card_id == SpellIDs.TAVERN_COIN for c in player.hand
+    ), "Minted Corsair should grant a coin"
     print("PASSED")
 
     print("\n=== RUNNING TEMPORARY SPELL TESTS ===")
@@ -315,9 +315,9 @@ def run_golden_tests() -> None:
     tavern.play_unit(player, 0, 0, -1)
 
     expected_gold = start_gold + 2
-    assert player.gold == expected_gold, (
-        f"Ожидалось золото {expected_gold}, получено {player.gold}. Триггер не сработал дважды?"
-    )
+    assert (
+        player.gold == expected_gold
+    ), f"Ожидалось золото {expected_gold}, получено {player.gold}. Триггер не сработал дважды?"
     print("PASSED: Получено 2 монетки")
 
     print("\n[TEST] Спец. реализация (Golden Alleycat)")
@@ -373,9 +373,9 @@ def run_golden_tests() -> None:
 
     combat.cleanup_dead([board, []], [0, 0], combat_players)
 
-    assert len(board) == 2, (
-        f"Ожидалось 2 пирата, получено {len(board)}. (Возможно, не сработал stacks=2)"
-    )
+    assert (
+        len(board) == 2
+    ), f"Ожидалось 2 пирата, получено {len(board)}. (Возможно, не сработал stacks=2)"
 
     token1 = board[0]
     token2 = board[1]
@@ -406,9 +406,9 @@ def run_discovery_tests() -> None:
 
     assert success is True, "Раскопка должна запуститься успешно"
     assert player.is_discovering is True, "Флаг is_discovering должен быть True"
-    assert len(player.discovery.options) == 3, (
-        f"Ожидалось 3 опции, получено {len(player.discovery.options)}"
-    )
+    assert (
+        len(player.discovery.options) == 3
+    ), f"Ожидалось 3 опции, получено {len(player.discovery.options)}"
 
     print("PASSED: Игрок в режиме раскопки, опции сгенерированы")
 
@@ -449,9 +449,9 @@ def run_discovery_tests() -> None:
         tier = CARD_DB[cid]["tier"]
         current_count = pool.tiers[tier].count(cid)
         prev_count = pool_counts_during_show[cid]
-        assert current_count == prev_count + 1, (
-            f"Карта {cid} должна вернуться в пул! Было {prev_count}, стало {current_count}"
-        )
+        assert (
+            current_count == prev_count + 1
+        ), f"Карта {cid} должна вернуться в пул! Было {prev_count}, стало {current_count}"
 
     print("PASSED: Выбранная карта в руке, остальные вернулись в пул")
 
@@ -492,9 +492,9 @@ def run_discovery_tests() -> None:
     if success:
         for item in player.discovery.options:
             # Check via enum name
-            assert any(t.name == "DEMON" for t in item.unit.type), (
-                f"Юнит {item.unit.card_id} должен быть Демоном"
-            )
+            assert any(
+                t.name == "DEMON" for t in item.unit.type
+            ), f"Юнит {item.unit.card_id} должен быть Демоном"
 
         tavern.make_discovery_choice(player, 0)
         print("PASSED: Все предложенные карты — Демоны")

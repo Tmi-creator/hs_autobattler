@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-import pytest
-
 from hearthstone.engine.entities import HandCard, Player, Spell, Unit
 from hearthstone.engine.enums import CardIDs, SpellIDs
 

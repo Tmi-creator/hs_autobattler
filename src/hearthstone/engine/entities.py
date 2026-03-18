@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -349,8 +348,8 @@ class Player:
             uid=self.uid,
             board=[u.combat_copy() for u in self.board],
             hand=self.hand.copy(),
-            economy=deepcopy(self.economy),
-            mechanics=deepcopy(self.mechanics),
+            economy=replace(self.economy, store=self.economy.store.copy()),
+            mechanics=replace(self.mechanics, modifiers=self.mechanics.modifiers.copy()),
             health=self.health,
         )
 

@@ -6,13 +6,11 @@ Covers: basic attack, divine shield, deathrattle summon, outcome calculation.
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
-
-import pytest
+from typing import TYPE_CHECKING, Callable
 
 from hearthstone.engine.combat import CombatManager
-from hearthstone.engine.entities import Player, Unit
-from hearthstone.engine.enums import BattleOutcome, CardIDs, Tags
+from hearthstone.engine.entities import Unit
+from hearthstone.engine.enums import BattleOutcome, CardIDs
 
 if TYPE_CHECKING:
     from hearthstone.engine.game import Game

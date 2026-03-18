@@ -6,8 +6,6 @@ discovery (unique, exact tier, predicate), token exclusion, spell pool.
 
 from __future__ import annotations
 
-import pytest
-
 from hearthstone.engine.configs import CARD_DB, SPELL_DB, TIER_COPIES
 from hearthstone.engine.enums import CardIDs, UnitType
 from hearthstone.engine.pool import CardPool, SpellPool

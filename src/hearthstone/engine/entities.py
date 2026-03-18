@@ -348,7 +348,7 @@ class Player:
             uid=self.uid,
             board=[u.combat_copy() for u in self.board],
             hand=self.hand.copy(),
-            economy=replace(self.economy, store=self.economy.store.copy()),
+            economy=replace(self.economy, store=[]),
             mechanics=replace(self.mechanics, modifiers=self.mechanics.modifiers.copy()),
             health=self.health,
         )

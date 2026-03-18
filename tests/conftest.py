@@ -11,8 +11,8 @@ from typing import Callable, Dict, List, Tuple
 import pytest
 
 from hearthstone.engine.combat import CombatManager
-from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
-from hearthstone.engine.enums import CardIDs, SpellIDs
+from hearthstone.engine.entities import Player, Spell, StoreItem, Unit
+from hearthstone.engine.enums import CardIDs
 from hearthstone.engine.event_system import EventManager
 from hearthstone.engine.game import Game
 from hearthstone.engine.tavern import TavernManager

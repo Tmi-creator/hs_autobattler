@@ -23,10 +23,8 @@ from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
 from hearthstone.engine.enums import (
     BattleOutcome,
     CardIDs,
-    EffectIDs,
     MechanicType,
     SpellIDs,
-    Tags,
     UnitType,
 )
 from hearthstone.engine.event_system import (

@@ -17,7 +17,6 @@ import pytest
 
 from hearthstone.engine.auras import recalculate_board_auras
 from hearthstone.engine.combat import CombatManager
-from hearthstone.engine.configs import CARD_DB, TAVERN_SLOTS
 from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
 from hearthstone.engine.enums import (
     BattleOutcome,
@@ -27,7 +26,6 @@ from hearthstone.engine.enums import (
     Tags,
     UnitType,
 )
-from hearthstone.engine.event_system import EntityRef, EventManager
 
 if TYPE_CHECKING:
     from hearthstone.engine.game import Game

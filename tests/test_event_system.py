@@ -10,16 +10,13 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Callable, Dict
 
-import pytest
-
 from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
-from hearthstone.engine.enums import CardIDs, EffectIDs, SpellIDs, Tags
+from hearthstone.engine.enums import CardIDs, EffectIDs, SpellIDs
 from hearthstone.engine.event_system import (
     EffectContext,
     EntityRef,
     Event,
     EventType,
-    PosRef,
     Zone,
 )
 

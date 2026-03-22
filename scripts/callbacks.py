@@ -156,7 +156,7 @@ class SelfPlayCallback(BaseCallback):
     def _on_step(self) -> bool:
         if self.n_calls % self.update_freq == 0:
             if self.verbose > 0:
-                print(f"🔄 Self-Play: Updating opponent model at step {self.num_timesteps}")
+                print(f"[SELF-PLAY] Updating opponent model at step {self.num_timesteps}")
 
             # 1. Save current agent
             self.model.save(self.opponent_path)
@@ -172,3 +172,37 @@ class SelfPlayCallback(BaseCallback):
             vec_env.env_method("set_opponent", opponent)
 
         return True
+
+
+class BoardPowerCallback(BaseCallback):
+    """
+    Логирует среднюю силу стола агента в WandB.
+    Сила стола = _calculate_board_power() из HearthstoneEnv.
+    Чем лучше агент покупает и расставляет карты, тем выше метрика.
+    """
+
+    def __init__(self, log_freq: int = 1000, verbose: int = 0) -> None:
+        super().__init__(verbose)
+        self.log_freq = log_freq
+        self._power_history: list[float] = []
+
+    def _on_step(self) -> bool:
+        # Собираем board_power из всех параллельных сред
+        vec_env = cast(SupportsEnvMethod, self.training_env)
+        try:
+            powers = vec_env.env_method("get_board_power")
+            for p in powers:
+                if isinstance(p, (int, float)) and p > 0:
+                    self._power_history.append(float(p))
+        except Exception:
+            pass
+
+        if self.n_calls % self.log_freq == 0 and self._power_history:
+            avg_power = np.mean(self._power_history)
+            max_power = np.max(self._power_history)
+            self.logger.record("custom/avg_board_power", avg_power)
+            self.logger.record("custom/max_board_power", max_power)
+            self._power_history.clear()
+
+        return True
+

@@ -82,7 +82,9 @@ def evaluate(model_path: str, num_games: int = 1000) -> None:
 
 
 if __name__ == "__main__":
-    # models/run_id/hs_final
-    MODEL_PATH = "models/xctm4xer/hs_final"
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True, help="Path to the model (e.g., models/xctm4xer/hs_final)")
+    args = parser.parse_args()
 
-    evaluate(MODEL_PATH)
+    evaluate(args.model)

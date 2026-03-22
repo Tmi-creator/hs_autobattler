@@ -136,6 +136,11 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     def set_opponent(self, model: MaskablePPO) -> None:
         self.opponent_model = model
 
+    def get_board_power(self) -> float:
+        """Returns current board power for the agent's player."""
+        player = self.game.players[self.my_player_id]
+        return self._calculate_board_power(player)
+
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, object]]:
         self.steps_taken += 1
         self.actions_in_turn += 1

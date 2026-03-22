@@ -206,7 +206,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# RL specific
+# RL training outputs (all go to scripts/outputs/)
+scripts/outputs/
+# Legacy paths (for cleanup)
 scripts/models/
 scripts/runs/
 scripts/logs/
@@ -215,6 +217,19 @@ models/
 runs/
 logs/
 wandb/
+visualizations/
 
 !src/hearthstone/env/
 !typings/hearthstone/env
+
+# LaTeX generated
+*.aux
+*.out
+*.toc
+
+# Kaggle
+scripts/_kaggle_build/
+
+# Agent context
+.agents/
+.agent_context/

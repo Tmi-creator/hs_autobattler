@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import wandb
 from sb3_contrib import MaskablePPO
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed
@@ -15,6 +16,7 @@ from wandb.integration.sb3 import WandbCallback
 
 from hearthstone.env.hs_env import HearthstoneEnv
 from scripts.callbacks import BoardPowerCallback, GameLoggerCallback, SelfPlayCallback
+from scripts.trans import TransformerFeaturesExtractor
 
 # Добавляем корень проекта в sys.path
 root_path = Path(__file__).resolve().parent.parent
@@ -33,9 +35,12 @@ class TrainConfig(TypedDict):
     batch_size: int
     n_steps: int
     ent_coef: float
-    net_arch: list[int]
     n_envs: int
     seed: int
+    # Transformer-specific
+    d_model: int
+    n_heads: int
+    n_layers: int
 
 
 class WandbApi(Protocol):
@@ -84,20 +89,23 @@ def main() -> None:
     setup_determinism(SEED)
 
     config: TrainConfig = {
-        "policy_type": "MlpPolicy",
+        "policy_type": "TransformerPolicy",
         "total_timesteps": 1_500_000,
         "learning_rate": 0.0003,
         "gamma": 0.99,
         "batch_size": 256,
         "n_steps": 2048,
         "ent_coef": 0.01,
-        "net_arch": [512, 512],
         "n_envs": 8,
         "seed": SEED,
+        # Transformer hyperparams
+        "d_model": 128,
+        "n_heads": 4,
+        "n_layers": 4,
     }
 
     run = wandb.init(
-        project="hs_autobattler_mlp",
+        project="hs_autobattler_transformer",
         config=dict(config),
         sync_tensorboard=True,
         monitor_gym=False,
@@ -105,9 +113,9 @@ def main() -> None:
     )
 
     # === Пути: всё в scripts/outputs/ ===
-    models_dir = str(OUTPUTS_DIR / "models" / "mlp" / run.id)
-    runs_dir = str(OUTPUTS_DIR / "runs" / "mlp" / run.id)
-    logs_dir = str(OUTPUTS_DIR / "logs" / "mlp" / run.id)
+    models_dir = str(OUTPUTS_DIR / "models" / "transformer" / run.id)
+    runs_dir = str(OUTPUTS_DIR / "runs" / "transformer" / run.id)
+    logs_dir = str(OUTPUTS_DIR / "logs" / "transformer" / run.id)
     os.makedirs(models_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
 
@@ -119,10 +127,20 @@ def main() -> None:
     print(f"Initializing {config['n_envs']} parallel environments...")
     env = SubprocVecEnv([make_env(i, SEED) for i in range(config["n_envs"])])
 
-    policy_kwargs = dict(net_arch=config["net_arch"])
+    # === TRANSFORMER POLICY ===
+    policy_kwargs = dict(
+        features_extractor_class=TransformerFeaturesExtractor,
+        features_extractor_kwargs=dict(
+            d_model=config["d_model"],
+            n_heads=config["n_heads"],
+            n_layers=config["n_layers"],
+            d_context=10,  # global(7) + enemy(3)
+        ),
+        net_arch=dict(pi=[128], vf=[128]),
+    )
 
     model = MaskablePPO(
-        "MlpPolicy",
+        MaskableActorCriticPolicy,
         env,
         verbose=1,
         learning_rate=config["learning_rate"],
@@ -136,8 +154,21 @@ def main() -> None:
         device="cuda" if torch.cuda.is_available() else "auto",
     )
 
+    # === ZERO-INIT OUTPUT WEIGHTS (DreamerV3) ===
+    policy = model.policy
+    for module in [policy.action_net, policy.value_net]:
+        if hasattr(module, "weight"):
+            torch.nn.init.zeros_(module.weight)
+        if hasattr(module, "bias") and module.bias is not None:
+            torch.nn.init.zeros_(module.bias)
+    print("[INIT] Zero-Init applied to Actor/Critic output layers")
+
+    # Кол-во параметров
+    extractor = model.policy.features_extractor
+    n_params = sum(p.numel() for p in extractor.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.policy.parameters() if p.requires_grad)
-    print(f"[MODEL] MLP Policy: {total_params:,} trainable params")
+    print(f"[MODEL] Transformer FeaturesExtractor: {n_params:,} params")
+    print(f"[MODEL] Total trainable: {total_params:,} params")
     print(f"[TRAIN] Starting training for {config['total_timesteps']:,} timesteps...")
 
     # === CALLBACKS ===
@@ -145,7 +176,7 @@ def main() -> None:
     checkpoint_callback = CheckpointCallback(
         save_freq=100_000 // config["n_envs"],
         save_path=models_dir,
-        name_prefix="hs_mlp",
+        name_prefix="hs_trans",
     )
     wandb_callback = WandbCallback(
         gradient_save_freq=500,
@@ -168,7 +199,7 @@ def main() -> None:
     )
 
     # === SAVE FINAL MODEL ===
-    final_path = str(OUTPUTS_DIR / "models" / "mlp_final")
+    final_path = str(OUTPUTS_DIR / "models" / "transformer_final")
     model.save(final_path)
     wandb_api = cast(WandbApi, wandb)
     wandb_api.save(f"{final_path}.zip")

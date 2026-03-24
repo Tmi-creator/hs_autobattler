@@ -206,9 +206,15 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-!src/hearthstone/env/
-
+# RL specific
 scripts/models/
-scripts/logs/
 scripts/runs/
+scripts/logs/
 scripts/wandb/
+models/
+runs/
+logs/
+wandb/
+
+!src/hearthstone/env/
+!typings/hearthstone/env

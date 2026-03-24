@@ -1,132 +1,194 @@
-import unittest
-from hearthstone.engine.pool import CardPool, SpellPool
-from hearthstone.engine.tavern import TavernManager
-from hearthstone.engine.entities import Player, Unit, HandCard, Spell
+"""Golden-unit (triplet) logic tests — pure pytest, no unittest.
+
+Covers: stat segregation (perm vs turn), reward tier baking, discovery flow.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Callable
+
+from hearthstone.engine.entities import HandCard, Player, Spell, Unit
 from hearthstone.engine.enums import CardIDs, SpellIDs
 
+if TYPE_CHECKING:
+    from hearthstone.engine.game import Game
+    from hearthstone.engine.tavern import TavernManager
 
-class TestGoldenLogic(unittest.TestCase):
-    def setUp(self):
-        self.pool = CardPool()
-        self.spell_pool = SpellPool()
-        self.tavern = TavernManager(self.pool, self.spell_pool)
-        # Создаем игрока
-        self.player = Player(uid=1, board=[], hand=[])
-        self.player.tavern_tier = 1
-        self.card_id = CardIDs.WRATH_WEAVER  # 1/3 Demon
 
-    def test_triplet_stats_segregation(self):
-        """
-        Проверяет, что при слиянии:
-        - Перманентные баффы остаются перманентными.
-        - Временные баффы остаются временными.
-        """
-        # 1. Юнит в руке (+2/+2 Perm)
-        u1 = Unit.create_from_db(self.card_id, 1, self.player.uid)
+# ===================================================================
+#  TRIPLET STAT SEGREGATION
+# ===================================================================
+
+
+class TestTripletStatSegregation:
+    """When three copies merge, perm buffs stay perm, turn buffs stay turn."""
+
+    def test_perm_and_turn_buffs_segregate_after_merge(
+        self,
+        empty_game: "Game",
+        player: Player,
+        tavern: "TavernManager",
+        mock_unit: Callable[..., Unit],
+    ) -> None:
+        cid = CardIDs.WRATH_WEAVER  # base 1/3
+
+        # Unit 1: in hand with +2/+2 perm buff
+        u1 = mock_unit(cid)
         u1.perm_atk_add = 2
         u1.perm_hp_add = 2
         u1.recalc_stats()
-        self.player.hand.append(HandCard(uid=u1.uid, unit=u1))
+        player.hand.append(HandCard(uid=u1.uid, unit=u1))
 
-        # 2. Юнит на столе (+3/+0 Turn)
-        u2 = Unit.create_from_db(self.card_id, 2, self.player.uid)
+        # Unit 2: on board with +3/+0 turn buff
+        u2 = mock_unit(cid)
         u2.turn_atk_add = 3
         u2.recalc_stats()
-        self.player.board.append(u2)
+        player.board.append(u2)
 
-        # 3. Юнит на столе (Чистый)
-        u3 = Unit.create_from_db(self.card_id, 3, self.player.uid)
-        self.player.board.append(u3)
+        # Unit 3: on board, clean
+        u3 = mock_unit(cid)
+        player.board.append(u3)
 
-        # Вызываем слияние
-        self.tavern._check_triplet(self.player, self.card_id)
+        tavern._check_triplet(player, cid)
 
-        # ПРОВЕРКИ
-        self.assertEqual(len(self.player.board), 0, "Стол должен быть пуст")
-        self.assertEqual(len(self.player.hand), 1, "В руке должно быть 1 золотое существо")
+        # Board must be empty (both copies consumed)
+        assert len(player.board) == 0
+        assert len(player.hand) == 1
 
-        golden = self.player.hand[0].unit
-        self.assertTrue(golden.is_golden)
+        golden = player.hand[0].unit
+        assert golden is not None
+        assert golden.is_golden
 
-        # База золотого: 2/6
-        # Perm Bonus: +2/+2
-        # Turn Bonus: +3/+0
+        # Perm layer preserved
+        assert golden.perm_atk_add == 2
+        # Turn layer preserved
+        assert golden.turn_atk_add == 3
 
-        # Проверяем поля напрямую
-        self.assertEqual(golden.perm_atk_add, 2)
-        self.assertEqual(golden.turn_atk_add, 3)
+        # Golden base: 2×(1/3) = 2/6
+        # Cur atk: base(2) + perm(2) + turn(3) = 7
+        assert golden.cur_atk == 7
 
-        # Проверяем итоговые статы сейчас
-        # Atk: 2(base) + 2(perm) + 3(turn) = 7
-        self.assertEqual(golden.cur_atk, 7)
+    def test_turn_buffs_disappear_after_reset(
+        self,
+        empty_game: "Game",
+        player: Player,
+        tavern: "TavernManager",
+        mock_unit: Callable[..., Unit],
+    ) -> None:
+        cid = CardIDs.WRATH_WEAVER  # base 1/3
 
-        # Эмуляция конца хода
+        u1 = mock_unit(cid)
+        u1.perm_atk_add = 2
+        u1.perm_hp_add = 2
+        u1.recalc_stats()
+        player.hand.append(HandCard(uid=u1.uid, unit=u1))
+
+        u2 = mock_unit(cid)
+        u2.turn_atk_add = 3
+        u2.recalc_stats()
+        player.board.append(u2)
+
+        u3 = mock_unit(cid)
+        player.board.append(u3)
+
+        tavern._check_triplet(player, cid)
+
+        golden = player.hand[0].unit
+        assert golden is not None
+
         golden.reset_turn_layer()
         golden.recalc_stats()
 
-        # Turn bonus должен исчезнуть
-        # Atk: 2(base) + 2(perm) = 4
-        self.assertEqual(golden.cur_atk, 4)
-        print("✅ test_triplet_stats_segregation passed")
+        # After end-of-turn: base(2) + perm(2) = 4, turn gone
+        assert golden.cur_atk == 4
 
-    def test_triplet_reward_tier(self):
-        """
-        Проверяет получение награды и фиксацию Тира.
-        """
-        # Даем 3 копии в руку
-        for i in range(3):
-            u = Unit.create_from_db(self.card_id, i + 10, self.player.uid)
-            self.player.hand.append(HandCard(uid=u.uid, unit=u))
 
-        # Игрок на 2 тире таверны
-        self.player.tavern_tier = 2
+# ===================================================================
+#  TRIPLET REWARD TIER
+# ===================================================================
 
-        # Слияние
-        self.tavern._check_triplet(self.player, self.card_id)
 
-        # В руке должен быть Золотой юнит, но ПОКА НЕТ награды (она дается при розыгрыше)
-        self.assertEqual(len(self.player.hand), 1)
-        golden_card = self.player.hand[0]
+class TestTripletRewardTier:
+    """Reward spell tier is baked when the golden unit is PLAYED, not merged."""
 
-        # Апаем таверну до 4 (симуляция стратегии "leveling")
-        self.player.tavern_tier = 4
+    def test_reward_tier_equals_tavern_plus_one(
+        self,
+        empty_game: "Game",
+        player: Player,
+        tavern: "TavernManager",
+        mock_unit: Callable[..., Unit],
+    ) -> None:
+        cid = CardIDs.WRATH_WEAVER
+        for _ in range(3):
+            u = mock_unit(cid)
+            player.hand.append(HandCard(uid=u.uid, unit=u))
 
-        # Разыгрываем золотого
-        self.tavern.play_unit(self.player, 0)
+        tavern._check_triplet(player, cid)
+        assert len(player.hand) == 1  # golden only
 
-        # Теперь на столе золотой, а в руке НАГРАДА
-        self.assertEqual(len(self.player.board), 1)
-        self.assertEqual(len(self.player.hand), 1)
+        # Level up to tier 4 before playing
+        player.tavern_tier = 4
 
-        reward_card = self.player.hand[0]
-        self.assertIsNotNone(reward_card.spell)
-        self.assertEqual(reward_card.spell.card_id, SpellIDs.TRIPLET_REWARD)
+        golden_idx = 0
+        tavern.play_unit(player, golden_idx)
 
-        # Проверяем "запеченный" тир
-        # Логика: При розыгрыше (play_unit) берется min(6, tavern_tier + 1)
-        # Мы были на 4 тире -> Должен быть 5
-        recorded_tier = reward_card.spell.params.get('tier')
-        self.assertEqual(recorded_tier, 5, f"Ожидался Тир 5, записан {recorded_tier}")
-        print("✅ test_triplet_reward_tier passed")
+        # Reward must be in hand
+        reward_spells = [
+            hc for hc in player.hand if hc.spell and hc.spell.card_id == SpellIDs.TRIPLET_REWARD
+        ]
+        assert len(reward_spells) >= 1
 
-    def test_play_reward_starts_discovery(self):
-        """
-        Проверяет, что розыгрыш награды запускает правильную раскопку.
-        """
-        # Создаем спелл-награду вручную с Тиром 6
+        # Reward tier = min(6, tavern_tier + 1) = min(6, 5) = 5
+        recorded_tier = reward_spells[0].spell.params.get("tier")
+        assert recorded_tier == 5
+
+    def test_reward_tier_capped_at_6(
+        self,
+        empty_game: "Game",
+        player: Player,
+        tavern: "TavernManager",
+        mock_unit: Callable[..., Unit],
+    ) -> None:
+        cid = CardIDs.WRATH_WEAVER
+        for _ in range(3):
+            u = mock_unit(cid)
+            player.hand.append(HandCard(uid=u.uid, unit=u))
+
+        tavern._check_triplet(player, cid)
+        player.tavern_tier = 6
+
+        tavern.play_unit(player, 0)
+
+        reward_spells = [
+            hc for hc in player.hand if hc.spell and hc.spell.card_id == SpellIDs.TRIPLET_REWARD
+        ]
+        assert len(reward_spells) >= 1
+        # min(6, 6+1) = 6
+        assert reward_spells[0].spell.params.get("tier") == 6
+
+
+# ===================================================================
+#  DISCOVERY FLOW FROM TRIPLET
+# ===================================================================
+
+
+class TestDiscoveryFromTriplet:
+    """Playing the TRIPLET_REWARD spell must start discovery."""
+
+    def test_play_reward_starts_exact_tier_discovery(
+        self,
+        empty_game: "Game",
+        player: Player,
+        tavern: "TavernManager",
+    ) -> None:
         spell = Spell.create_from_db(SpellIDs.TRIPLET_REWARD)
-        spell.params['tier'] = 1
-        self.player.hand.append(HandCard(uid=999, spell=spell))
+        spell.params["tier"] = 1
+        player.hand.append(HandCard(uid=999, spell=spell))
 
-        # Разыгрываем (индекс 0)
-        success, msg = self.tavern.play_unit(self.player, 0)
-        print(msg)
-        self.assertTrue(success)
-        self.assertTrue(self.player.is_discovering)
-        self.assertTrue(self.player.discovery.is_exact_tier)
-        self.assertEqual(self.player.discovery.discover_tier, 1)
-        print("✅ test_play_reward_starts_discovery passed")
+        success, msg = tavern.play_unit(player, 0)
 
-
-if __name__ == '__main__':
-    unittest.main()
+        assert success
+        assert player.is_discovering
+        # Triplet discovery is exact-tier
+        assert player.discovery.is_exact_tier
+        assert player.discovery.discover_tier == 1

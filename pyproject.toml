@@ -15,7 +15,8 @@ dependencies = [
     "stable-baselines3",
     "sb3-contrib",
     "wandb",
-    "tqdm"
+    "tqdm",
+    "tensorboard"
 ]
 
 [project.optional-dependencies]

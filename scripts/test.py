@@ -1,17 +1,26 @@
+from typing import Protocol, cast
+
 import numpy as np
 from sb3_contrib import MaskablePPO
-from hearthstone.env.hs_env import HearthstoneEnv
 from tqdm import tqdm
 
+from hearthstone.env.hs_env import HearthstoneEnv
 
-def evaluate(model_path, num_games=1000):
+
+class SupportsPPOLoad(Protocol):
+    @classmethod
+    def load(cls, path: str) -> MaskablePPO: ...
+
+
+def evaluate(model_path: str, num_games: int = 1000) -> None:
     print(f"Loading model from: {model_path}")
 
     env = HearthstoneEnv()
 
     # Грузим модель
     try:
-        model = MaskablePPO.load(model_path)
+        ppo_loader = cast(SupportsPPOLoad, MaskablePPO)
+        model = ppo_loader.load(model_path)
     except FileNotFoundError:
         print("❌ Model not found! Check path.")
         return
@@ -23,20 +32,20 @@ def evaluate(model_path, num_games=1000):
     draws = 0
 
     # Храним историю ходов, чтобы понять, насколько быстро он убивает
-    turn_counts = []
+    turn_counts: list[int] = []
 
-    for i in tqdm(range(num_games)):
+    for _ in tqdm(range(num_games)):
         obs, _ = env.reset()
         done = False
         truncated = False
 
         while not done and not truncated:
-            action_masks = env.action_masks()
+            action_masks = np.asarray(env.action_masks(), dtype=bool)
 
             # deterministic=True заставляет агента играть "лучший" ход, а не пробовать варианты
             action, _ = model.predict(obs, action_masks=action_masks, deterministic=True)
 
-            obs, reward, done, truncated, info = env.step(action)
+            obs, _, done, truncated, _ = env.step(int(action))
 
         p0_hp = env.game.players[0].health
         p1_hp = env.game.players[1].health

@@ -207,3 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 !src/hearthstone/env/
+
+scripts/models/
+scripts/logs/
+scripts/runs/
+scripts/wandb/

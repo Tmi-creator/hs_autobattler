@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, List, Optional, Tuple
 
 from .combat import CombatManager
+from .cpp_bridge import get_cpp_engine
 from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import Player
 from .enums import BattleOutcome
@@ -89,10 +90,14 @@ class Game:
     def _resolve_combat_phase(self, current_agent_idx: int) -> None:
         """
         Init combat, deal damage, update turns.
+        Uses C++ engine when available, Python fallback otherwise.
         """
         p0, p1 = self.players[0], self.players[1]
 
-        result, damage = self.combat.resolve_combat(p0, p1)
+        if get_cpp_engine():
+            result, damage = self.combat.resolve_combat_fast(p0, p1)
+        else:
+            result, damage = self.combat.resolve_combat(p0, p1)
 
         damage_val = abs(damage)
 

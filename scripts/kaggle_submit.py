@@ -5,7 +5,6 @@
 Использование:
     python scripts/kaggle_submit.py
 """
-
 import base64
 import io
 import json
@@ -14,12 +13,21 @@ import shutil
 import zipfile
 from pathlib import Path
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    print("Warning: python-dotenv not installed. Make sure environment variables are set manually.")
 
+def _load_env(path: Path) -> None:
+    """Minimal .env loader — no external deps needed."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_env(Path(__file__).resolve().parent.parent / ".env")
 
 
 root_dir = Path(__file__).resolve().parent.parent
@@ -31,7 +39,7 @@ KERNEL_SLUG = "hs-autobattler-training"
 
 
 def _pack_project_b64() -> str:
-    """Пакует src/ + scripts/ + pyproject.toml в zip, возвращает base64."""
+    """Пакует src/ + scripts/ + cpp/ + pyproject.toml в zip, возвращает base64."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         # src/hearthstone/
@@ -40,11 +48,21 @@ def _pack_project_b64() -> str:
             if fp.is_file() and "__pycache__" not in str(fp) and not fp.suffix == ".pyc":
                 zf.write(fp, str(fp.relative_to(root_dir)))
 
+        # cpp/ (source only — no build artifacts)
+        cpp_root = root_dir / "cpp"
+        for fp in cpp_root.rglob("*"):
+            if fp.is_file() and "build" not in fp.parts and "__pycache__" not in str(fp):
+                zf.write(fp, str(fp.relative_to(root_dir)))
+
         # scripts/ (only needed files)
         for fname in [
-            "__init__.py", "trans.py", "callbacks.py",
-            "train.py", "train_transformer.py",
-            "evaluate_pvp.py", "visualize_attention.py",
+            "__init__.py",
+            "trans.py",
+            "callbacks.py",
+            "train.py",
+            "train_transformer.py",
+            "evaluate_pvp.py",
+            "visualize_attention.py",
         ]:
             fp = scripts_dir / fname
             if fp.exists():
@@ -69,6 +87,7 @@ def create_kernel():
 
     # Pack project
     project_b64 = _pack_project_b64()
+    wandb_key = os.environ.get("WANDB_API_KEY", "")
 
     # kernel-metadata.json
     metadata = {
@@ -79,6 +98,7 @@ def create_kernel():
         "kernel_type": "script",
         "is_private": True,
         "enable_gpu": True,
+        "accelerator": "gpu-t4",
         "enable_internet": True,
         "dataset_sources": [],
         "competition_sources": [],
@@ -105,6 +125,7 @@ import zipfile
 
 # === 1. Constants ===
 PROJECT_B64 = "{project_b64}"
+WANDB_KEY = "{wandb_key}"
 PROJECT_DIR = "/kaggle/working/project"
 OUTPUT_DIR = "/kaggle/working/outputs"
 
@@ -126,6 +147,11 @@ if not os.path.exists(_marker):
 sys.path.insert(0, PROJECT_DIR)
 sys.path.insert(0, os.path.join(PROJECT_DIR, "src"))
 
+# C++ build dir (may be built by main process, workers import from it)
+CPP_BUILD = os.path.join(PROJECT_DIR, "cpp", "build")
+if os.path.isdir(CPP_BUILD):
+    sys.path.insert(0, CPP_BUILD)
+
 # pip install only in main process (children inherit installed packages)
 if __name__ == "__main__":
     subprocess.run(
@@ -133,9 +159,53 @@ if __name__ == "__main__":
         check=True,
     )
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "sb3-contrib", "wandb", "-q"],
+        [sys.executable, "-m", "pip", "install", "sb3-contrib", "wandb", "pybind11", "-q"],
         check=True,
     )
+
+    # === 2.5. Build C++ combat engine ===
+    import glob
+    CPP_DIR = os.path.join(PROJECT_DIR, "cpp")
+    _so_files = glob.glob(os.path.join(CPP_BUILD, "hs_engine_cpp*"))
+    if os.path.isdir(CPP_DIR) and not _so_files:
+        print("[C++ BUILD] Compiling combat engine...")
+        os.makedirs(CPP_BUILD, exist_ok=True)
+        _cmakedir = subprocess.check_output(
+            [sys.executable, "-m", "pybind11", "--cmakedir"]
+        ).decode().strip()
+        subprocess.run([
+            "cmake", "-S", CPP_DIR, "-B", CPP_BUILD,
+            f"-Dpybind11_DIR={{_cmakedir}}",
+            "-DCMAKE_BUILD_TYPE=Release",
+        ], check=True)
+        subprocess.run([
+            "cmake", "--build", CPP_BUILD, "--config", "Release", "-j4",
+        ], check=True)
+        print("[C++ BUILD] Done!")
+        # Re-add build dir now that .so exists
+        if CPP_BUILD not in sys.path:
+            sys.path.insert(0, CPP_BUILD)
+
+     # === 2.7. Check GPU compatibility with PyTorch ===
+    try:
+        _nvsmi = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"],
+            text=True,
+        ).strip()
+        _major, _minor = _nvsmi.split(".")
+        _sm = (int(_major), int(_minor))
+        print(f"[GPU] Detected compute capability: sm_{{_major}}{{_minor}}")
+        if _sm < (7, 0):
+            print("[FIX] P100 detected — installing PyTorch 2.4.1+cu118 (last version with sm_60)...")
+            subprocess.run([
+                sys.executable, "-m", "pip", "install",
+                "torch==2.4.1", "--index-url", "https://download.pytorch.org/whl/cu118",
+                "-q",
+            ], check=True)
+            print("[FIX] Done!")
+    except Exception as _e:
+        print(f"[GPU] nvidia-smi check skipped: {{_e}}")
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # === 3. Imports (now safe) ===
@@ -147,7 +217,7 @@ from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 from wandb.integration.sb3 import WandbCallback
 
 from hearthstone.env.hs_env import HearthstoneEnv
@@ -207,7 +277,7 @@ def train_mlp():
     os.makedirs(models_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
 
-    env = SubprocVecEnv([make_env(i, SEED) for i in range(N_ENVS)])
+    env = DummyVecEnv([make_env(i, SEED) for i in range(N_ENVS)])
 
     tb_log = os.path.join(OUTPUT_DIR, "tb_logs", "mlp")
     model = MaskablePPO(
@@ -267,7 +337,7 @@ def train_transformer():
     os.makedirs(models_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
 
-    env = SubprocVecEnv([make_env(i, SEED) for i in range(N_ENVS)])
+    env = DummyVecEnv([make_env(i, SEED) for i in range(N_ENVS)])
 
     policy_kwargs = dict(
         features_extractor_class=TransformerFeaturesExtractor,
@@ -373,17 +443,15 @@ def evaluate_pvp(mlp_path, trans_path, n_games=200):
 # =========================================
 if __name__ == "__main__":
     import wandb
-    wandb_key = os.environ.get('WANDB_API_KEY')
-    if wandb_key:
-        wandb.login(key=wandb_key)
+    if WANDB_KEY:
+        wandb.login(key=WANDB_KEY)
     else:
-        # Fallback to Kaggle Secrets
-        from kaggle_secrets import UserSecretsClient
         try:
-            user_secrets = UserSecretsClient()
-            wandb.login(key=user_secrets.get_secret("wandb_api_key"))
+            from kaggle_secrets import UserSecretsClient
+            wandb.login(key=UserSecretsClient().get_secret("wandb_api_key"))
         except Exception:
-            wandb.login()
+            print("[WARN] No WANDB key — logging disabled")
+            os.environ["WANDB_MODE"] = "offline"
     print("[START] HS Autobattler: MLP vs Transformer Comparison")
     print(f"[CONFIG] {{TOTAL_TIMESTEPS:,}} timesteps, {{N_ENVS}} envs, device={{DEVICE}}")
 
@@ -404,6 +472,7 @@ if __name__ == "__main__":
 def push_to_kaggle():
     """Создаёт и загружает kernel на Kaggle."""
     from kaggle.api.kaggle_api_extended import KaggleApi
+
     api = KaggleApi()
     api.authenticate()
 

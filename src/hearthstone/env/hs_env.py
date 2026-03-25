@@ -108,6 +108,42 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             low=0, high=1, shape=(total_obs_size,), dtype=np.float32
         )
 
+        # Pre-allocated buffers (avoid per-step allocations)
+        self._obs_buffer = np.zeros(total_obs_size, dtype=np.float32)
+        self._mask_buffer = np.zeros(32, dtype=np.bool_)
+        self._obs_size = total_obs_size
+
+        # Pre-compute zone offsets for fast obs writing
+        self._off_global = 0
+        self._off_board = 7
+        self._off_hand = 7 + 7 * self.entity_features
+        self._off_store = 7 + (7 + 10) * self.entity_features
+        self._off_discover = 7 + (7 + 10 + 7) * self.entity_features
+        self._off_enemy = 7 + (7 + 10 + 7 + 3) * self.entity_features
+
+        # Pre-compute trigger info per card_id (avoids per-entity lookup)
+        self._trigger_cache: dict[str, tuple[bool, bool, bool, bool, bool]] = {}
+        for cid, triggers in TRIGGER_REGISTRY.items():
+            bc = eot = soc = sell = syn = False
+            for trig_def in triggers:
+                evt = trig_def.event_type
+                cond_name = trig_def.condition.__name__
+                if evt == EventType.MINION_PLAYED:
+                    if cond_name == "_is_self_play":
+                        bc = True
+                    else:
+                        syn = True
+                elif evt == EventType.MINION_SUMMONED:
+                    syn = True
+                elif evt == EventType.END_OF_TURN:
+                    eot = True
+                elif evt == EventType.START_OF_COMBAT:
+                    soc = True
+                elif evt == EventType.MINION_SOLD:
+                    sell = True
+            self._trigger_cache[cid] = (bc, eot, soc, sell, syn)
+        self._default_triggers = (False, False, False, False, False)
+
         self.is_targeting: bool = False
         self.pending_spell_hand_index: Optional[int] = None
         self.pending_target_kind: Optional[str] = None  # "SPELL" | "MAGNETIZE"
@@ -544,57 +580,56 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         p = self.game.players[p_id]
         e = self.game.players[e_id]
+        buf = self._obs_buffer
+        buf[:] = 0.0  # fast zero-fill
 
-        # 1. Global (7)
-        global_features = [
-            p.gold / MAX_GOLD,
-            p.tavern_tier / MAX_TIER,
-            p.health / MAX_HP,
-            p.up_cost / 10.0,
-            p.spell_discount / MAX_SPELL_DISCOUNT,
-            1.0 if p.is_discovering else 0.0,
-            1.0 if self.is_targeting else 0.0,
-        ]
+        # 1. Global (7) — direct write
+        buf[0] = p.gold / MAX_GOLD
+        buf[1] = p.tavern_tier / MAX_TIER
+        buf[2] = p.health / MAX_HP
+        buf[3] = p.up_cost / 10.0
+        buf[4] = p.spell_discount / MAX_SPELL_DISCOUNT
+        buf[5] = 1.0 if p.is_discovering else 0.0
+        buf[6] = 1.0 if self.is_targeting else 0.0
 
-        # 2. Zones
-        board_vec = self._encode_zone(p.board, 7, zone_type="BOARD")
-        hand_vec = self._encode_zone(p.hand, 10, zone_type="HAND")
-        store_vec = self._encode_zone(p.store, 7, zone_type="STORE")
+        # 2. Zones — write directly into buffer
+        self._encode_zone_fast(p.board, buf, self._off_board, 7, "BOARD")
+        self._encode_zone_fast(p.hand, buf, self._off_hand, 10, "HAND")
+        self._encode_zone_fast(p.store, buf, self._off_store, 7, "STORE")
 
         discover_items = p.discovery.options if p.is_discovering else []
-        discover_vec = self._encode_zone(discover_items, 3, zone_type="DISCOVER")
+        self._encode_zone_fast(discover_items, buf, self._off_discover, 3, "DISCOVER")
 
         # 3. Enemy (3)
-        enemy_vec = [e.health / MAX_HP, e.tavern_tier / MAX_TIER, len(e.board) / 7.0]
+        off = self._off_enemy
+        buf[off] = e.health / MAX_HP
+        buf[off + 1] = e.tavern_tier / MAX_TIER
+        buf[off + 2] = len(e.board) / 7.0
 
-        return np.concatenate(
-            [global_features, board_vec, hand_vec, store_vec, discover_vec, enemy_vec],
-            dtype=np.float32,
-        )
+        return buf
 
-    def _encode_zone(
+    def _encode_zone_fast(
         self,
         items: Sequence[Unit | HandCard | StoreItem],
+        buf: np.ndarray,
+        offset: int,
         n_slots: int,
-        zone_type: str = "UNKNOWN",
-    ) -> list[float]:
-        zone_features: list[float] = []
-        for i in range(n_slots):
-            if i < len(items):
-                zone_features.extend(
-                    self._encode_single_entity(items[i], index_in_zone=i, zone_type=zone_type)
-                )
-            else:
-                zone_features.extend([0.0] * self.entity_features)
-        return zone_features
+        zone_type: str,
+    ) -> None:
+        ef = self.entity_features
+        n = min(len(items), n_slots)
+        for i in range(n):
+            self._encode_entity_fast(items[i], buf, offset + i * ef, i, zone_type)
 
-    def _encode_single_entity(
+    def _encode_entity_fast(
         self,
         item: Unit | HandCard | StoreItem,
-        index_in_zone: int = -1,
-        zone_type: str = "UNKNOWN",
-    ) -> list[float]:
-        """Create entity vector with trigger analysis"""
+        buf: np.ndarray,
+        off: int,
+        index_in_zone: int,
+        zone_type: str,
+    ) -> None:
+        """Write entity features directly into buf[off:off+entity_features]."""
         unit: Unit | None
         spell: Spell | None
         is_frozen: bool
@@ -607,123 +642,83 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             spell = item.spell
             is_frozen = item.is_frozen if isinstance(item, StoreItem) else False
 
-        # Initialize effect flags
-        has_battlecry: bool = False
-        has_eot: bool = False
-        has_soc: bool = False
-        has_sell: bool = False
-        has_synergy: bool = False
-
         if unit is not None:
             card_id = unit.card_id
-            cost = 3.0
-            tier = unit.tier
-            is_spell = 0.0
-
-            cur_atk: float = float(unit.cur_atk)
-            cur_hp: float = float(unit.cur_hp)
-            is_golden = unit.is_golden
-
-            # --- Анализ триггеров ---
-            triggers = TRIGGER_REGISTRY.get(card_id, [])
-            for trig_def in triggers:
-                evt = trig_def.event_type
-                cond_name = trig_def.condition.__name__
-
-                if evt == EventType.MINION_PLAYED:
-                    if cond_name == "_is_self_play":
-                        has_battlecry = True
-                    else:
-                        has_synergy = True
-
-                elif evt == EventType.MINION_SUMMONED:
-                    has_synergy = True
-
-                elif evt == EventType.END_OF_TURN:
-                    has_eot = True
-
-                elif evt == EventType.START_OF_COMBAT:
-                    has_soc = True
-
-                elif evt == EventType.MINION_SOLD:
-                    has_sell = True
+            bc, eot, soc, sell, syn = self._trigger_cache.get(
+                card_id, self._default_triggers
+            )
             db_data: dict[str, Any] = CARD_DB.get(card_id, {})
-            flags: list[bool] = [
-                unit.has_taunt,
-                unit.has_divine_shield,
-                unit.has_windfury,
-                unit.has_poisonous,
-                unit.has_venomous,
-                unit.has_reborn,
-                unit.has_cleave,
-                unit.has_magnetic,
-                unit.has_immediate_attack,
-                is_golden,
-                bool(db_data.get("is_token", False)),
-                bool(db_data.get("deathrattle", False)),
-                has_battlecry,
-                has_eot,
-                has_soc,
-                has_sell,
-                has_synergy,
-            ]
 
-            u_types = unit.types
+            buf[off + 0] = 1.0  # Is Present
+            # buf[off + 1] = 0.0  # Is Spell (already 0)
+            buf[off + 2] = self.static_id_map.get(card_id, 0) / MAX_CARDS_IN_GAME
+            buf[off + 3] = 3.0 / MAX_COST
+            buf[off + 4] = unit.tier / MAX_TIER
+            buf[off + 5] = 1.0 if is_frozen else 0.0
+            buf[off + 6] = unit.cur_atk / MAX_ATK
+            buf[off + 7] = unit.cur_hp / MAX_HP
+            # Keywords [8..16]
+            buf[off + 8] = 1.0 if unit.has_taunt else 0.0
+            buf[off + 9] = 1.0 if unit.has_divine_shield else 0.0
+            buf[off + 10] = 1.0 if unit.has_windfury else 0.0
+            buf[off + 11] = 1.0 if unit.has_poisonous else 0.0
+            buf[off + 12] = 1.0 if unit.has_venomous else 0.0
+            buf[off + 13] = 1.0 if unit.has_reborn else 0.0
+            buf[off + 14] = 1.0 if unit.has_cleave else 0.0
+            buf[off + 15] = 1.0 if unit.has_magnetic else 0.0
+            buf[off + 16] = 1.0 if unit.has_immediate_attack else 0.0
+            buf[off + 17] = 1.0 if unit.is_golden else 0.0
+            buf[off + 18] = 1.0 if db_data.get("is_token", False) else 0.0
+            buf[off + 19] = 1.0 if db_data.get("deathrattle", False) else 0.0
+            buf[off + 20] = 1.0 if bc else 0.0
+            buf[off + 21] = 1.0 if eot else 0.0
+            buf[off + 22] = 1.0 if soc else 0.0
+            buf[off + 23] = 1.0 if sell else 0.0
+            buf[off + 24] = 1.0 if syn else 0.0
+            # Is Selected
+            if (
+                self.is_targeting
+                and zone_type == "HAND"
+                and self.pending_spell_hand_index is not None
+                and index_in_zone == self.pending_spell_hand_index
+            ):
+                buf[off + 25] = 1.0
+            # Types [26..36]
+            types = unit.types
+            if types:
+                base = off + 26
+                for i, t_enum in enumerate(self.all_types):
+                    if t_enum in types:
+                        buf[base + i] = 1.0
 
-        elif spell is not None:  # Spell
-            card_id = spell.card_id
-            cost = float(spell.cost)
-            tier = spell.tier
-            is_spell = 1.0
-            cur_atk = 0.0
-            cur_hp = 0.0
-            flags = [False] * 17
-            flags[12] = True  # spell = battlecry
+        elif spell is not None:
+            buf[off + 0] = 1.0  # Is Present
+            buf[off + 1] = 1.0  # Is Spell
+            buf[off + 2] = self.static_id_map.get(spell.card_id, 0) / MAX_CARDS_IN_GAME
+            buf[off + 3] = spell.cost / MAX_COST
+            buf[off + 4] = spell.tier / MAX_TIER
+            buf[off + 5] = 1.0 if is_frozen else 0.0
+            buf[off + 20] = 1.0  # spell = has battlecry
+            # Is Selected (spells can be targeting source too)
+            if (
+                self.is_targeting
+                and zone_type == "HAND"
+                and self.pending_spell_hand_index is not None
+                and index_in_zone == self.pending_spell_hand_index
+            ):
+                buf[off + 25] = 1.0
+        # else: all zeros (buf already zeroed)
 
-            u_types = []
-
-        else:
-            return [0.0] * self.entity_features
-
-        # Card ID
-        cid_val = self.static_id_map.get(card_id, 0) / MAX_CARDS_IN_GAME
-
-        # Build vector
-        vec = [
-            1.0,  # [0] Is Present
-            is_spell,  # [1] Is Spell
-            cid_val,  # [2] ID
-            cost / MAX_COST,  # [3] Cost
-            tier / MAX_TIER,  # [4] Tier
-            1.0 if is_frozen else 0.0,  # [5] Frozen
-            cur_atk / MAX_ATK,  # [6] ATK
-            cur_hp / MAX_HP,  # [7] HP
-        ]
-
-        # Flags (17)
-        vec.extend([1.0 if f else 0.0 for f in flags])
-
-        # === Is Selected (Targeting) ===
-        is_selected = 0.0
-        if (
-            self.is_targeting
-            and zone_type == "HAND"
-            and self.pending_spell_hand_index is not None
-            and index_in_zone == self.pending_spell_hand_index
-        ):
-            is_selected = 1.0
-
-        vec.append(is_selected)  # [23]
-
-        # Types (11)
-        type_vec = [0.0] * self.num_types
-        if u_types:
-            for i, t_enum in enumerate(self.all_types):
-                if t_enum in u_types:
-                    type_vec[i] = 1.0
-        vec.extend(type_vec)
-
-        return vec
+    def _encode_single_entity(
+        self,
+        item: Unit | HandCard | StoreItem,
+        index_in_zone: int = -1,
+        zone_type: str = "UNKNOWN",
+    ) -> list[float]:
+        """Backwards-compatible wrapper for tests."""
+        buf = np.zeros(self.entity_features, dtype=np.float32)
+        self._encode_entity_fast(item, buf, 0, index_in_zone, zone_type)
+        return buf.tolist()
 
     def action_masks(self, player_idx: int | None = None) -> np.ndarray:
         """
@@ -733,7 +728,8 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         """
         p_id = self.my_player_id if player_idx is None else player_idx
         player = self.game.players[p_id]
-        masks: np.ndarray = np.zeros(32, dtype=np.bool_)
+        masks = self._mask_buffer
+        masks[:] = False
 
         # ban stupid swaps
         if self.actions_in_turn >= self.max_actions_in_turn:

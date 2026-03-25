@@ -2,6 +2,7 @@ import random
 from typing import List, Optional, Tuple
 
 from .auras import recalculate_board_auras
+from .cpp_bridge import CARD_ID_MAP, TAG_TO_BIT, TYPE_TO_BIT, get_cpp_engine
 from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import Player, Unit
 from .enums import BattleOutcome, Tags
@@ -29,6 +30,38 @@ class CombatManager:
     def get_uid(self) -> int:
         self.uid += 1
         return self.uid
+
+    # =================================================================
+    # C++ fast path
+    # =================================================================
+    @staticmethod
+    def _unit_to_cpp(unit: Unit) -> tuple:
+        """Convert Python Unit → C++ tuple (card_id, atk, hp, types, tags, tier, golden)."""
+        cpp_card_id = CARD_ID_MAP.get(unit.card_id, 0)
+        cpp_types = 0
+        for t in unit.types:
+            cpp_types |= TYPE_TO_BIT.get(t, 0)
+        cpp_tags = 0
+        for tag in unit.tags:
+            cpp_tags |= TAG_TO_BIT.get(tag, 0)
+        return (
+            cpp_card_id, unit.cur_atk, unit.cur_hp,
+            cpp_types, cpp_tags, unit.tier, unit.is_golden,
+        )
+
+    def resolve_combat_fast(self, player_1: Player, player_2: Player) -> tuple[BattleOutcome, int]:
+        """C++ accelerated combat — same interface as resolve_combat()."""
+        cpp = get_cpp_engine()
+        assert cpp is not None, "C++ engine not loaded"
+        side0 = [self._unit_to_cpp(u) for u in player_1.board]
+        side1 = [self._unit_to_cpp(u) for u in player_2.board]
+        seed = random.getrandbits(64)
+        outcome, damage = cpp.fast_combat(
+            side0, side1, seed,
+            tavern_tier_0=player_1.tavern_tier,
+            tavern_tier_1=player_2.tavern_tier,
+        )
+        return BattleOutcome(outcome), damage
 
     def resolve_combat(self, player_1: Player, player_2: Player) -> tuple[BattleOutcome, int]:
         combat_players = {

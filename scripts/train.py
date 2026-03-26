@@ -60,7 +60,9 @@ def _mask_fn(base_env: object) -> np.ndarray:
 def setup_determinism(seed: int) -> None:
     # 1. Fix string hashing (important for dicts and sets)
     # should do it before all other processes, so change os.environ
-    os.environ["PYTHONHASHSEED"] = str(seed)
+    if os.environ.get("PYTHONHASHSEED") != str(seed):
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
     # 2. Make CUDA determine algorithm (Torch >= 1.7)
     # Without it torch.use_deterministic_algorithms(True) can throw error

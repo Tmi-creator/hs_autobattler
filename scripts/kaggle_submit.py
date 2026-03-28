@@ -222,8 +222,9 @@ from wandb.integration.sb3 import WandbCallback
 
 from hearthstone.env.hs_env import HearthstoneEnv
 from scripts.trans import TransformerFeaturesExtractor
+from hearthstone.env.ghost_pool import GhostPool
 from scripts.callbacks import (
-    BoardPowerCallback, GameLoggerCallback, SelfPlayCallback
+    BoardPowerCallback, CurriculumCallback, GameLoggerCallback
 )
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -248,9 +249,13 @@ def mask_fn(base_env):
     return np.asarray(cast(HearthstoneEnv, base_env).action_masks(), dtype=bool)
 
 
+
+GHOST_POOL = GhostPool(max_games=2000)
+
 def make_env(rank, seed=42):
     def _init():
         env = HearthstoneEnv()
+        env.set_ghost_pool(GHOST_POOL)
         env.reset(seed=seed + rank)
         return ActionMasker(env, mask_fn)
     return _init
@@ -296,10 +301,16 @@ def train_mlp():
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=[
-            CheckpointCallback(save_freq=100_000 // N_ENVS, save_path=models_dir, name_prefix="mlp"),
+            CheckpointCallback(
+                save_freq=100_000 // N_ENVS,
+                save_path=models_dir,
+                name_prefix="mlp",
+            ),
             WandbCallback(gradient_save_freq=500, verbose=0),
-            GameLoggerCallback(check_freq=50000, log_dir=logs_dir),
-            SelfPlayCallback(update_freq=50_000, model_save_path=models_dir),
+            GameLoggerCallback(
+                check_freq=50000, log_dir=logs_dir
+            ),
+            CurriculumCallback(ghost_start_step=400_000),
             BoardPowerCallback(log_freq=2000),
         ],
     )
@@ -372,10 +383,16 @@ def train_transformer():
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=[
-            CheckpointCallback(save_freq=100_000 // N_ENVS, save_path=models_dir, name_prefix="trans"),
+            CheckpointCallback(
+                save_freq=100_000 // N_ENVS,
+                save_path=models_dir,
+                name_prefix="trans",
+            ),
             WandbCallback(gradient_save_freq=500, verbose=0),
-            GameLoggerCallback(check_freq=50000, log_dir=logs_dir),
-            SelfPlayCallback(update_freq=50_000, model_save_path=models_dir),
+            GameLoggerCallback(
+                check_freq=50000, log_dir=logs_dir
+            ),
+            CurriculumCallback(ghost_start_step=400_000),
             BoardPowerCallback(log_freq=2000),
         ],
     )

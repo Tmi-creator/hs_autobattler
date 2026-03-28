@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -16,6 +16,8 @@ from hearthstone.engine.enums import UnitType
 from hearthstone.engine.event_system import EventType
 from hearthstone.engine.game import Game
 from hearthstone.engine.spells import SPELLS_REQUIRE_TARGET
+from hearthstone.env.ghost_pool import BoardSnapshot, GhostPool
+from hearthstone.env.smart_bot import smart_bot_turn
 
 if TYPE_CHECKING:
     from sb3_contrib import MaskablePPO
@@ -64,6 +66,13 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self.action_space = spaces.Discrete(32)
 
         self.opponent_model: Optional["MaskablePPO"] = None
+
+        # Ghost self-play
+        self.ghost_pool: Optional[GhostPool] = None
+        self._ghost_trajectory: Optional[Dict[int, BoardSnapshot]] = None
+        self._use_ghost: bool = False
+        self._ghost_ratio: float = 0.8  # probability of using ghost vs bot
+        self._env_id: int = id(self)  # unique per env instance
 
         self.all_types = list(UnitType)
         self.num_types = len(self.all_types)  # 11
@@ -148,6 +157,14 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self.pending_spell_hand_index: Optional[int] = None
         self.pending_target_kind: Optional[str] = None  # "SPELL" | "MAGNETIZE"
 
+    def set_ghost_pool(self, pool: GhostPool) -> None:
+        """Set shared ghost pool (called once at env creation)."""
+        self.ghost_pool = pool
+
+    def enable_ghost_mode(self) -> None:
+        """Enable ghost self-play (called by CurriculumCallback)."""
+        self._use_ghost = True
+
     def reset(
         self,
         *,
@@ -160,12 +177,26 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             random.seed(seed)
             np.random.seed(seed)
 
+        # Finish previous game's ghost recording
+        if self.ghost_pool is not None:
+            self.ghost_pool.finish_game(self._env_id)
+
         self.game = Game()
 
         self.steps_taken = 0
         self.actions_in_turn = 0
         self.is_targeting = False
         self.pending_spell_hand_index = None
+
+        # Sample ghost trajectory for this episode
+        self._ghost_trajectory = None
+        if (
+            self._use_ghost
+            and self.ghost_pool is not None
+            and self.ghost_pool.size > 0
+            and random.random() < self._ghost_ratio
+        ):
+            self._ghost_trajectory = self.ghost_pool.sample_trajectory()
 
         return self._get_obs(), {}
 
@@ -355,6 +386,13 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                 reward -= 0.5
 
             self._auto_position_board(player)
+
+            # Record agent's board for ghost pool
+            if self.ghost_pool is not None:
+                self.ghost_pool.record_turn(
+                    self._env_id, self.game.turn_count, player
+                )
+
             self._play_enemy_turn()
             done = self.game.game_over
 
@@ -455,10 +493,30 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
     def _play_enemy_turn(self) -> None:
         p_idx = self.enemy_id
+        enemy = self.game.players[p_idx]
 
-        if self.opponent_model is None:
-            self._simple_bot_turn(p_idx)
+        # === GHOST MODE: replay historical board ===
+        if self._ghost_trajectory is not None:
+            turn = self.game.turn_count
+            snap = self._ghost_trajectory.get(turn)
+            if snap is not None:
+                uid_fn = self.game.tavern.get_next_uid
+                GhostPool.materialize_board(snap, enemy, uid_fn)
+            # else: keep whatever board enemy has (stale from last turn)
+            # Mark enemy as ready so combat triggers
+            self.game.step(p_idx, "END_TURN")
             return
+
+        # === NEURAL SELF-PLAY (legacy, kept as fallback) ===
+        if self.opponent_model is not None:
+            self._neural_enemy_turn(p_idx)
+            return
+
+        # === SMART BOT (default) ===
+        smart_bot_turn(self.game, p_idx)
+
+    def _neural_enemy_turn(self, p_idx: int) -> None:
+        """Legacy neural self-play. Kept as fallback."""
         player = self.game.players[p_idx]
         self.is_targeting = False
         self.pending_spell_hand_index = None
@@ -467,31 +525,32 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         for _ in range(max_actions):
             obs = self._get_obs(player_idx=p_idx)
-
             masks = self.action_masks(player_idx=p_idx)
 
             import torch
 
-            with torch.no_grad():  # no gradients
+            with torch.no_grad():
                 raw_action, _ = self.opponent_model.predict(
                     obs, action_masks=masks, deterministic=False
                 )
             action: int = int(raw_action)
 
             if action == 0:
-                if self.is_targeting:  # CANCEL
+                if self.is_targeting:
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
                     continue
                 else:
-                    break  # END TURN
+                    break
 
-            # TARGET SPELL
             if self.is_targeting:
                 if 2 <= action <= 8:
                     target_idx = action - 2
                     hand_idx: int | None = self.pending_spell_hand_index
-                    self.game.step(p_idx, "PLAY", hand_index=hand_idx, target_index=target_idx)
+                    self.game.step(
+                        p_idx, "PLAY",
+                        hand_index=hand_idx, target_index=target_idx,
+                    )
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
                 continue
@@ -507,14 +566,16 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                         if card.spell
                         else (card.unit.card_id if card.unit else None)
                     )
-
                     if card_id in SPELLS_REQUIRE_TARGET:
                         self.pending_spell_hand_index = h_idx
                         self.is_targeting = True
                         self.pending_target_kind = "SPELL"
                         continue
                     if card.unit and card.unit.has_magnetic:
-                        has_mech = any(UnitType.MECH in u.types for u in player.board)
+                        has_mech = any(
+                            UnitType.MECH in u.types
+                            for u in player.board
+                        )
                         if has_mech:
                             self.pending_spell_hand_index = h_idx
                             self.is_targeting = True

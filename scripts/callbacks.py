@@ -206,3 +206,36 @@ class BoardPowerCallback(BaseCallback):
 
         return True
 
+
+class CurriculumCallback(BaseCallback):
+    """Phased training curriculum.
+
+    Phase 1 (0 to ghost_start_step): 100% smart bot (fast warm-up,
+        populates ghost pool with competent boards).
+    Phase 2 (ghost_start_step+): Enable ghost self-play
+        (80% ghost pool / 20% smart bot by default).
+    """
+
+    def __init__(
+        self,
+        ghost_start_step: int = 400_000,
+        verbose: int = 1,
+    ) -> None:
+        super().__init__(verbose)
+        self.ghost_start_step = ghost_start_step
+        self._ghost_enabled = False
+
+    def _on_step(self) -> bool:
+        if (
+            not self._ghost_enabled
+            and self.num_timesteps >= self.ghost_start_step
+        ):
+            self._ghost_enabled = True
+            if self.verbose > 0:
+                print(
+                    f"[CURRICULUM] Enabling ghost self-play "
+                    f"at step {self.num_timesteps}"
+                )
+            vec_env = cast(SupportsEnvMethod, self.training_env)
+            vec_env.env_method("enable_ghost_mode")
+        return True

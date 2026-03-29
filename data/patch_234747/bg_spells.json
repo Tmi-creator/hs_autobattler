@@ -1,0 +1,562 @@
+[
+  {
+    "id": "BG33_101",
+    "dbfId": 122864,
+    "name": "A New Sprout",
+    "tier": 1,
+    "cost": 3,
+    "mechanics": [],
+    "text": "Discover a Tier 1 minion."
+  },
+  {
+    "id": "BG28_512",
+    "dbfId": 104502,
+    "name": "Enchanted Lasso",
+    "tier": 1,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Steal a random minion from the Tavern."
+  },
+  {
+    "id": "BG28_503",
+    "dbfId": 103791,
+    "name": "Fortify",
+    "tier": 1,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Give a minion +3 Health and Taunt."
+  },
+  {
+    "id": "EBG_Spell_014",
+    "dbfId": 100596,
+    "name": "Pointy Arrow",
+    "tier": 1,
+    "cost": 1,
+    "mechanics": [],
+    "text": "[x]Give a minion +4 Attack."
+  },
+  {
+    "id": "BG28_504",
+    "dbfId": 103793,
+    "name": "Recruit a Trainee",
+    "tier": 1,
+    "cost": 2,
+    "mechanics": [],
+    "text": "[x]Get a random Tier 1 minion."
+  },
+  {
+    "id": "BG28_810",
+    "dbfId": 104436,
+    "name": "Tavern Coin",
+    "tier": 1,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Gain 1 Gold."
+  },
+  {
+    "id": "BG28_897",
+    "dbfId": 105752,
+    "name": "Tavern Dish Banana",
+    "tier": 1,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Give a minion +2/+2."
+  },
+  {
+    "id": "BG28_966",
+    "dbfId": 105903,
+    "name": "Them Apples",
+    "tier": 1,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Give minions in the Tavern +1/+2."
+  },
+  {
+    "id": "BG28_518",
+    "dbfId": 105664,
+    "name": "Chef's Choice",
+    "tier": 2,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Choose a minion. Get a different minion of the same type."
+  },
+  {
+    "id": "BG28_571",
+    "dbfId": 104559,
+    "name": "Hasty Excavation",
+    "tier": 2,
+    "cost": 3,
+    "mechanics": [],
+    "text": "Gain 1 Gold. This costs Health to buy instead of Gold."
+  },
+  {
+    "id": "BG28_827",
+    "dbfId": 104446,
+    "name": "Leaf Through the Pages",
+    "tier": 2,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Gain 2 free Refreshes."
+  },
+  {
+    "id": "BG34_330",
+    "dbfId": 127288,
+    "name": "Search Through Time",
+    "tier": 2,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Discover a minion of your Tier. Lock it in your hand for 1 turn."
+  },
+  {
+    "id": "BG28_805",
+    "dbfId": 104029,
+    "name": "Strike Oil",
+    "tier": 2,
+    "cost": 3,
+    "mechanics": [],
+    "text": "Increase your maximum Gold by 1."
+  },
+  {
+    "id": "BG34_689",
+    "dbfId": 126676,
+    "name": "Blood Gem Barrage",
+    "tier": 3,
+    "cost": 1,
+    "mechanics": [],
+    "text": "After the Tavern is Refreshed this game, give its minions +1/+1 worth of Blood Gems."
+  },
+  {
+    "id": "BG28_800",
+    "dbfId": 103779,
+    "name": "Careful Investment",
+    "tier": 3,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Gain 2 Gold next turn."
+  },
+  {
+    "id": "BG28_519",
+    "dbfId": 105665,
+    "name": "Fleeting Vigor",
+    "tier": 3,
+    "cost": 1,
+    "mechanics": [
+      "START_OF_COMBAT"
+    ],
+    "text": "Start of Combat: Give your minions +2/+1."
+  },
+  {
+    "id": "BG33_112",
+    "dbfId": 122489,
+    "name": "Haunted Carapace",
+    "tier": 3,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Your minions have +3/+1 until next turn."
+  },
+  {
+    "id": "BG33_899",
+    "dbfId": 122862,
+    "name": "Mounting Avalanche",
+    "tier": 3,
+    "cost": 2,
+    "mechanics": [],
+    "text": "[x]Sell a friendly minion. Give its stats to your left-most Elemental."
+  },
+  {
+    "id": "BG28_884",
+    "dbfId": 105267,
+    "name": "Overconfidence",
+    "tier": 3,
+    "cost": 1,
+    "mechanics": [],
+    "text": "If you win your next combat, gain 3 Gold. If you tie, gain 1."
+  },
+  {
+    "id": "BG28_521",
+    "dbfId": 105669,
+    "name": "Planar Telescope",
+    "tier": 3,
+    "cost": 4,
+    "mechanics": [],
+    "text": "[x]Discover a minion of your most common type."
+  },
+  {
+    "id": "BG31_243",
+    "dbfId": 119470,
+    "name": "Portal in a Fountain",
+    "tier": 3,
+    "cost": 3,
+    "mechanics": [],
+    "text": "Pass a minion in the Tavern."
+  },
+  {
+    "id": "BG30_804",
+    "dbfId": 113901,
+    "name": "Robust Evolution",
+    "tier": 3,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Choose a minion. Transform it into a random minion of a higher Tier. It keeps its stats."
+  },
+  {
+    "id": "BG28_168",
+    "dbfId": 109230,
+    "name": "Shiny Ring",
+    "tier": 3,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Give your minions +1/+1."
+  },
+  {
+    "id": "BG31_881",
+    "dbfId": 117573,
+    "name": "Time Management",
+    "tier": 3,
+    "cost": 4,
+    "mechanics": [
+      "CHOOSE_ONE"
+    ],
+    "text": "[x]Choose One - Give your minions +2/+2; or At the start of your next turn, give your minions +2/+2 twice."
+  },
+  {
+    "id": "BG28_520",
+    "dbfId": 105667,
+    "name": "Tricky Trousers",
+    "tier": 3,
+    "cost": 1,
+    "mechanics": [],
+    "text": "Give a minion +1/+2 and Taunt. If it already has Taunt, remove it."
+  },
+  {
+    "id": "BG28_601",
+    "dbfId": 110400,
+    "name": "Cloning Conch",
+    "tier": 4,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Get a random Murloc and a copy of it."
+  },
+  {
+    "id": "BG28_825",
+    "dbfId": 104445,
+    "name": "Defender's Rites",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Give a friendly minion +6/+6 and Taunt."
+  },
+  {
+    "id": "BG34_444",
+    "dbfId": 126909,
+    "name": "Easterly Winds",
+    "tier": 4,
+    "cost": 1,
+    "mechanics": [],
+    "text": "[x]After the Tavern is Refreshed this game, give its right-most minion +5/+5."
+  },
+  {
+    "id": "BG28_698",
+    "dbfId": 110642,
+    "name": "Gem Confiscation",
+    "tier": 4,
+    "cost": 1,
+    "mechanics": [],
+    "text": "[x]This plays 2 Blood Gems on a minion. It steals all Blood Gems from its neighbors."
+  },
+  {
+    "id": "BG28_888",
+    "dbfId": 105271,
+    "name": "Misplaced Tea Set",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Give a friendly minion of each type +2/+2."
+  },
+  {
+    "id": "BG28_845",
+    "dbfId": 104472,
+    "name": "Natural Blessing",
+    "tier": 4,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Choose a minion. Give all minions that share a type with it +3/+3."
+  },
+  {
+    "id": "BG33_819",
+    "dbfId": 123553,
+    "name": "Raptor's Revenge",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [
+      "AVENGE"
+    ],
+    "text": "[x]Avenge (4): Get a random Beast. Lasts 1 turn."
+  },
+  {
+    "id": "BG32_815",
+    "dbfId": 120900,
+    "name": "Shifting Tide",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [],
+    "text": "[x]Give a minion +2/+2 twice. If it's a Naga, repeat this."
+  },
+  {
+    "id": "BG28_606",
+    "dbfId": 110406,
+    "name": "Spitescale Special",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Get 3 random Spellcraft spells."
+  },
+  {
+    "id": "BG28_886",
+    "dbfId": 105276,
+    "name": "Staff of Enrichment",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Give minions in the Tavern +2/+2 this game."
+  },
+  {
+    "id": "BG31_819",
+    "dbfId": 117670,
+    "name": "Temperature Shift",
+    "tier": 4,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Get a Fire Baller and a Snow Baller."
+  },
+  {
+    "id": "BG34_888",
+    "dbfId": 126957,
+    "name": "Tomb Turning",
+    "tier": 4,
+    "cost": 2,
+    "mechanics": [],
+    "text": "[x]Discover an Undead. It dies if you play it this turn."
+  },
+  {
+    "id": "BG28_500",
+    "dbfId": 103785,
+    "name": "Armor Stash",
+    "tier": 5,
+    "cost": 3,
+    "mechanics": [],
+    "text": "Set your Armor to 5."
+  },
+  {
+    "id": "BG31_242",
+    "dbfId": 117671,
+    "name": "Bargain Bundle",
+    "tier": 5,
+    "cost": 5,
+    "mechanics": [],
+    "text": "Discover a minion. Your teammate gets the other options."
+  },
+  {
+    "id": "BG34_889",
+    "dbfId": 127503,
+    "name": "Brood of Nozdormu",
+    "tier": 5,
+    "cost": 2,
+    "mechanics": [
+      "START_OF_COMBAT"
+    ],
+    "text": "Start of Combat: Double your left-most minion's Attack."
+  },
+  {
+    "id": "EBG_Spell_032",
+    "dbfId": 100899,
+    "name": "Channel the Devourer",
+    "tier": 5,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Sell a friendly minion. Give its stats to a random friendly minion."
+  },
+  {
+    "id": "BG28_882",
+    "dbfId": 105265,
+    "name": "Contracted Corpse",
+    "tier": 5,
+    "cost": 3,
+    "mechanics": [
+      "DISCOVER"
+    ],
+    "text": "Discover a Deathrattle minion."
+  },
+  {
+    "id": "BG28_607",
+    "dbfId": 110407,
+    "name": "Corrupted Cupcakes",
+    "tier": 5,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Choose a friendly Demon. It consumes 3 random minions in the Tavern to gain their stats."
+  },
+  {
+    "id": "BG28_830",
+    "dbfId": 104448,
+    "name": "Golden Touch",
+    "tier": 5,
+    "cost": 5,
+    "mechanics": [],
+    "text": "Make a random minion in the Tavern Golden."
+  },
+  {
+    "id": "BG28_GIL_836",
+    "dbfId": 105264,
+    "name": "Hired Headhunter",
+    "tier": 5,
+    "cost": 3,
+    "mechanics": [
+      "DISCOVER"
+    ],
+    "text": "Discover a Battlecry minion."
+  },
+  {
+    "id": "BG31_244",
+    "dbfId": 119471,
+    "name": "Portal in a Crystal",
+    "tier": 5,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Pass a friendly non-Golden minion."
+  },
+  {
+    "id": "BG28_849",
+    "dbfId": 104494,
+    "name": "Saloon's Finest",
+    "tier": 5,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Refresh the Tavern with Tavern spells."
+  },
+  {
+    "id": "BG33_817",
+    "dbfId": 122899,
+    "name": "Sanctify",
+    "tier": 5,
+    "cost": 1,
+    "mechanics": [],
+    "text": "[x]Give your minions with Divine Shield +6 Attack."
+  },
+  {
+    "id": "EBG_Spell_037",
+    "dbfId": 100910,
+    "name": "Unmasked Identity",
+    "tier": 5,
+    "cost": 3,
+    "mechanics": [
+      "DISCOVER"
+    ],
+    "text": "Discover a new Hero Power."
+  },
+  {
+    "id": "BG28_573",
+    "dbfId": 104560,
+    "name": "Upper Hand",
+    "tier": 5,
+    "cost": 3,
+    "mechanics": [
+      "START_OF_COMBAT"
+    ],
+    "text": "Start of Combat: Set a random enemy minion's Health to 1."
+  },
+  {
+    "id": "BG34_990",
+    "dbfId": 127506,
+    "name": "Wave of Gold",
+    "tier": 5,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Give your minions +3/+2. Give Golden ones another +3/+2."
+  },
+  {
+    "id": "BG28_169",
+    "dbfId": 109232,
+    "name": "Azerite Empowerment",
+    "tier": 6,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Give your minions +2/+2 twice."
+  },
+  {
+    "id": "EBG_Spell_017",
+    "dbfId": 100601,
+    "name": "Eyes of the Earth Mother",
+    "tier": 6,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Choose a friendly minion from Tier 4 or below. Make it Golden."
+  },
+  {
+    "id": "BG34_991",
+    "dbfId": 127642,
+    "name": "Hand of Deios",
+    "tier": 6,
+    "cost": 2,
+    "mechanics": [
+      "START_OF_COMBAT"
+    ],
+    "text": "Start of Combat: Trigger a random friendly Battlecry, Deathrattle, and Rally."
+  },
+  {
+    "id": "EBG_Spell_038",
+    "dbfId": 100911,
+    "name": "Lost Staff of Hamuul",
+    "tier": 6,
+    "cost": 2,
+    "mechanics": [],
+    "text": "[x]Choose a minion. Refresh the Tavern with minions of its type."
+  },
+  {
+    "id": "BG28_838",
+    "dbfId": 104601,
+    "name": "Perfect Vision",
+    "tier": 6,
+    "cost": 2,
+    "mechanics": [],
+    "text": "Set a minion's stats to 20/20."
+  },
+  {
+    "id": "BG31_895",
+    "dbfId": 119603,
+    "name": "Blade of Ambition",
+    "tier": 7,
+    "cost": 7,
+    "mechanics": [],
+    "text": "Choose a friendly minion. Set its Attack and Health to match the highest in your warband."
+  },
+  {
+    "id": "BG31_896",
+    "dbfId": 119718,
+    "name": "Hallowed Ritual",
+    "tier": 7,
+    "cost": 5,
+    "mechanics": [],
+    "text": "Discover a Tier 7 minion."
+  },
+  {
+    "id": "BG28_507",
+    "dbfId": 103796,
+    "name": "Sacred Gift",
+    "tier": 7,
+    "cost": 4,
+    "mechanics": [],
+    "text": "Give a minion Divine Shield."
+  },
+  {
+    "id": "BG31_889",
+    "dbfId": 119599,
+    "name": "Sharing is Caring",
+    "tier": 7,
+    "cost": 2,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Start of Combat: Your left-most minion gains stats equal to the nearest enemy minion's."
+  }
+]

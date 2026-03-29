@@ -1,0 +1,1142 @@
+[
+  {
+    "id": "TB_BaconShop_HERO_16",
+    "dbfId": 57944,
+    "name": "A. F. Kay",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 59891,
+    "buddyDbfId": 77774,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_76",
+    "dbfId": 64403,
+    "name": "Al'Akir",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 64402,
+    "buddyDbfId": 77447,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_56",
+    "dbfId": 61488,
+    "name": "Alexstrasza",
+    "health": 30,
+    "armor": 7,
+    "heroPowerDbfId": 61517,
+    "buddyDbfId": 77448,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_201",
+    "dbfId": 81569,
+    "name": "Ambassador Faelin",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 81570,
+    "buddyDbfId": 82604,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_59",
+    "dbfId": 61910,
+    "name": "Aranna Starseeker",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 61915,
+    "buddyDbfId": 77468,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_45",
+    "dbfId": 60362,
+    "name": "Arch-Villain Rafaam",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 60381,
+    "buddyDbfId": 77470,
+    "text": null
+  },
+  {
+    "id": "BG31_HERO_802",
+    "dbfId": 118510,
+    "name": "Artanis",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 119196,
+    "buddyDbfId": 122329,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_001",
+    "dbfId": 79719,
+    "name": "Bru'kan",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 79720,
+    "buddyDbfId": 77882,
+    "text": null
+  },
+  {
+    "id": "BG32_HERO_002",
+    "dbfId": 120649,
+    "name": "Buttons",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 120650,
+    "buddyDbfId": 122325,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_29",
+    "dbfId": 58535,
+    "name": "C'Thun",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 66246,
+    "buddyDbfId": 77475,
+    "text": null
+  },
+  {
+    "id": "BG26_HERO_101",
+    "dbfId": 101130,
+    "name": "Cap'n Hoggarr",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 101132,
+    "buddyDbfId": 114598,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_64",
+    "dbfId": 62242,
+    "name": "Captain Eudora",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 62250,
+    "buddyDbfId": 77472,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_67",
+    "dbfId": 62266,
+    "name": "Captain Hooktusk",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 62267,
+    "buddyDbfId": 77776,
+    "text": null
+  },
+  {
+    "id": "BG21_HERO_000",
+    "dbfId": 73940,
+    "name": "Cariel Roame",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 73941,
+    "buddyDbfId": 77778,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_78",
+    "dbfId": 64475,
+    "name": "Chenvaala",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 64476,
+    "buddyDbfId": 77780,
+    "text": null
+  },
+  {
+    "id": "BGDUO_HERO_222",
+    "dbfId": 104981,
+    "name": "Cho",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 104983,
+    "buddyDbfId": 113690,
+    "text": null
+  },
+  {
+    "id": "BG21_HERO_020",
+    "dbfId": 77516,
+    "name": "Cookie the Cook",
+    "health": 30,
+    "armor": 7,
+    "heroPowerDbfId": 77434,
+    "buddyDbfId": 77872,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_36",
+    "dbfId": 59806,
+    "name": "Dancin' Deryl",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 59860,
+    "buddyDbfId": 77477,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_103",
+    "dbfId": 71458,
+    "name": "Death Speaker Blackthorn",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 71459,
+    "buddyDbfId": 77478,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_52",
+    "dbfId": 60369,
+    "name": "Deathwing",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 61406,
+    "buddyDbfId": 77782,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_43",
+    "dbfId": 60214,
+    "name": "Dinotamer Brann",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 60218,
+    "buddyDbfId": 77784,
+    "text": null
+  },
+  {
+    "id": "BG28_HERO_801",
+    "dbfId": 105434,
+    "name": "Doctor Holli'dae",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 110472,
+    "buddyDbfId": 113631,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_002",
+    "dbfId": 80239,
+    "name": "Drek'Thar",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 80244,
+    "buddyDbfId": 77884,
+    "text": null
+  },
+  {
+    "id": "BG25_HERO_105",
+    "dbfId": 101345,
+    "name": "E.T.C., Band Manager",
+    "health": 30,
+    "armor": 8,
+    "heroPowerDbfId": 101346,
+    "buddyDbfId": 101349,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_01",
+    "dbfId": 57633,
+    "name": "Edwin VanCleef",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 57567,
+    "buddyDbfId": 77479,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_42",
+    "dbfId": 60213,
+    "name": "Elise Starseeker",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 60217,
+    "buddyDbfId": 77484,
+    "text": null
+  },
+  {
+    "id": "BG24_HERO_204",
+    "dbfId": 96870,
+    "name": "Enhance-o Mechano",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 96872,
+    "buddyDbfId": 101973,
+    "text": null
+  },
+  {
+    "id": "BG31_HERO_006",
+    "dbfId": 117425,
+    "name": "Exarch Othaar",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 117426,
+    "buddyDbfId": 122342,
+    "text": null
+  },
+  {
+    "id": "BG31_HERO_003",
+    "dbfId": 116926,
+    "name": "Farseer Nobundo",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 116924,
+    "buddyDbfId": 122331,
+    "text": null
+  },
+  {
+    "id": "BGDUO_HERO_101",
+    "dbfId": 104671,
+    "name": "Flobbidinous Floop",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 104672,
+    "buddyDbfId": 113637,
+    "text": null
+  },
+  {
+    "id": "BG32_HERO_001",
+    "dbfId": 116920,
+    "name": "Forest Lord Cenarius",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 116921,
+    "buddyDbfId": 122335,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_74",
+    "dbfId": 63604,
+    "name": "Forest Warden Omu",
+    "health": 30,
+    "armor": 6,
+    "heroPowerDbfId": 63605,
+    "buddyDbfId": 77493,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_55",
+    "dbfId": 60372,
+    "name": "Fungalmancer Flurgl",
+    "health": 30,
+    "armor": 7,
+    "heroPowerDbfId": 60448,
+    "buddyDbfId": 77786,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_02",
+    "dbfId": 57635,
+    "name": "Galakrond",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 57555,
+    "buddyDbfId": 77494,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_283",
+    "dbfId": 75702,
+    "name": "Galewing",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 75703,
+    "buddyDbfId": 77788,
+    "text": null
+  },
+  {
+    "id": "BGDUO_HERO_223",
+    "dbfId": 104982,
+    "name": "Gall",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 104985,
+    "buddyDbfId": 113692,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_15",
+    "dbfId": 57929,
+    "name": "George the Fallen",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 57562,
+    "buddyDbfId": 77495,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_95",
+    "dbfId": 67553,
+    "name": "Greybough",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 67554,
+    "buddyDbfId": 77502,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_242",
+    "dbfId": 68129,
+    "name": "Guff Runetotem",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 68130,
+    "buddyDbfId": 77790,
+    "text": null
+  },
+  {
+    "id": "BG23_HERO_305",
+    "dbfId": 86291,
+    "name": "Heistbaron Togwaggle",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 86292,
+    "buddyDbfId": 98650,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_08",
+    "dbfId": 57634,
+    "name": "Illidan Stormrage",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 61851,
+    "buddyDbfId": 77626,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_28",
+    "dbfId": 58534,
+    "name": "Infinite Toki",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 58537,
+    "buddyDbfId": 77507,
+    "text": null
+  },
+  {
+    "id": "BG26_HERO_102",
+    "dbfId": 103500,
+    "name": "Inge, the Iron Hymn",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 103501,
+    "buddyDbfId": 113627,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_200",
+    "dbfId": 80832,
+    "name": "Ini Stormcoil",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 81572,
+    "buddyDbfId": 82600,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_71",
+    "dbfId": 63601,
+    "name": "Jandice Barov",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 63607,
+    "buddyDbfId": 77792,
+    "text": null
+  },
+  {
+    "id": "BG31_HERO_801",
+    "dbfId": 118509,
+    "name": "Jim Raynor",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 118681,
+    "buddyDbfId": 122369,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_60",
+    "dbfId": 61912,
+    "name": "Kael'thas Sunstrider",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 61917,
+    "buddyDbfId": 77794,
+    "text": null
+  },
+  {
+    "id": "BG31_HERO_811",
+    "dbfId": 120358,
+    "name": "Kerrigan, Queen of Blades",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 120362,
+    "buddyDbfId": 122333,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_38",
+    "dbfId": 59814,
+    "name": "King Mukla",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 59815,
+    "buddyDbfId": 77508,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_280",
+    "dbfId": 74631,
+    "name": "Kurtrus Ashfallen",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 104875,
+    "buddyDbfId": 77796,
+    "text": null
+  },
+  {
+    "id": "BG23_HERO_304",
+    "dbfId": 85125,
+    "name": "Lady Vashj",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 85126,
+    "buddyDbfId": 101458,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_25",
+    "dbfId": 58044,
+    "name": "Lich Baz'hial",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 60285,
+    "buddyDbfId": 77510,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_37",
+    "dbfId": 59807,
+    "name": "Lord Jaraxxus",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 59808,
+    "buddyDbfId": 77798,
+    "text": null
+  },
+  {
+    "id": "BGDUO_HERO_104",
+    "dbfId": 107183,
+    "name": "Madam Goya",
+    "health": 30,
+    "armor": 8,
+    "heroPowerDbfId": 107184,
+    "buddyDbfId": 113635,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_62",
+    "dbfId": 61914,
+    "name": "Maiev Shadowsong",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 61919,
+    "buddyDbfId": 77800,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_58",
+    "dbfId": 61490,
+    "name": "Malygos",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 60378,
+    "buddyDbfId": 77723,
+    "text": null
+  },
+  {
+    "id": "BG30_HERO_304",
+    "dbfId": 113310,
+    "name": "Marin the Manager",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 113311,
+    "buddyDbfId": 122323,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_202",
+    "dbfId": 71908,
+    "name": "Master Nguyen",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 71909,
+    "buddyDbfId": 77514,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_49",
+    "dbfId": 60366,
+    "name": "Millhouse Manastorm",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 60405,
+    "buddyDbfId": 77803,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_17",
+    "dbfId": 57946,
+    "name": "Millificent Manastorm",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 57949,
+    "buddyDbfId": 77805,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_70",
+    "dbfId": 63319,
+    "name": "Mr. Bigglesworth",
+    "health": 30,
+    "armor": 19,
+    "heroPowerDbfId": 63320,
+    "buddyDbfId": 77807,
+    "text": null
+  },
+  {
+    "id": "BG23_HERO_303",
+    "dbfId": 84867,
+    "name": "Murloc Holmes",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 90403,
+    "buddyDbfId": 98656,
+    "text": null
+  },
+  {
+    "id": "BG34_HERO_000",
+    "dbfId": 127696,
+    "name": "Murozond, Unbounded",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 127697,
+    "buddyDbfId": null,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_301",
+    "dbfId": 71916,
+    "name": "Mutanus the Devourer",
+    "health": 30,
+    "armor": 20,
+    "heroPowerDbfId": 71914,
+    "buddyDbfId": 77809,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_93",
+    "dbfId": 66483,
+    "name": "N'Zoth",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 66484,
+    "buddyDbfId": 77811,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_57",
+    "dbfId": 61489,
+    "name": "Nozdormu",
+    "health": 30,
+    "armor": 13,
+    "heroPowerDbfId": 61491,
+    "buddyDbfId": 77512,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_305",
+    "dbfId": 82110,
+    "name": "Onyxia",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 82114,
+    "buddyDbfId": 77890,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_102",
+    "dbfId": 71454,
+    "name": "Overlord Saurfang",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 71455,
+    "buddyDbfId": 77813,
+    "text": null
+  },
+  {
+    "id": "BG23_HERO_201",
+    "dbfId": 86013,
+    "name": "Ozumat",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 86014,
+    "buddyDbfId": 98635,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_18",
+    "dbfId": 57947,
+    "name": "Patches the Pirate",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 62243,
+    "buddyDbfId": 77815,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_34",
+    "dbfId": 59397,
+    "name": "Patchwerk",
+    "health": 60,
+    "armor": 0,
+    "heroPowerDbfId": 59399,
+    "buddyDbfId": 77817,
+    "text": null
+  },
+  {
+    "id": "BG25_HERO_100",
+    "dbfId": 97813,
+    "name": "Professor Putricide",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 97814,
+    "buddyDbfId": 101442,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_39",
+    "dbfId": 59831,
+    "name": "Pyramad",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 59832,
+    "buddyDbfId": 77819,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_007",
+    "dbfId": 79618,
+    "name": "Queen Azshara",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 79619,
+    "buddyDbfId": 77894,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_14",
+    "dbfId": 57924,
+    "name": "Queen Wagtoggle",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 59863,
+    "buddyDbfId": 77629,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_11",
+    "dbfId": 57892,
+    "name": "Ragnaros the Firelord",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 64424,
+    "buddyDbfId": 77821,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_75",
+    "dbfId": 64400,
+    "name": "Rakanishu",
+    "health": 30,
+    "armor": 15,
+    "heroPowerDbfId": 122960,
+    "buddyDbfId": 77823,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_41",
+    "dbfId": 60212,
+    "name": "Reno Jackson",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 60216,
+    "buddyDbfId": 77825,
+    "text": null
+  },
+  {
+    "id": "BG26_HERO_104",
+    "dbfId": 99033,
+    "name": "Rock Master Voone",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 99034,
+    "buddyDbfId": 113629,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_100",
+    "dbfId": 70838,
+    "name": "Rokara",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 80229,
+    "buddyDbfId": 77876,
+    "text": null
+  },
+  {
+    "id": "BG21_HERO_010",
+    "dbfId": 76562,
+    "name": "Scabbs Cutterbutter",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 76563,
+    "buddyDbfId": 77870,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_23",
+    "dbfId": 58027,
+    "name": "Shudderwock",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 58028,
+    "buddyDbfId": 77827,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_90",
+    "dbfId": 64480,
+    "name": "Silas Darkmoon",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 64481,
+    "buddyDbfId": 77829,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_27",
+    "dbfId": 58435,
+    "name": "Sindragosa",
+    "health": 30,
+    "armor": 7,
+    "heroPowerDbfId": 57945,
+    "buddyDbfId": 77724,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_40",
+    "dbfId": 60211,
+    "name": "Sir Finley Mrrgglton",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 60450,
+    "buddyDbfId": 77831,
+    "text": null
+  },
+  {
+    "id": "BG24_HERO_100",
+    "dbfId": 92960,
+    "name": "Sire Denathrius",
+    "health": 30,
+    "armor": 11,
+    "heroPowerDbfId": 92961,
+    "buddyDbfId": 101435,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_68",
+    "dbfId": 62268,
+    "name": "Skycap'n Kragg",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 62269,
+    "buddyDbfId": 77833,
+    "text": null
+  },
+  {
+    "id": "BG28_HERO_400",
+    "dbfId": 105314,
+    "name": "Snake Eyes",
+    "health": 30,
+    "armor": 5,
+    "heroPowerDbfId": 105315,
+    "buddyDbfId": 113559,
+    "text": null
+  },
+  {
+    "id": "BG21_HERO_030",
+    "dbfId": 76521,
+    "name": "Sneed",
+    "health": 30,
+    "armor": 20,
+    "heroPowerDbfId": 76520,
+    "buddyDbfId": 77874,
+    "text": null
+  },
+  {
+    "id": "BG23_HERO_306",
+    "dbfId": 89293,
+    "name": "Sylvanas Windrunner",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 89294,
+    "buddyDbfId": 98660,
+    "text": "Don't bother asking her for drinks. She will never serve."
+  },
+  {
+    "id": "BG28_HERO_800",
+    "dbfId": 105431,
+    "name": "Tae'thelan Bloodwatcher",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 105432,
+    "buddyDbfId": 113650,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_282",
+    "dbfId": 74646,
+    "name": "Tamsin Roame",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 77911,
+    "buddyDbfId": 77878,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_000",
+    "dbfId": 77987,
+    "name": "Tavish Stormpike",
+    "health": 30,
+    "armor": 8,
+    "heroPowerDbfId": 123150,
+    "buddyDbfId": 77880,
+    "text": null
+  },
+  {
+    "id": "BG25_HERO_103",
+    "dbfId": 98726,
+    "name": "Teron Gorefiend",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 98728,
+    "buddyDbfId": 101459,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_50",
+    "dbfId": 60367,
+    "name": "Tess Greymane",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 63162,
+    "buddyDbfId": 77835,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_33",
+    "dbfId": 59203,
+    "name": "The Curator",
+    "health": 30,
+    "armor": 16,
+    "heroPowerDbfId": 59201,
+    "buddyDbfId": 77837,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_21",
+    "dbfId": 58021,
+    "name": "The Great Akazamzarak",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 58022,
+    "buddyDbfId": 77839,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_702",
+    "dbfId": 97186,
+    "name": "The Jailer",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 122959,
+    "buddyDbfId": 98690,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_22",
+    "dbfId": 58024,
+    "name": "The Lich King",
+    "health": 30,
+    "armor": 14,
+    "heroPowerDbfId": 58040,
+    "buddyDbfId": 77841,
+    "text": null
+  },
+  {
+    "id": "BGDUO_HERO_100",
+    "dbfId": 104567,
+    "name": "The Nameless One",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 104569,
+    "buddyDbfId": 113633,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_12",
+    "dbfId": 57893,
+    "name": "The Rat King",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 63127,
+    "buddyDbfId": 77843,
+    "text": null
+  },
+  {
+    "id": "BG27_HERO_801",
+    "dbfId": 103477,
+    "name": "Thorim, Stormlord",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 104628,
+    "buddyDbfId": 113557,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_94",
+    "dbfId": 67356,
+    "name": "Tickatus",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 67357,
+    "buddyDbfId": 77845,
+    "text": null
+  },
+  {
+    "id": "BG34_HERO_001",
+    "dbfId": 126537,
+    "name": "Time Twister Chromie",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 126538,
+    "buddyDbfId": null,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_10",
+    "dbfId": 57891,
+    "name": "Trade Prince Gallywix",
+    "health": 30,
+    "armor": 5,
+    "heroPowerDbfId": 57559,
+    "buddyDbfId": 77847,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_003",
+    "dbfId": 80247,
+    "name": "Vanndar Stormpike",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 80248,
+    "buddyDbfId": 77886,
+    "text": null
+  },
+  {
+    "id": "BG22_HERO_004",
+    "dbfId": 79615,
+    "name": "Varden Dawngrasp",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 80539,
+    "buddyDbfId": 77888,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_201",
+    "dbfId": 71463,
+    "name": "Vol'jin",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 71464,
+    "buddyDbfId": 77849,
+    "text": null
+  },
+  {
+    "id": "BG20_HERO_101",
+    "dbfId": 70956,
+    "name": "Xyrella",
+    "health": 30,
+    "armor": 12,
+    "heroPowerDbfId": 70957,
+    "buddyDbfId": 77851,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_92",
+    "dbfId": 66196,
+    "name": "Y'Shaarj",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 66197,
+    "buddyDbfId": 77857,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_35",
+    "dbfId": 59805,
+    "name": "Yogg-Saron, Hope's End",
+    "health": 30,
+    "armor": 10,
+    "heroPowerDbfId": 122958,
+    "buddyDbfId": 77853,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_53",
+    "dbfId": 60370,
+    "name": "Ysera",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 61408,
+    "buddyDbfId": 77855,
+    "text": null
+  },
+  {
+    "id": "TB_BaconShop_HERO_91",
+    "dbfId": 64485,
+    "name": "Zephrys, the Great",
+    "health": 30,
+    "armor": 17,
+    "heroPowerDbfId": 64486,
+    "buddyDbfId": 77859,
+    "text": null
+  },
+  {
+    "id": "BG31_HERO_005",
+    "dbfId": 117409,
+    "name": "Zerek, Master Cloner",
+    "health": 30,
+    "armor": 18,
+    "heroPowerDbfId": 117410,
+    "buddyDbfId": 122327,
+    "text": null
+  }
+]

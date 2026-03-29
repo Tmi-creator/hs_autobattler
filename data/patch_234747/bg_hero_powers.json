@@ -1,0 +1,800 @@
+[
+  {
+    "id": "TB_BaconShop_HP_041",
+    "dbfId": 63127,
+    "name": "A Tale of Kings",
+    "cost": 2,
+    "text": "[x]Discover a minion of a specific minion type. Swaps type each turn."
+  },
+  {
+    "id": "TB_BaconShop_HP_061",
+    "dbfId": 61406,
+    "name": "ALL Will Burn!",
+    "cost": 0,
+    "text": "[x]Start of Combat: Give ALL minions +2 Attack permanently."
+  },
+  {
+    "id": "TB_BaconShop_HP_057",
+    "dbfId": 60450,
+    "name": "Adventure!",
+    "cost": 0,
+    "text": "[x]At the start of the game, Discover a Hero Power."
+  },
+  {
+    "id": "TB_BaconShop_HP_035",
+    "dbfId": 59399,
+    "name": "All Patched Up",
+    "cost": 0,
+    "text": "[x]Start the game with 30 extra Health."
+  },
+  {
+    "id": "BG34_HERO_000p",
+    "dbfId": 127697,
+    "name": "Alternate Timeline",
+    "cost": 0,
+    "text": "[x]On Turn 8, visit a Major Timewarp. (7 turns left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_052",
+    "dbfId": 60378,
+    "name": "Arcane Alteration",
+    "cost": 0,
+    "text": "[x]Replace a card with a random one of the same Tier. (Twice per turn.)"
+  },
+  {
+    "id": "BG31_HERO_006p",
+    "dbfId": 117426,
+    "name": "Arcane Knowledge",
+    "cost": 0,
+    "text": "[x]The next Tavern spell you buy costs (1) less. (Unlocks on Turn 3.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_088",
+    "dbfId": 64476,
+    "name": "Avalanche",
+    "cost": 0,
+    "text": "[x]After you play 3 Elementals, reduce the Cost of upgrading the Tavern by (3)."
+  },
+  {
+    "id": "TB_BaconShop_HP_105",
+    "dbfId": 66484,
+    "name": "Avatar of N'Zoth",
+    "cost": 0,
+    "text": "[x]Start the game with a 2/2 Fish that gains all your Deathrattles in combat."
+  },
+  {
+    "id": "BG22_HERO_007p",
+    "dbfId": 79619,
+    "name": "Azshara's Ambition",
+    "cost": 0,
+    "text": "[x]When your warband reaches 30 total Attack, begin your Naga Conquest."
+  },
+  {
+    "id": "TB_BaconShop_HP_087",
+    "dbfId": 64424,
+    "name": "BUY, INSECT!",
+    "cost": 0,
+    "text": "[x]After you buy 16 cards, get Sulfuras. (16 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_038",
+    "dbfId": 59815,
+    "name": "Bananarama",
+    "cost": 0,
+    "text": "[x]At the start of your turn, get 2 Bananas and give everyone else one."
+  },
+  {
+    "id": "TB_BaconShop_HP_048",
+    "dbfId": 60218,
+    "name": "Battle Brand",
+    "cost": 0,
+    "text": "[x]After you buy 4 Battlecry minions, get a Brann Bronzebeard. (Once per game.)"
+  },
+  {
+    "id": "BG28_HERO_801p",
+    "dbfId": 110472,
+    "name": "Blessing of the Nine Frogs",
+    "cost": 1,
+    "text": "Get a random Tavern spell."
+  },
+  {
+    "id": "BG20_HERO_103p",
+    "dbfId": 71459,
+    "name": "Bloodbound",
+    "cost": 1,
+    "text": "Get 2 Blood Gems. (Twice per turn.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_036",
+    "dbfId": 59808,
+    "name": "Bloodfury",
+    "cost": 0,
+    "text": "[x]After friendly minions deal 150 damage, open a portal to the Twisting Nether! (150 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_077",
+    "dbfId": 63162,
+    "name": "Bob's Burgles",
+    "cost": 1,
+    "text": "[x]Refresh the Tavern with plain copies of your last opponent's warband."
+  },
+  {
+    "id": "TB_BaconShop_HP_010",
+    "dbfId": 57562,
+    "name": "Boon of Light",
+    "cost": 1,
+    "text": "Give a minion Divine Shield."
+  },
+  {
+    "id": "TB_BaconShop_HP_040",
+    "dbfId": 59832,
+    "name": "Brick by Brick",
+    "cost": 2,
+    "text": "[x]Steal a random minion from the Tavern. Double its Health."
+  },
+  {
+    "id": "BG22_HERO_305p",
+    "dbfId": 82114,
+    "name": "Broodmother",
+    "cost": 0,
+    "text": "[x]Avenge (4): Summon a 1/1 Whelp that attacks immediately. Improve this by +1/+1."
+  },
+  {
+    "id": "BG25_HERO_100p",
+    "dbfId": 97814,
+    "name": "Build-An-Undead",
+    "cost": 4,
+    "text": "[x]Craft a custom Undead. (3 Creations left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_074",
+    "dbfId": 62250,
+    "name": "Buried Treasure",
+    "cost": 1,
+    "text": "[x] Dig for a Golden minion! (4 Digs left.)"
+  },
+  {
+    "id": "BG27_HERO_801p2",
+    "dbfId": 104628,
+    "name": "Choose Your Champion",
+    "cost": 0,
+    "text": "[x]Passive. At the start of the game, Discover a Tier 7 minion to get after you spend 60 Gold. (60 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_063",
+    "dbfId": 61491,
+    "name": "Clairvoyance",
+    "cost": 0,
+    "text": "[x]Your first Refresh each turn is free."
+  },
+  {
+    "id": "BG31_HERO_005p",
+    "dbfId": 117410,
+    "name": "Cloning Gallery",
+    "cost": 0,
+    "text": "[x]Once per game, summon an exact copy of a friendly minion."
+  },
+  {
+    "id": "TB_BaconShop_HP_101",
+    "dbfId": 64481,
+    "name": "Come One, Come All!",
+    "cost": 0,
+    "text": "[x]Darkmoon Tickets are in the Tavern! Get 3 to Discover a minion of your Tier."
+  },
+  {
+    "id": "BG21_HERO_000p",
+    "dbfId": 73941,
+    "name": "Conviction",
+    "cost": 1,
+    "text": "[x]Give 1 random friendly minion +1/+1. Passive: After each combat, choose an improvement."
+  },
+  {
+    "id": "TB_BaconShop_HP_065",
+    "dbfId": 61915,
+    "name": "Demon Hunter Training",
+    "cost": 0,
+    "text": "[x]After 14 friendly minions attack, the first minion you buy each turn is free. (14 left!)"
+  },
+  {
+    "id": "BG23_HERO_303p2",
+    "dbfId": 90403,
+    "name": "Detective for Hire",
+    "cost": 0,
+    "text": "[x]Look at 2 minions. Guess which one your next opponent had last combat for a Tavern Coin."
+  },
+  {
+    "id": "BG20_HERO_301p",
+    "dbfId": 71914,
+    "name": "Devour",
+    "cost": 0,
+    "text": "[x]Sell a friendly minion. Spit its stats onto another."
+  },
+  {
+    "id": "BGDUO_HERO_222p",
+    "dbfId": 104983,
+    "name": "Double Trouble",
+    "cost": 0,
+    "text": "[x]Whenever you play a Golden minion, both you and Gall get a Triple Reward. (3 left!)"
+  },
+  {
+    "id": "BGDUO_HERO_223p",
+    "dbfId": 104985,
+    "name": "Double Trouble",
+    "cost": 0,
+    "text": "[x]Whenever you play a Golden minion, both you and Cho get a Triple Reward. (3 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_062",
+    "dbfId": 61408,
+    "name": "Dream Portal",
+    "cost": 0,
+    "text": "[x]The Tavern offers an extra Dragon whenever it is Refreshed."
+  },
+  {
+    "id": "BG20_HERO_283p",
+    "dbfId": 75703,
+    "name": "Dungar's Gryphon",
+    "cost": 0,
+    "text": "Choose a new flightpath. Complete it to get a bonus!"
+  },
+  {
+    "id": "BGDUO_HERO_104p",
+    "dbfId": 107184,
+    "name": "Efficient Exchange",
+    "cost": 2,
+    "text": "Pass a non-Golden minion."
+  },
+  {
+    "id": "TB_BaconShop_HP_103",
+    "dbfId": 66197,
+    "name": "Embrace Your Rage",
+    "cost": 2,
+    "text": "[x]Start of Combat: Summon and get a minion of your Tier."
+  },
+  {
+    "id": "BG22_HERO_001p",
+    "dbfId": 79720,
+    "name": "Embrace the Elements",
+    "cost": 0,
+    "text": "[x]Choose an Element. Start of Combat: Call upon that Element."
+  },
+  {
+    "id": "BG24_HERO_204p",
+    "dbfId": 96872,
+    "name": "Enhancification",
+    "cost": 0,
+    "text": "[x]After each Refresh, give a minion in the Tavern a random Bonus Keyword."
+  },
+  {
+    "id": "TB_BaconShop_HP_082",
+    "dbfId": 63605,
+    "name": "Everbloom",
+    "cost": 0,
+    "text": "[x]After you upgrade the Tavern, gain 2 Gold."
+  },
+  {
+    "id": "BG22_HERO_201p",
+    "dbfId": 81570,
+    "name": "Expedition Plans",
+    "cost": 0,
+    "text": "[x]Skip your first turn. Discover a Tier 6, 4, and 2 minion to get at those Tiers."
+  },
+  {
+    "id": "BG30_HERO_304p",
+    "dbfId": 113311,
+    "name": "Fantastic Treasure",
+    "cost": 0,
+    "text": "[x]On Turn 5, choose a Lesser Trinket to buy. (4 turns left!)"
+  },
+  {
+    "id": "BG20_HERO_102p",
+    "dbfId": 71455,
+    "name": "For the Horde!",
+    "cost": 0,
+    "text": "[x]Minions in the Tavern have +1/+1. Improves after you buy 4 minions. (4 left!)"
+  },
+  {
+    "id": "BG20_HERO_282p",
+    "dbfId": 77911,
+    "name": "Fragrant Phylactery",
+    "cost": 0,
+    "text": "[x]Start of Combat: Give your lowest-Attack minion \"Deathrattle: Give your other minions this minion's stats.\""
+  },
+  {
+    "id": "BG22_HERO_002p",
+    "dbfId": 80244,
+    "name": "Frostwolf Fervor",
+    "cost": 0,
+    "text": "[x]When you have space in combat, summon a copy of your highest-Attack minion. (Unlocks on Turn 7.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_011",
+    "dbfId": 57555,
+    "name": "Galakrond's Greed",
+    "cost": 1,
+    "text": "Choose a minion in the Tavern. Then choose a higher Tier minion to replace it."
+  },
+  {
+    "id": "BG20_HERO_280p5",
+    "dbfId": 104875,
+    "name": "Glaive Ricochet",
+    "cost": 0,
+    "text": "[x]Once per turn, after you buy 3 minions, get a plain copy of one of them. (3 left!)"
+  },
+  {
+    "id": "BGDUO_HERO_101p",
+    "dbfId": 104672,
+    "name": "Glorious Gloop",
+    "cost": 0,
+    "text": "[x]Choose a friendly minion. Start of Combat: Transform it into your teammate's highest-Tier minion."
+  },
+  {
+    "id": "BG20_HERO_100p",
+    "dbfId": 80229,
+    "name": "Glory of Combat",
+    "cost": 0,
+    "text": "[x]After a friendly minion kills an enemy, give it +1 Attack permanently."
+  },
+  {
+    "id": "TB_BaconShop_HP_056",
+    "dbfId": 60448,
+    "name": "Gone Fishing",
+    "cost": 0,
+    "text": "[x]After you sell 5 minions, get a random Murloc. (5 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_046",
+    "dbfId": 60216,
+    "name": "Gonna Be Rich!",
+    "cost": 0,
+    "text": "[x]Once per game, make a friendly minion Golden."
+  },
+  {
+    "id": "TB_BaconShop_HP_049",
+    "dbfId": 60285,
+    "name": "Graveyard Shift",
+    "cost": 2,
+    "text": "[x]Steal a card from the Tavern. Take 2 damage."
+  },
+  {
+    "id": "BG32_HERO_002p",
+    "dbfId": 120650,
+    "name": "Growing Collection",
+    "cost": 0,
+    "text": "[x]On Turn 8, choose a Greater Trinket to buy. (7 turns left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_042",
+    "dbfId": 59860,
+    "name": "Hat Trick",
+    "cost": 0,
+    "text": "[x]When you play a minion, give it a +1/+1 hat that passes to a friendly minion when sold."
+  },
+  {
+    "id": "BG21_HERO_010p",
+    "dbfId": 76563,
+    "name": "I Spy",
+    "cost": 2,
+    "text": "[x]Discover a plain copy of a minion from your next opponent's warband."
+  },
+  {
+    "id": "TB_BaconShop_HP_053",
+    "dbfId": 60381,
+    "name": "I'll Take That!",
+    "cost": 1,
+    "text": "[x]Next combat, get a plain copy of the first minion you kill."
+  },
+  {
+    "id": "BG26_HERO_101p",
+    "dbfId": 101132,
+    "name": "I'm the Cap'n Now",
+    "cost": 0,
+    "text": "After you buy a Pirate, gain 1 Gold."
+  },
+  {
+    "id": "TB_BaconShop_HP_068",
+    "dbfId": 61919,
+    "name": "Imprison",
+    "cost": 1,
+    "text": "[x]Choose a card in the Tavern to lock in your hand. After 2 turns, unlock it."
+  },
+  {
+    "id": "TB_BaconShop_HP_080",
+    "dbfId": 63320,
+    "name": "Kel'Thuzad's Kitty",
+    "cost": 0,
+    "text": "[x]After another hero dies, Discover a minion from their warband. It keeps enchantments."
+  },
+  {
+    "id": "TB_BaconShop_HP_047",
+    "dbfId": 60217,
+    "name": "Lead Explorer",
+    "cost": 1,
+    "text": "[x]Discover a minion from your Tier. Costs (1) more after each use."
+  },
+  {
+    "id": "BG31_HERO_801p",
+    "dbfId": 118681,
+    "name": "Lift Off",
+    "cost": 0,
+    "text": "[x]Start the game with a 2/2 Battlecruiser. Whenever the Tavern is Refreshed, add a Battlecruiser Upgrade to it."
+  },
+  {
+    "id": "BG22_HERO_000p_Alt",
+    "dbfId": 123150,
+    "name": "Lock and Load",
+    "cost": 0,
+    "text": "[x]Remove a minion in the Tavern. When you have space next combat, fire it at a random enemy minion."
+  },
+  {
+    "id": "BG28_HERO_400p",
+    "dbfId": 105315,
+    "name": "Lucky Roll",
+    "cost": 1,
+    "text": "Roll a 6-sided die. Gain that much Gold. (Cannot be used again for that many turns!)"
+  },
+  {
+    "id": "BG26_HERO_102p",
+    "dbfId": 103501,
+    "name": "Major Hymn",
+    "cost": 0,
+    "text": "[x]Give a minion Attack equal to your Tier. (Swaps to Health next turn!)"
+  },
+  {
+    "id": "BG34_HERO_001p",
+    "dbfId": 126538,
+    "name": "Mana Per Minute",
+    "cost": 0,
+    "text": "Refresh the Tavern with Tavern spells."
+  },
+  {
+    "id": "TB_BaconShop_HP_054",
+    "dbfId": 60405,
+    "name": "Manastorm",
+    "cost": 0,
+    "text": "[x]Minions and Refreshes cost 2 Gold. Upgrading the Tavern costs (1) more."
+  },
+  {
+    "id": "BG22_HERO_200p",
+    "dbfId": 81572,
+    "name": "MechGyver",
+    "cost": 0,
+    "text": "[x]After 9 friendly minions die, get a random Mech."
+  },
+  {
+    "id": "TB_BaconShop_HP_033",
+    "dbfId": 59201,
+    "name": "Menagerist",
+    "cost": 0,
+    "text": "[x]Start the game with a 2/2 Amalgam with Venomous and all minion types."
+  },
+  {
+    "id": "BG20_HERO_242p",
+    "dbfId": 68130,
+    "name": "Natural Balance",
+    "cost": 0,
+    "text": "[x]After you buy 20 Tiers' worth of cards, get a Triple Reward. (20 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_076",
+    "dbfId": 62269,
+    "name": "Piggy Bank",
+    "cost": 0,
+    "text": "[x]Gain 2 Gold. Increases by 1 each turn. (Once per game.)"
+  },
+  {
+    "id": "BG21_HERO_030p",
+    "dbfId": 76520,
+    "name": "Pilot the Shredder",
+    "cost": 0,
+    "text": "[x]Start the game with a 2/1 Shredder that summons a minion from your hand and gives it Divine Shield."
+  },
+  {
+    "id": "TB_BaconShop_HP_072",
+    "dbfId": 62243,
+    "name": "Pirate Parrrrty!",
+    "cost": 3,
+    "text": "[x]Get a Pirate. After you buy a Pirate, your next Hero Power costs (1) less."
+  },
+  {
+    "id": "BG20_HERO_202p",
+    "dbfId": 71909,
+    "name": "Power of the Storm",
+    "cost": 0,
+    "text": "At the start of every turn, choose from 2 new Hero Powers."
+  },
+  {
+    "id": "TB_BaconShop_HP_020",
+    "dbfId": 58022,
+    "name": "Prestidigitation",
+    "cost": 0,
+    "text": "Choose a Secret. Put it into the battlefield."
+  },
+  {
+    "id": "TB_BaconShop_HP_106",
+    "dbfId": 67357,
+    "name": "Prize Wall",
+    "cost": 0,
+    "text": "[x]Every 4 turns, Discover a Darkmoon Prize. (3 turns left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_044",
+    "dbfId": 59891,
+    "name": "Procrastinate",
+    "cost": 0,
+    "text": "[x]Skip your first two turns, then Discover a minion from Tier 3 and Tier 4."
+  },
+  {
+    "id": "TB_BaconShop_HP_039t",
+    "dbfId": 122958,
+    "name": "Puzzle Box",
+    "cost": 0,
+    "text": "[x]At the start of your turn, cast a random Tavern spell. (Unlocks on Turn 3.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_064",
+    "dbfId": 61517,
+    "name": "Queen of Dragons",
+    "cost": 1,
+    "text": "Discover a Dragon. (Unlocks at Tier 4.)"
+  },
+  {
+    "id": "BG25_HERO_103p",
+    "dbfId": 98728,
+    "name": "Rapid Reanimation",
+    "cost": 0,
+    "text": "[x]Choose a friendly minion. Start of Combat: Destroy it. When you have space, resummon an exact copy."
+  },
+  {
+    "id": "TB_BaconShop_HP_024",
+    "dbfId": 58040,
+    "name": "Reborn Rites",
+    "cost": 0,
+    "text": "[x]Give a minion Reborn until next turn."
+  },
+  {
+    "id": "BG23_HERO_306p",
+    "dbfId": 89294,
+    "name": "Reclaimed Souls",
+    "cost": 2,
+    "text": "[x]Discover a plain copy of a minion that died last combat. (Unlocks on Turn 3.)"
+  },
+  {
+    "id": "BG23_HERO_304p",
+    "dbfId": 85126,
+    "name": "Relics of the Deep",
+    "cost": 0,
+    "text": "[x]At the start of each turn, get a random Spellcraft spell."
+  },
+  {
+    "id": "BG28_HERO_800p",
+    "dbfId": 105432,
+    "name": "Reliquary Research",
+    "cost": 0,
+    "text": "[x]Every fourth Tavern spell you buy costs (0)."
+  },
+  {
+    "id": "TB_BaconShop_HP_702t",
+    "dbfId": 122959,
+    "name": "Rune of Damnation",
+    "cost": 1,
+    "text": "Destroy a friendly Undead to get a random Undead. (Unlocks at Tier 2.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_104",
+    "dbfId": 66246,
+    "name": "Saturday C'Thuns!",
+    "cost": 1,
+    "text": "[x]At end of turn, give a friendly minion +1/+1. Repeat 0 times. (Improves each turn!)"
+  },
+  {
+    "id": "BG20_HERO_101p",
+    "dbfId": 70957,
+    "name": "See the Light",
+    "cost": 2,
+    "text": "[x]Choose a minion in the Tavern. Set its stats to 2 and add it to your hand."
+  },
+  {
+    "id": "TB_BaconShop_HP_001",
+    "dbfId": 57567,
+    "name": "Sharpen Blades",
+    "cost": 1,
+    "text": "[x]Give a minion +2/+2. Improves after you buy 5 cards. (5 left!)"
+  },
+  {
+    "id": "BG25_HERO_105p",
+    "dbfId": 101346,
+    "name": "Sign a New Artist",
+    "cost": 3,
+    "text": "Discover a Buddy. (Unlocks at Tier 2.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_008",
+    "dbfId": 57559,
+    "name": "Smart Savings",
+    "cost": 1,
+    "text": "[x]After you sell a minion, gain 1 Gold next turn."
+  },
+  {
+    "id": "TB_BaconShop_HP_022",
+    "dbfId": 58028,
+    "name": "Snicker-snack",
+    "cost": 0,
+    "text": "[x]Trigger a friendly minion's Battlecry. (Unlocks on Turn 3.)"
+  },
+  {
+    "id": "BG31_HERO_811p",
+    "dbfId": 120362,
+    "name": "Spawning Pool",
+    "cost": 6,
+    "text": "[x]Unlock Tier 2 Zerg. Costs (1) less each turn. Passive: Start the game with a 2/2 Larva."
+  },
+  {
+    "id": "BG20_HERO_201p",
+    "dbfId": 71464,
+    "name": "Spirit Swap",
+    "cost": 0,
+    "text": "Choose 2 minions. They gain each other's Attack until next turn."
+  },
+  {
+    "id": "TB_BaconShop_HP_107",
+    "dbfId": 67554,
+    "name": "Sprout It Out!",
+    "cost": 0,
+    "text": "[x]Give +1/+2 and Taunt to minions you summon during combat."
+  },
+  {
+    "id": "TB_BaconShop_HP_014",
+    "dbfId": 57945,
+    "name": "Stay Frosty",
+    "cost": 0,
+    "text": "[x] Minions cost (2). The Tavern offers one fewer minion and Freezes at the end of each turn."
+  },
+  {
+    "id": "BG21_HERO_020p",
+    "dbfId": 77434,
+    "name": "Stir the Pot",
+    "cost": 0,
+    "text": "[x]Throw a minion in your pot. When you've gathered 3, Discover from their types. (3 left!)"
+  },
+  {
+    "id": "BG22_HERO_003p",
+    "dbfId": 80248,
+    "name": "Stormpike Strength",
+    "cost": 0,
+    "text": "[x]When you have space in combat, summon a copy of your highest-Health minion. (Unlocks on Turn 7.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_084",
+    "dbfId": 63607,
+    "name": "Swap, Lock, & Shop It",
+    "cost": 0,
+    "text": "[x]Swap a friendly non-Golden minion with a random one in the Tavern."
+  },
+  {
+    "id": "TB_BaconShop_HP_086",
+    "dbfId": 64402,
+    "name": "Swatting Insects",
+    "cost": 0,
+    "text": "[x]Start of Combat: Give your left-most minion Windfury, Divine Shield, and Taunt."
+  },
+  {
+    "id": "TB_BaconShop_HP_085t",
+    "dbfId": 122960,
+    "name": "Tavern Lighting",
+    "cost": 0,
+    "text": "[x]Your Tavern spells give an extra +1/+1. At the start of every 4 turns, improve this. (4 turns left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_028",
+    "dbfId": 58537,
+    "name": "Temporal Tavern",
+    "cost": 1,
+    "text": "[x]Refresh the Tavern. Include two minions from a Tier higher than yours."
+  },
+  {
+    "id": "BG23_HERO_201p",
+    "dbfId": 86014,
+    "name": "Tentacular",
+    "cost": 0,
+    "text": "[x]When you have space in combat, summon a 2/2 Tentacle with Taunt. (Gains +1/+1 after you sell a minion!)"
+  },
+  {
+    "id": "BG31_HERO_003p",
+    "dbfId": 116924,
+    "name": "The Galaxy's Lens",
+    "cost": 3,
+    "text": "[x]Get a copy of the last Tavern spell you cast. Each turn, your next Hero Power costs (1) less."
+  },
+  {
+    "id": "BG23_HERO_305p",
+    "dbfId": 86292,
+    "name": "The Perfect Crime",
+    "cost": 11,
+    "text": "[x]Steal all cards from the Tavern. Each turn, your next Hero Power costs (1) less."
+  },
+  {
+    "id": "TB_BaconShop_HP_102",
+    "dbfId": 64486,
+    "name": "Three Wishes",
+    "cost": 3,
+    "text": "[x]If you have two copies of a minion, find the third. (3 Wishes left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_015",
+    "dbfId": 57949,
+    "name": "Tinker",
+    "cost": 1,
+    "text": "[x]Discover a Magnetic Mech. (Unlocks at Tier 4.)"
+  },
+  {
+    "id": "TB_BaconShop_HP_075",
+    "dbfId": 62267,
+    "name": "Trash for Treasure",
+    "cost": 0,
+    "text": "[x]Remove a friendly minion. Discover one from a Tier lower to get."
+  },
+  {
+    "id": "BG22_HERO_004p",
+    "dbfId": 80539,
+    "name": "Twice as Nice",
+    "cost": 0,
+    "text": "[x]After the Tavern is Refreshed, copy its highest-Tier minion and Freeze them both."
+  },
+  {
+    "id": "BG26_HERO_104p",
+    "dbfId": 99034,
+    "name": "Upbeat Harmony",
+    "cost": 0,
+    "text": "[x]At the end of every 3 turns, get a plain copy of the left- most card in your hand. (3 turns left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_066",
+    "dbfId": 61917,
+    "name": "Verdant Spheres",
+    "cost": 0,
+    "text": "[x]After you buy 3 minions, get a Tavern Coin."
+  },
+  {
+    "id": "BG31_HERO_802p",
+    "dbfId": 119196,
+    "name": "Warp Gate",
+    "cost": 0,
+    "text": "[x]At the start of the game, choose from 2 Protoss minions to get after you buy 14 cards. (14 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HP_037a",
+    "dbfId": 59863,
+    "name": "Wax Warband",
+    "cost": 0,
+    "text": "[x]Start of Combat: Give a friendly minion of each type +1/+1. (Improves after you spend 10 Gold!)"
+  },
+  {
+    "id": "BG24_HERO_100p",
+    "dbfId": 92961,
+    "name": "Whodunit?",
+    "cost": 0,
+    "text": "At the start of the game, choose one of two Quests."
+  },
+  {
+    "id": "TB_BaconShop_HP_069",
+    "dbfId": 61851,
+    "name": "Wingmen",
+    "cost": 0,
+    "text": "[x]Start of Combat: Your left- and right-most minions gain +2/+1 and attack immediately."
+  },
+  {
+    "id": "BG32_HERO_001p",
+    "dbfId": 116921,
+    "name": "Wisdom of Ancients",
+    "cost": 3,
+    "text": "Increase your maximum Gold by 1."
+  },
+  {
+    "id": "BGDUO_HERO_100p",
+    "dbfId": 104569,
+    "name": "[x]",
+    "cost": 0,
+    "text": "[x]Start of Game: Copy your teammate's Hero Power."
+  }
+]

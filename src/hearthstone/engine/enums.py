@@ -15,6 +15,7 @@ class UnitType(Enum):
     NAGA = "Naga"
     QUILBOAR = "Quilboar"
     NEUTRAL = "Neutral"
+    ALL = "All"
 
 
 class Tags(Enum):
@@ -43,35 +44,35 @@ class MechanicType(Enum):
 
 
 class CardIDs(str, Enum):
-    # --- TIER 1 ---
-    WRATH_WEAVER = "101"
-    SHELL_COLLECTOR = "107"
-    SWAMPSTRIKER = "104"
-    ANNOY_O_TRON = "105"
-    ALLEYCAT = "102"
-    SCALLYWAG = "103"
-    IMPRISONER = "108"
+    # --- TIER 1 (21 cards, patch 234747) ---
+    ANNOY_O_TRON = "101"
+    AUREATE_LAUREATE = "102"
+    CORD_PULLER = "103"
+    CRACKLING_CYCLONE = "104"
+    DUNE_DWELLER = "105"
+    FLIGHTY_SCOUT = "106"
+    HARMLESS_BONEHEAD = "107"
+    MANASABER = "108"
     MINTED_CORSAIR = "109"
-    FLIGHTY_SCOUT = "110"
-    DIRE_WOLF_ALPHA = "111"
-
-    # --- TIER 2 ---
-    LEAPFROGGER = "201"
-    MOLTEN_ROCK = "202"
-    MURLOC_WARLEADER = "203"
-    SOUTHSEA_CAPTAIN = "204"
-    ANNOY_O_MODULE = "205"
-    SPAWN_OF_NZOTH = "206"
-    KABOOM_BOT = "207"
-
-    # --- TIER 3 ---
-    DEFLECT_O_BOT = "301"
+    MISFIT_DRAGONLING = "110"
+    OMINOUS_SEER = "111"
+    PICKY_EATER = "112"
+    RAZORFEN_GEOMANCER = "113"
+    RISEN_RIDER = "114"
+    RIVER_SKIPPER = "115"
+    ROT_HIDE_GNOLL = "116"
+    SURF_N_SURF = "117"
+    SWAMPSTRIKER = "118"
+    TUSKED_CAMPER = "119"
+    TWILIGHT_HATCHLING = "120"
+    WRATH_WEAVER = "121"
 
     # --- TOKENS ---
-    TABBYCAT = "102t"
-    PIRATE_TOKEN = "103t"
-    IMP_TOKEN = "108t"
-    CRAB_TOKEN = "001t"
+    MICROBOT = "t001"
+    SKELETON = "t002"
+    CUBLING = "t003"
+    TWILIGHT_WHELP = "t004"
+    CRAB_TOKEN = "t005"
 
 
 class SpellIDs(str, Enum):

@@ -246,6 +246,33 @@ class EffectContext:
             return
         unit.attached_combat[effect_id] = unit.attached_combat.get(effect_id, 0) + count
 
+    def consume_random_store_unit(self, side: int) -> tuple[int, int] | None:
+        """Remove a random unit from the store. Returns (atk, hp) or None."""
+        import random
+        player = self.players_by_uid.get(side)
+        if not player:
+            return None
+        store_units = [(i, item) for i, item in enumerate(player.store) if item.unit]
+        if not store_units:
+            return None
+        idx, item = random.choice(store_units)
+        consumed = item.unit
+        if not consumed:
+            return None
+        atk, hp = consumed.cur_atk, consumed.cur_hp
+        player.store.pop(idx)
+        return atk, hp
+
+    def add_unit_to_hand(self, side: int, card_id: str) -> bool:
+        """Create a unit from DB and add it to the player's hand. Returns True on success."""
+        player = self.players_by_uid.get(side)
+        if not player or len(player.hand) >= 10:
+            return False
+        uid = self._uid_provider()
+        new_unit = Unit.create_from_db(card_id, uid, side)
+        player.hand.append(HandCard(uid=uid, unit=new_unit))
+        return True
+
     def summon(
         self, side: int, card_id: str, insert_index: int, is_golden: bool = False
     ) -> Optional[EntityRef]:  # noqa: E501

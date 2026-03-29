@@ -233,3 +233,4 @@ scripts/_kaggle_build/
 # Agent context
 .agents/
 .agent_context/
+.claude/

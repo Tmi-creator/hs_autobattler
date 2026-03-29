@@ -1,0 +1,584 @@
+[
+  {
+    "id": "BG27_Anomaly_755",
+    "dbfId": 102093,
+    "name": "A Faire Reward",
+    "text": "Instead of a minion, Triple Rewards Discover a Tier 1 Darkmoon Prize. (Improves in 4 turns!)"
+  },
+  {
+    "id": "BGDUO_Anomaly_005",
+    "dbfId": 119142,
+    "name": "All Bottled Up",
+    "text": "At the start of each turn, get a Portal in a Bottle."
+  },
+  {
+    "id": "BG33_Anomaly_009",
+    "dbfId": 123083,
+    "name": "Amicable Amendment",
+    "text": "The Cost of your Buddy Button is 50% higher, but reduces by (1) after you buy a card."
+  },
+  {
+    "id": "BG27_Anomaly_561",
+    "dbfId": 106499,
+    "name": "Anomalous Bribe",
+    "text": "After you sell a minion, give its stats to a minion in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_803",
+    "dbfId": 102982,
+    "name": "Anomalous Evidence",
+    "text": "At the start of each turn, choose from 2 new Quest Rewards. (Unlocks on Turn 4.)"
+  },
+  {
+    "id": "BG27_Anomaly_560",
+    "dbfId": 106498,
+    "name": "Anomalous Twin",
+    "text": "Start of Combat: Summon a copy of your highest-Health minion."
+  },
+  {
+    "id": "BG27_Anomaly_562",
+    "dbfId": 106500,
+    "name": "Anomalous Wisdomball",
+    "text": "You occasionally get helpful Refreshes! (Unlocks on Turn 5.)"
+  },
+  {
+    "id": "BG27_Anomaly_580",
+    "dbfId": 107226,
+    "name": "Audience's Choice",
+    "text": "[x]At the start of each turn, one player chooses a card for ALL players to get at end of turn."
+  },
+  {
+    "id": "BG27_Anomaly_100",
+    "dbfId": 102986,
+    "name": "Big League",
+    "text": "Only Tavern Tiers 3, 4, 5, and 6 exist. Start with 10 extra Armor."
+  },
+  {
+    "id": "BG27_Anomaly_726",
+    "dbfId": 102908,
+    "name": "Blessed or Blighted",
+    "text": "[x]Start of Combat: Give your left-most minion Divine Shield and your right-most minion Reborn."
+  },
+  {
+    "id": "BG27_Anomaly_502",
+    "dbfId": 102972,
+    "name": "Blood of Sargeras",
+    "text": "[x]At the start of your turn, set your hero's Health to 12."
+  },
+  {
+    "id": "BG27_Anomaly_302",
+    "dbfId": 102076,
+    "name": "Bring Home the Bacon",
+    "text": "[x]Start with two upgrading 'Piggy Banks'. Break them open to gain Gold!"
+  },
+  {
+    "id": "BG27_Anomaly_810",
+    "dbfId": 103541,
+    "name": "Bring in the Buddies",
+    "text": "[x]Buddies are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_Buddies",
+    "dbfId": 106692,
+    "name": "Buddies",
+    "text": "Buddies are in this game!"
+  },
+  {
+    "id": "BG33_Anomaly_005",
+    "dbfId": 123086,
+    "name": "Colorful Camaraderie",
+    "text": "[x]Buddies have all minion types."
+  },
+  {
+    "id": "BG31_Anomaly_102",
+    "dbfId": 118697,
+    "name": "Continuing Education",
+    "text": "[x]At the start of each turn, get an Evolving Scroll. Each turn, it transforms into a Tavern spell from a Tier higher."
+  },
+  {
+    "id": "BG31_Anomaly_123",
+    "dbfId": 119094,
+    "name": "Cosmic Duality",
+    "text": "At the start of the game, Discover a second Hero Power."
+  },
+  {
+    "id": "BG27_Anomaly_006",
+    "dbfId": 101994,
+    "name": "Curse of Aggramar",
+    "text": "[x]Start at 5 Health and 5 Gold. Your hero can only take 1 damage at a time."
+  },
+  {
+    "id": "BG27_Anomaly_Prizes",
+    "dbfId": 106695,
+    "name": "Darkmoon Prizes",
+    "text": "Darkmoon Prizes are in this game!"
+  },
+  {
+    "id": "BG27_Anomaly_820",
+    "dbfId": 103111,
+    "name": "Deep Blue Sooner",
+    "text": "[x]At the start of your turn, get 2 temporary Deep Blues. They give a minion more stats each time!"
+  },
+  {
+    "id": "BG27_Anomaly_822",
+    "dbfId": 103113,
+    "name": "Denathrius' Anima Reserves",
+    "text": "[x]Quests and Rewards are in this game. All heroes are Sire Denathrius."
+  },
+  {
+    "id": "BG27_Anomaly_711",
+    "dbfId": 102046,
+    "name": "Double Header",
+    "text": "The first time you buy a card each turn, get an extra copy of it."
+  },
+  {
+    "id": "BG27_Anomaly_802",
+    "dbfId": 102177,
+    "name": "Echoes of Argus",
+    "text": "Your Battlecries and Deathrattles trigger an extra time."
+  },
+  {
+    "id": "BG27_Anomaly_575",
+    "dbfId": 106633,
+    "name": "Eleventh Hour",
+    "text": "[x]The first time your hero takes fatal damage in combat, prevent it and gain 11 Gold next turn instead."
+  },
+  {
+    "id": "BG31_Anomaly_111",
+    "dbfId": 118734,
+    "name": "Elven Elite",
+    "text": "The Tavern only offers cards of your Tier."
+  },
+  {
+    "id": "BG31_Anomaly_117",
+    "dbfId": 118676,
+    "name": "Emergency Landing",
+    "text": "Twice per turn, you can remove all copies of a minion in the Tavern from your pool."
+  },
+  {
+    "id": "BG27_Anomaly_714",
+    "dbfId": 102412,
+    "name": "Everything's on Fire!",
+    "text": "[x]At the start of the game, take 25 damage. After another hero dies, regain 5 Health."
+  },
+  {
+    "id": "BG31_Anomaly_114",
+    "dbfId": 118670,
+    "name": "Factory Line",
+    "text": "At the end of every 2 turns, get a plain copy of your left-most minion. (2 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_301",
+    "dbfId": 102075,
+    "name": "False Idols",
+    "text": "[x]You only need 2 copies of a minion to make it Golden. Instead of a Triple Reward, get a Gold Coin."
+  },
+  {
+    "id": "BG27_Anomaly_558",
+    "dbfId": 106468,
+    "name": "Feline Fortune",
+    "text": "[x]After another hero dies, Discover a minion from their warband. It keeps enchantments."
+  },
+  {
+    "id": "BG27_Anomaly_001",
+    "dbfId": 101959,
+    "name": "Finicky Hourglass",
+    "text": "Start at Tavern Tier 2."
+  },
+  {
+    "id": "BG27_Anomaly_715",
+    "dbfId": 102455,
+    "name": "Gladiator's Spoils",
+    "text": "[x]After you win a combat, Discover a minion of your Tier. Otherwise, get a random one of a Tier lower."
+  },
+  {
+    "id": "BG31_Anomaly_124",
+    "dbfId": 119044,
+    "name": "Golden Arrow",
+    "text": "[x]Every 3 turns, get a Golden Arrow. (3 turns left!)"
+  },
+  {
+    "id": "BGDUO_Anomaly_003",
+    "dbfId": 119157,
+    "name": "Golden Friendship",
+    "text": "Once per game, you can Goldenize and Pass a minion."
+  },
+  {
+    "id": "BG27_Anomaly_900",
+    "dbfId": 102005,
+    "name": "Golganneth's Tempest",
+    "text": "[x]Minions cost 2 Gold. You cannot Refresh the Tavern. It Refreshes itself after you buy a card."
+  },
+  {
+    "id": "BG27_Anomaly_303",
+    "dbfId": 102085,
+    "name": "Grapnel of the Titans",
+    "text": "The first minion you buy each turn is free."
+  },
+  {
+    "id": "BG32_Anomaly_001",
+    "dbfId": 122788,
+    "name": "Greater Pouches",
+    "text": "On Turns 8 and 9, buy a Greater Trinket. There are no Lesser Trinkets in this game."
+  },
+  {
+    "id": "BG27_Anomaly_102",
+    "dbfId": 102988,
+    "name": "How to Even??",
+    "text": "[x]Only Tavern Tiers 2, 4, and 6 exist. Triple Rewards Discover a minion of your Tier."
+  },
+  {
+    "id": "BG32_Anomaly_003",
+    "dbfId": 122790,
+    "name": "Impressive Foresight",
+    "text": "Buy your Lesser Trinket on Turn 5, and your Greater Trinket on Turn 8."
+  },
+  {
+    "id": "BG31_Anomaly_112",
+    "dbfId": 118700,
+    "name": "Incubation Mutation",
+    "text": "Minions with no type have all minion types."
+  },
+  {
+    "id": "BG31_Anomaly_127",
+    "dbfId": 119749,
+    "name": "Instant Warband",
+    "text": "Start with 3 different Tier 2 minions in hand."
+  },
+  {
+    "id": "BG31_Anomaly_101",
+    "dbfId": 118680,
+    "name": "Lay of the Land",
+    "text": "The Tavern offers 1 extra Tavern spell after each Refresh."
+  },
+  {
+    "id": "BG32_Anomaly_002",
+    "dbfId": 122789,
+    "name": "Lesser Pouches",
+    "text": "On Turns 6 and 7, buy a Lesser Trinket. There are no Greater Trinkets in this game."
+  },
+  {
+    "id": "BG31_Anomaly_116",
+    "dbfId": 118673,
+    "name": "Light the Way",
+    "text": "After you Refresh two times, gain 1 Gold next turn. ("
+  },
+  {
+    "id": "BGDUO_Anomaly_006",
+    "dbfId": 119093,
+    "name": "Line in the Sand",
+    "text": "Start with a Sandy in play."
+  },
+  {
+    "id": "BG27_Anomaly_800",
+    "dbfId": 102006,
+    "name": "Little League",
+    "text": "Only Tavern Tiers 1, 2, 3, and 4 exist."
+  },
+  {
+    "id": "BG31_Anomaly_115",
+    "dbfId": 118674,
+    "name": "Magic Shop",
+    "text": "Spell Tickets are in the Tavern! Get 3 to Discover a Tavern spell of your Tier. ("
+  },
+  {
+    "id": "BG31_Anomaly_106",
+    "dbfId": 118669,
+    "name": "Marin's Treasure Box",
+    "text": "[x]Trinkets are in this game. All heroes are Marin the Manager."
+  },
+  {
+    "id": "BG27_Anomaly_805",
+    "dbfId": 102989,
+    "name": "Match Fixing",
+    "text": "[x]Guess which player will win your next combat. If you're correct, get 3 Gold Coins."
+  },
+  {
+    "id": "BG27_Anomaly_005",
+    "dbfId": 101992,
+    "name": "Mimiron's Clockwork Stadium",
+    "text": "[x]You cannot upgrade the Tavern with Gold. It upgrades itself every 2 turns. (2 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_000",
+    "dbfId": 101954,
+    "name": "Money Match",
+    "text": "Start at 10 Gold."
+  },
+  {
+    "id": "BG31_Anomaly_109",
+    "dbfId": 118671,
+    "name": "Mystical Blossom",
+    "text": "At the start of each turn, Discover a Tavern spell. (Unlocks on Turn 3.)"
+  },
+  {
+    "id": "BG27_Anomaly_720",
+    "dbfId": 102748,
+    "name": "Nguyen's Shifting Disks",
+    "text": "All heroes are Master Nguyen."
+  },
+  {
+    "id": "BG27_Anomaly_577",
+    "dbfId": 106631,
+    "name": "No Face, No Case",
+    "text": "[x]Every 4 turns, get a Faceless Manipulator. (4 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_555",
+    "dbfId": 106438,
+    "name": "No Place Like Holmes",
+    "text": "Each turn, look at 2 minions. Guess which one your next opponent had last combat for a Coin."
+  },
+  {
+    "id": "BG27_Anomaly_104t",
+    "dbfId": 102992,
+    "name": "Oops, All Beasts!",
+    "text": "Only Beasts are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t2",
+    "dbfId": 103204,
+    "name": "Oops, All Demons!",
+    "text": "Only Demons are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t3",
+    "dbfId": 103205,
+    "name": "Oops, All Dragons!",
+    "text": "Only Dragons are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_307",
+    "dbfId": 102931,
+    "name": "Oops, All EVIL!",
+    "text": "Only evil 92 are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t4",
+    "dbfId": 103206,
+    "name": "Oops, All Elementals!",
+    "text": "Only Elementals are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t5",
+    "dbfId": 103207,
+    "name": "Oops, All Mechs!",
+    "text": "Only Mechs are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t6",
+    "dbfId": 103208,
+    "name": "Oops, All Murlocs!",
+    "text": "Only Murlocs are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t7",
+    "dbfId": 103209,
+    "name": "Oops, All Naga!",
+    "text": "Only Naga are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t10",
+    "dbfId": 103248,
+    "name": "Oops, All Pirates!",
+    "text": "[x]Only Pirates are in the Tavern. 'Cap'n Hoggarr' is in the minion pool."
+  },
+  {
+    "id": "BG27_Anomaly_104t8",
+    "dbfId": 103210,
+    "name": "Oops, All Quilboar!",
+    "text": "Only Quilboar are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_104t9",
+    "dbfId": 103211,
+    "name": "Oops, All Undead!",
+    "text": "Only Undead are in the Tavern."
+  },
+  {
+    "id": "BG27_Anomaly_718",
+    "dbfId": 102457,
+    "name": "Overseer's Orb",
+    "text": "[x]After you upgrade the Tavern, Refresh it with minions of your most common type."
+  },
+  {
+    "id": "BG27_Anomaly_750",
+    "dbfId": 102083,
+    "name": "Packed Stands",
+    "text": "The Tavern always has 7 cards."
+  },
+  {
+    "id": "BG33_Anomaly_008",
+    "dbfId": 123078,
+    "name": "Partner in Crime",
+    "text": "[x]You have no Buddy Button. On turn 4, choose a Quest to get your Golden Buddy."
+  },
+  {
+    "id": "BG27_Anomaly_754",
+    "dbfId": 102092,
+    "name": "Path of the Treasure-Seeker",
+    "text": "After you Refresh 5 times, find the Golden Monkey! ("
+  },
+  {
+    "id": "BG27_Anomaly_751",
+    "dbfId": 102084,
+    "name": "Perfected Alchemy",
+    "text": "Start with a Goldenizer."
+  },
+  {
+    "id": "BG31_Anomaly_126",
+    "dbfId": 119748,
+    "name": "Planar Alignment",
+    "text": "At the start of each turn, get a random minion of your most common type. (Unlocks on Turn 2.)"
+  },
+  {
+    "id": "BGDUO_Anomaly_007",
+    "dbfId": 119143,
+    "name": "Pooled Resources",
+    "text": "You can send your Gold to your teammate."
+  },
+  {
+    "id": "BG27_Anomaly_002",
+    "dbfId": 101986,
+    "name": "Prudence of Amitus",
+    "text": "[x]Unspent Gold carries over to your next turn. If you saved at least 5, gain 1 extra."
+  },
+  {
+    "id": "BG27_Anomaly_Quests",
+    "dbfId": 106694,
+    "name": "Quests",
+    "text": "Quests and Rewards are in this game!"
+  },
+  {
+    "id": "BG27_Anomaly_505",
+    "dbfId": 103198,
+    "name": "Reckless Enhancement",
+    "text": "[x]Minions in the Tavern each randomly gain Taunt, Windfury, Divine Shield, or Reborn."
+  },
+  {
+    "id": "BG31_Anomaly_104",
+    "dbfId": 118733,
+    "name": "Rising Current",
+    "text": "[x]After you upgrade the Tavern, Discover a Tier 1 Tavern spell. (Improves in 2 turns!)"
+  },
+  {
+    "id": "BG31_Anomaly_120",
+    "dbfId": 119092,
+    "name": "Scout's Honor",
+    "text": "Start with a Golden Patient Scout in play."
+  },
+  {
+    "id": "BG27_Anomaly_504",
+    "dbfId": 103078,
+    "name": "Secrets of Norgannon",
+    "text": "Tavern Tier 7 exists. Start with 10 extra Armor."
+  },
+  {
+    "id": "BG31_Anomaly_105",
+    "dbfId": 118688,
+    "name": "Sin'dorei Mirror",
+    "text": "[x]After you buy your first Tavern spell each turn, get an extra copy of it. (Unlocks on Turn 5.)"
+  },
+  {
+    "id": "BG33_Anomaly_002",
+    "dbfId": 123022,
+    "name": "Spirit of Friendship",
+    "text": "After you press your Buddy Button, also Discover a Buddy."
+  },
+  {
+    "id": "BG33_Anomaly_001",
+    "dbfId": 123021,
+    "name": "Summoning Pact",
+    "text": "[x]After you upgrade the Tavern, reduce the cost of your next Buddy by (2)."
+  },
+  {
+    "id": "BG27_Anomaly_723",
+    "dbfId": 102875,
+    "name": "Summoning of Champions",
+    "text": "[x]At the start of the game, all players Discover a Tier 6 minion from the same choices."
+  },
+  {
+    "id": "BG27_Anomaly_103",
+    "dbfId": 102991,
+    "name": "Tavern Special",
+    "text": "[x]All minion types are in the Tavern. It always has 7 cards."
+  },
+  {
+    "id": "BG27_Anomaly_501",
+    "dbfId": 102971,
+    "name": "Temperance of Aman'Thul",
+    "text": "Start at Tavern Tier 3 with 9 Gold. All cards in your first shop are Tier 3."
+  },
+  {
+    "id": "BG27_Anomaly_801",
+    "dbfId": 102090,
+    "name": "The Golden Arena",
+    "text": "ALL minions are Golden, but you do not get Triple Rewards."
+  },
+  {
+    "id": "BG27_Anomaly_503",
+    "dbfId": 102976,
+    "name": "The Yogg-iseum",
+    "text": "At the start of each turn, spin the SAME Wheel of Yogg-Saron."
+  },
+  {
+    "id": "BG33_Anomaly_003",
+    "dbfId": 123081,
+    "name": "Third Nature",
+    "text": "[x]You can press your Buddy Button a 3rd time for a Golden Buddy. It costs half."
+  },
+  {
+    "id": "BG27_Anomaly_559",
+    "dbfId": 106470,
+    "name": "Treasure Hoard",
+    "text": "[x]On Turn 6, Discover a Golden Tier 4 minion. (5 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_570",
+    "dbfId": 106507,
+    "name": "Treasure Hoard",
+    "text": "[x]On Turn 7, Discover a Golden Tier 5 minion. (6 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_571",
+    "dbfId": 106508,
+    "name": "Treasure Hoard",
+    "text": "[x]On Turn 8, Discover a Golden Tier 6 minion. (7 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_572",
+    "dbfId": 106510,
+    "name": "Treasure Hoard",
+    "text": "[x]On Turn 5, Discover a Golden Tier 3 minion. (4 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_573",
+    "dbfId": 109379,
+    "name": "Treasure Hoard",
+    "text": "[x]On Turn 9, Discover a Golden Tier 7 minion. (8 turns left!)"
+  },
+  {
+    "id": "BG27_Anomaly_721",
+    "dbfId": 102792,
+    "name": "Uncompensated Upset",
+    "text": "[x]Start at 1 Gold. Minions cost (1) but sell for (0). Upgrading the Tavern costs (2) less."
+  },
+  {
+    "id": "BG27_Anomaly_716",
+    "dbfId": 102459,
+    "name": "Up-Prizing",
+    "text": "[x]After you upgrade the Tavern, Discover a Tier 1 Darkmoon Prize. (Improves in 3 turns!)"
+  },
+  {
+    "id": "BG27_Anomaly_556",
+    "dbfId": 106443,
+    "name": "Valuation Inflation",
+    "text": "Tavern Tier 1 does not exist. Minions cost Gold equal to their Tier."
+  },
+  {
+    "id": "BG27_Anomaly_101",
+    "dbfId": 102987,
+    "name": "What Are the Odds?",
+    "text": "[x]Only Tavern Tiers 1, 3, and 5 exist. Triple Rewards Discover a minion of your Tier."
+  }
+]

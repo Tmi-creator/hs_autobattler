@@ -180,6 +180,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # Finish previous game's ghost recording
         if self.ghost_pool is not None:
             self.ghost_pool.finish_game(self._env_id)
+            self.ghost_pool.finish_game(self._env_id + 1_000_000)  # bot
 
         self.game = Game()
 
@@ -389,9 +390,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
             # Record agent's board for ghost pool
             if self.ghost_pool is not None:
-                self.ghost_pool.record_turn(
-                    self._env_id, self.game.turn_count, player
-                )
+                self.ghost_pool.record_turn(self._env_id, self.game.turn_count, player)
 
             self._play_enemy_turn()
             done = self.game.game_over
@@ -515,6 +514,15 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # === SMART BOT (default) ===
         smart_bot_turn(self.game, p_idx)
 
+        # Record bot's board too — bots build decent boards from step 0,
+        # so ghost pool gets quality data immediately for faster ramp-up.
+        if self.ghost_pool is not None:
+            self.ghost_pool.record_turn(
+                self._env_id + 1_000_000,  # separate namespace
+                self.game.turn_count,
+                enemy,
+            )
+
     def _neural_enemy_turn(self, p_idx: int) -> None:
         """Legacy neural self-play. Kept as fallback."""
         player = self.game.players[p_idx]
@@ -548,8 +556,10 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                     target_idx = action - 2
                     hand_idx: int | None = self.pending_spell_hand_index
                     self.game.step(
-                        p_idx, "PLAY",
-                        hand_index=hand_idx, target_index=target_idx,
+                        p_idx,
+                        "PLAY",
+                        hand_index=hand_idx,
+                        target_index=target_idx,
                     )
                     self.is_targeting = False
                     self.pending_spell_hand_index = None
@@ -572,10 +582,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                         self.pending_target_kind = "SPELL"
                         continue
                     if card.unit and card.unit.has_magnetic:
-                        has_mech = any(
-                            UnitType.MECH in u.types
-                            for u in player.board
-                        )
+                        has_mech = any(UnitType.MECH in u.types for u in player.board)
                         if has_mech:
                             self.pending_spell_hand_index = h_idx
                             self.is_targeting = True
@@ -705,9 +712,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         if unit is not None:
             card_id = unit.card_id
-            bc, eot, soc, sell, syn = self._trigger_cache.get(
-                card_id, self._default_triggers
-            )
+            bc, eot, soc, sell, syn = self._trigger_cache.get(card_id, self._default_triggers)
             db_data: dict[str, Any] = CARD_DB.get(card_id, {})
 
             buf[off + 0] = 1.0  # Is Present

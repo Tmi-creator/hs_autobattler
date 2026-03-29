@@ -1,0 +1,30 @@
+{
+  "build": 234747,
+  "scraped_at": "2026-04-06T10:20:14.035793+00:00",
+  "source": "https://api.hearthstonejson.com/v1/234747/enUS/cards.json",
+  "counts": {
+    "minions": 267,
+    "heroes": 114,
+    "hero_powers": 114,
+    "spells": 60,
+    "trinkets": 254,
+    "anomalies": 97,
+    "quest_rewards": 73,
+    "tokens": 33,
+    "buddies": 114
+  },
+  "trinket_breakdown": {
+    "lesser": 127,
+    "greater": 127
+  },
+  "notes": {
+    "minions": "Active pool (isBattlegroundsPoolMinion). Authoritative.",
+    "heroes": "All BG heroes (battlegroundsHero). No per-patch pool flag exists.",
+    "spells": "Active pool (isBattlegroundsPoolSpell). Authoritative.",
+    "trinkets": "All trinkets in game files. No pool flag — assumed all active.",
+    "anomalies": "All anomalies in game files. No pool flag — assumed all active.",
+    "quest_rewards": "All quest rewards. Quests may not be active every season.",
+    "buddies": "All buddy cards. Buddy system may not be active every season.",
+    "tokens": "Minions/spells referenced by pool minions (deathrattle summons etc)."
+  }
+}

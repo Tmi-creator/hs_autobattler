@@ -6,9 +6,10 @@ the agent's boards at end-of-turn and replay them as opponents in future games.
 
 from __future__ import annotations
 
+import pickle
 import random
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
 from hearthstone.engine.entities import Player, Unit
@@ -125,9 +126,7 @@ class GhostPool:
     def size(self) -> int:
         return len(self.trajectories)
 
-    def record_turn(
-        self, env_id: int, turn: int, player: Player
-    ) -> None:
+    def record_turn(self, env_id: int, turn: int, player: Player) -> None:
         """Snapshot the player's board at end of this turn."""
         if env_id not in self._current:
             self._current[env_id] = {}
@@ -147,10 +146,26 @@ class GhostPool:
     def sample_trajectory(
         self,
     ) -> Optional[Dict[int, BoardSnapshot]]:
-        """Random trajectory from pool. None if pool is empty."""
-        if not self.trajectories:
+        """Recency-biased sampling from pool.
+
+        70% chance: sample from newest 30% (current strategies).
+        30% chance: sample uniformly (old strategies for diversity).
+
+        This prevents overfitting to one meta while keeping
+        the training signal mostly on-policy.
+        """
+        n = len(self.trajectories)
+        if n == 0:
             return None
-        return random.choice(self.trajectories)
+
+        if random.random() < 0.7:
+            # Recent: last 30% of pool
+            cutoff = max(1, int(n * 0.7))
+            idx = random.randint(cutoff, n - 1)
+        else:
+            # Uniform: any game (diversity)
+            idx = random.randint(0, n - 1)
+        return self.trajectories[idx]
 
     @staticmethod
     def materialize_board(
@@ -165,3 +180,26 @@ class GhostPool:
             uid = uid_fn()
             unit = unit_snap.to_unit(uid, player.uid)
             player.board.append(unit)
+
+    def save(self, path: str) -> None:
+        """Persist ghost pool to disk."""
+        data = list(self.trajectories)
+        with open(path, "wb") as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(self, path: str) -> int:
+        """Load ghost pool from disk. Returns number of loaded games.
+
+        Merges with existing trajectories (up to max_games).
+        """
+        import os
+
+        if not os.path.exists(path):
+            return 0
+        with open(path, "rb") as f:
+            data: list[Dict[int, BoardSnapshot]] = pickle.load(f)
+        loaded = 0
+        for traj in data:
+            self.trajectories.append(traj)
+            loaded += 1
+        return loaded

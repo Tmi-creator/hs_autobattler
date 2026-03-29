@@ -1,0 +1,1497 @@
+[
+  {
+    "id": "TB_BaconShop_HERO_35_Buddy",
+    "dbfId": 77853,
+    "name": "Acolyte of Yogg-Saron",
+    "tier": 5,
+    "attack": 6,
+    "health": 4,
+    "race": "Murloc",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "At the start of your turn, spin the Wheel of Yogg-Saron."
+  },
+  {
+    "id": "BG26_HERO_104_Buddy",
+    "dbfId": 113629,
+    "name": "Akali, Rock Rhino",
+    "tier": 3,
+    "attack": 6,
+    "health": 6,
+    "race": "Beast",
+    "mechanics": [
+      "END_OF_TURN_TRIGGER",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]At the end of every 2 turns, get a plain copy of the left-most card in your hand. (2 turns left!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_02_Buddy",
+    "dbfId": 77494,
+    "name": "Apostle of Galakrond",
+    "tier": 2,
+    "attack": 2,
+    "health": 4,
+    "race": null,
+    "mechanics": [],
+    "text": "[x]Battlecry: Replace cards in the Tavern with ones from a Tier higher."
+  },
+  {
+    "id": "TB_BaconShop_HERO_22_Buddy",
+    "dbfId": 77841,
+    "name": "Arfus",
+    "tier": 2,
+    "attack": 8,
+    "health": 4,
+    "race": [
+      "Undead",
+      "Beast"
+    ],
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After a friendly minion is Reborn, give it this minion's Attack."
+  },
+  {
+    "id": "TB_BaconShop_HERO_36_Buddy",
+    "dbfId": 77477,
+    "name": "Asher the Haberdasher",
+    "tier": 2,
+    "attack": 2,
+    "health": 2,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you sell a minion, gain two +1/+1 hats that pass to a friendly minion when sold."
+  },
+  {
+    "id": "BG20_HERO_101_Buddy",
+    "dbfId": 77851,
+    "name": "Baby Elekk",
+    "tier": 3,
+    "attack": 4,
+    "health": 4,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever you play a minion with less Attack than this, give it +1/+1 and improve this."
+  },
+  {
+    "id": "BG20_HERO_242_Buddy",
+    "dbfId": 77790,
+    "name": "Baby Kodo",
+    "tier": 4,
+    "attack": 3,
+    "health": 6,
+    "race": "Beast",
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "Battlecry: Refresh the Tavern with a minion of each Tier."
+  },
+  {
+    "id": "TB_BaconShop_HERO_93_Buddy",
+    "dbfId": 77811,
+    "name": "Baby N'Zoth",
+    "tier": 4,
+    "attack": 8,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "[x]Battlecry: Make a friendly Deathrattle minion Golden."
+  },
+  {
+    "id": "TB_BaconShop_HERO_92_Buddy",
+    "dbfId": 77857,
+    "name": "Baby Y'Shaarj",
+    "tier": 3,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you summon a minion of your Tier, give your minions +1/+1."
+  },
+  {
+    "id": "TB_BaconShop_HERO_72_Buddy",
+    "dbfId": 77511,
+    "name": "Barov's Apprentice",
+    "tier": 4,
+    "attack": 5,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you play a Coin, gain 1 Gold."
+  },
+  {
+    "id": "TB_BaconShop_HERO_10_Buddy",
+    "dbfId": 77847,
+    "name": "Bilgewater Mogul",
+    "tier": 4,
+    "attack": 6,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "At the end of your turn, increase your maximum Gold by 1."
+  },
+  {
+    "id": "BG28_HERO_400_Buddy",
+    "dbfId": 113559,
+    "name": "Box Cars",
+    "tier": 4,
+    "attack": 6,
+    "health": 6,
+    "race": "Mech",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]At the start of your turn, roll a 6-sided die. Discover a Tavern spell of that Tier."
+  },
+  {
+    "id": "TB_BaconShop_HERO_43_Buddy",
+    "dbfId": 77784,
+    "name": "Brann's Epic Egg",
+    "tier": 3,
+    "attack": 0,
+    "health": 3,
+    "race": null,
+    "mechanics": [
+      "DEATHRATTLE",
+      "TAUNT"
+    ],
+    "text": "[x]Taunt Deathrattle: Summon and get a random Battlecry minion."
+  },
+  {
+    "id": "BG31_HERO_811_Buddy",
+    "dbfId": 122333,
+    "name": "Broken Horn",
+    "tier": 6,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [],
+    "text": "[x]When you sell this, Discover a Zerg minion and set its stats to 6/6. It doesn't morph."
+  },
+  {
+    "id": "TB_BaconShop_HERO_90_Buddy",
+    "dbfId": 77829,
+    "name": "Burth",
+    "tier": 4,
+    "attack": 6,
+    "health": 7,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you Discover a minion, give it +2/+2 and improve this."
+  },
+  {
+    "id": "BG21_HERO_000_Buddy",
+    "dbfId": 77778,
+    "name": "Captain Fairmount",
+    "tier": 2,
+    "attack": 7,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "At the end of your turn, randomly improve 'Conviction'."
+  },
+  {
+    "id": "TB_BaconShop_HERO_57_Buddy",
+    "dbfId": 77512,
+    "name": "Chromie",
+    "tier": 4,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "AURA",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "One Refresh each turn is helpful! (1 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_28_Buddy",
+    "dbfId": 77507,
+    "name": "Clockwork Assistant",
+    "tier": 5,
+    "attack": 3,
+    "health": 3,
+    "race": "Mech",
+    "mechanics": [
+      "BATTLECRY",
+      "DISCOVER"
+    ],
+    "text": "Battlecry: Discover a minion from a Tier higher than yours."
+  },
+  {
+    "id": "BG23_HERO_304_Buddy",
+    "dbfId": 101458,
+    "name": "Coilfang Elite",
+    "tier": 1,
+    "attack": 3,
+    "health": 2,
+    "race": "Naga",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After a Spellcraft minion appears in the Tavern, get a copy of its spell."
+  },
+  {
+    "id": "BG22_HERO_000_Buddy",
+    "dbfId": 77880,
+    "name": "Crabby",
+    "tier": 3,
+    "attack": 2,
+    "health": 3,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you remove a minion with 'Lock and Load,' get a plain copy of it."
+  },
+  {
+    "id": "TB_BaconShop_HERO_38_Buddy",
+    "dbfId": 77508,
+    "name": "Crazy Monkey",
+    "tier": 1,
+    "attack": 1,
+    "health": 4,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]When you sell this, feed 1 Banana to your minions. After you cast 2 spells, improve this. (2 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_60_Buddy",
+    "dbfId": 77794,
+    "name": "Crimson Hand Centurion",
+    "tier": 2,
+    "attack": 3,
+    "health": 3,
+    "race": null,
+    "mechanics": [
+      "DIVINE_SHIELD",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Divine Shield. After 'Verdant Spheres' triggers, gain the stats of the last minion you bought."
+  },
+  {
+    "id": "TB_BaconShop_HERO_64_Buddy",
+    "dbfId": 77472,
+    "name": "Dagwik Stickytoe",
+    "tier": 2,
+    "attack": 5,
+    "health": 5,
+    "race": "Pirate",
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, give a random friendly Golden minion +5/+5."
+  },
+  {
+    "id": "BG20_HERO_103_Buddy",
+    "dbfId": 77478,
+    "name": "Death's Head Sage",
+    "tier": 3,
+    "attack": 3,
+    "health": 7,
+    "race": [
+      "Undead",
+      "Quilboar"
+    ],
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you get a Blood Gem, get an extra one."
+  },
+  {
+    "id": "BG20_HERO_102_Buddy",
+    "dbfId": 77813,
+    "name": "Dranosh Saurfang",
+    "tier": 4,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you buy a minion, gain half its stats."
+  },
+  {
+    "id": "TB_BaconShop_HERO_08_Buddy",
+    "dbfId": 77626,
+    "name": "Eclipsion Illidari",
+    "tier": 2,
+    "attack": 6,
+    "health": 3,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Your first minion that attacks has \"Immune while Attacking\" for one attack only."
+  },
+  {
+    "id": "TB_BaconShop_HERO_14_Buddy",
+    "dbfId": 77629,
+    "name": "Elder Taggawag",
+    "tier": 4,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "START_OF_COMBAT",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Start of Combat: If you control 4 minions with different types, gain your minions' highest Attack and Health."
+  },
+  {
+    "id": "TB_BaconShop_HERO_17_Buddy",
+    "dbfId": 77805,
+    "name": "Elementium Squirrel Bomb",
+    "tier": 4,
+    "attack": 4,
+    "health": 4,
+    "race": [
+      "Mech",
+      "Beast"
+    ],
+    "mechanics": [
+      "DEATHRATTLE"
+    ],
+    "text": "[x]Deathrattle: Deal 4 damage to a random enemy minion for each of your Mechs that died this combat."
+  },
+  {
+    "id": "BG24_HERO_204_Buddy",
+    "dbfId": 101973,
+    "name": "Enhance-o Medico",
+    "tier": 1,
+    "attack": 3,
+    "health": 3,
+    "race": "Mech",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you buy a minion, gain +3/+3 for each Bonus Keyword it has."
+  },
+  {
+    "id": "TB_BaconShop_HERO_74_Buddy",
+    "dbfId": 77493,
+    "name": "Evergreen Botani",
+    "tier": 4,
+    "attack": 8,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "At the end of your turn, get a random minion of your Tier."
+  },
+  {
+    "id": "BGDUO_HERO_100_Buddy",
+    "dbfId": 113633,
+    "name": "Faceless One",
+    "tier": 4,
+    "attack": 1,
+    "health": 1,
+    "race": null,
+    "mechanics": [],
+    "text": "When you sell this, get the Buddy of your teammate's Hero Power."
+  },
+  {
+    "id": "BG30_HERO_304_Buddy",
+    "dbfId": 122323,
+    "name": "Fantastic Bellhop",
+    "tier": 5,
+    "attack": 6,
+    "health": 6,
+    "race": "Pirate",
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, get a helpful card."
+  },
+  {
+    "id": "BG25_HERO_100_Buddy",
+    "dbfId": 101442,
+    "name": "Festergut",
+    "tier": 4,
+    "attack": 6,
+    "health": 2,
+    "race": "Undead",
+    "mechanics": [
+      "DEATHRATTLE"
+    ],
+    "text": "[x]Deathrattle: Summon and get a random Undead Creation."
+  },
+  {
+    "id": "BG20_HERO_283_Buddy",
+    "dbfId": 77788,
+    "name": "Flight Trainer",
+    "tier": 1,
+    "attack": 2,
+    "health": 2,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Your flightpaths trigger twice."
+  },
+  {
+    "id": "BG22_HERO_002_Buddy",
+    "dbfId": 77884,
+    "name": "Frostwolf Lieutenant",
+    "tier": 2,
+    "attack": 7,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "At the end of your turn, give your left-most minion +10 Attack."
+  },
+  {
+    "id": "BGDUO_HERO_101_Buddy",
+    "dbfId": 113637,
+    "name": "Glorious Gloopling",
+    "tier": 4,
+    "attack": 7,
+    "health": 7,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]At the start of every 2 turns, get a plain copy of your teammate's highest-Tier minion (2 turns left!)"
+  },
+  {
+    "id": "BGDUO_HERO_222_Buddy",
+    "dbfId": 113690,
+    "name": "Halfus the Mighty",
+    "tier": 4,
+    "attack": 5,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "At the start of your turn, Discover a minion of your Tier. (50% chance to Pass it!)"
+  },
+  {
+    "id": "BGDUO_HERO_223_Buddy",
+    "dbfId": 113692,
+    "name": "Halfus the Wise",
+    "tier": 4,
+    "attack": 5,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]At the start of your turn, Discover a Tavern spell of your Tier. (50% chance to Pass it!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_50_Buddy",
+    "dbfId": 77835,
+    "name": "Hunter of Old",
+    "tier": 4,
+    "attack": 5,
+    "health": 3,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "At the start of your turn, get your last opponent's Buddy."
+  },
+  {
+    "id": "BG20_HERO_100_Buddy",
+    "dbfId": 77876,
+    "name": "Icesnarl the Mighty",
+    "tier": 3,
+    "attack": 6,
+    "health": 2,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After a friendly minion kills an enemy, gain +3 Health permanently."
+  },
+  {
+    "id": "BG22_HERO_007_Buddy",
+    "dbfId": 77894,
+    "name": "Imperial Defender",
+    "tier": 3,
+    "attack": 3,
+    "health": 4,
+    "race": "Naga",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you cast a spell on a different friendly minion, you also cast it on this. (Once per turn.)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_71_Buddy",
+    "dbfId": 77792,
+    "name": "Jandice's Apprentice",
+    "tier": 5,
+    "attack": 5,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you play a minion you've already played this turn, give your minions stats equal to your Tier."
+  },
+  {
+    "id": "TB_BaconShop_HERO_42_Buddy",
+    "dbfId": 77484,
+    "name": "Jr. Navigator",
+    "tier": 3,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "Battlecry: Reduce the Cost of 'Lead Explorer' by (2)."
+  },
+  {
+    "id": "TB_BaconShop_HERO_15_Buddy",
+    "dbfId": 77495,
+    "name": "Karl the Lost",
+    "tier": 2,
+    "attack": 3,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you use your Hero Power, give your Divine Shield minions +2 Attack."
+  },
+  {
+    "id": "TB_BaconShop_HERO_37_Buddy",
+    "dbfId": 77798,
+    "name": "Kil'rek",
+    "tier": 3,
+    "attack": 3,
+    "health": 6,
+    "race": "Demon",
+    "mechanics": [
+      "DEATHRATTLE",
+      "TAUNT"
+    ],
+    "text": "Taunt Deathrattle: Get a random Demon."
+  },
+  {
+    "id": "TB_BaconShop_HERO_75_Buddy",
+    "dbfId": 77823,
+    "name": "Lantern Tender",
+    "tier": 4,
+    "attack": 6,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, get 2 random Tavern spells that give stats."
+  },
+  {
+    "id": "BG20_HERO_202_Buddy",
+    "dbfId": 77514,
+    "name": "Lei Flamepaw",
+    "tier": 4,
+    "attack": 4,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]At the start of your turn, get the Buddy of your Hero Power."
+  },
+  {
+    "id": "TB_BaconShop_HERO_70_Buddy",
+    "dbfId": 77807,
+    "name": "Lil' K.T.",
+    "tier": 3,
+    "attack": 5,
+    "health": 4,
+    "race": "Undead",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]At the start of your turn, get a plain minion from your lowest-Health opponent's warband."
+  },
+  {
+    "id": "BG20_HERO_280_Buddy",
+    "dbfId": 77796,
+    "name": "Living Nightmare",
+    "tier": 2,
+    "attack": 4,
+    "health": 4,
+    "race": "Undead",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you buy a card, minions in the Tavern have +2/+2 this turn."
+  },
+  {
+    "id": "TB_BaconShop_HERO_45_Buddy",
+    "dbfId": 77470,
+    "name": "Loyal Henchman",
+    "tier": 2,
+    "attack": 4,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you kill a second minion each combat, get a plain copy of it."
+  },
+  {
+    "id": "TB_BaconShop_HERO_11_Buddy",
+    "dbfId": 77821,
+    "name": "Lucifron",
+    "tier": 5,
+    "attack": 6,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "AURA"
+    ],
+    "text": "Your end of turn effects trigger an extra time."
+  },
+  {
+    "id": "TB_BaconShop_HERO_49_Buddy",
+    "dbfId": 77803,
+    "name": "Magnus Manastorm",
+    "tier": 4,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [],
+    "text": "[x]Two Refreshes each turn are free. (0 left!)"
+  },
+  {
+    "id": "BG32_HERO_001_Buddy",
+    "dbfId": 122335,
+    "name": "Malorne",
+    "tier": 3,
+    "attack": 1,
+    "health": 1,
+    "race": "Beast",
+    "mechanics": [
+      "AURA"
+    ],
+    "text": "[x]Has +1/+1 for every 3 Gold you've spent this game."
+  },
+  {
+    "id": "BG22_HERO_305_Buddy",
+    "dbfId": 77890,
+    "name": "Many Whelps",
+    "tier": 3,
+    "attack": 4,
+    "health": 2,
+    "race": "Dragon",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever you summon a Whelp, gain +2/+2 permanently."
+  },
+  {
+    "id": "BG20_HERO_201_Buddy",
+    "dbfId": 77849,
+    "name": "Master Gadrin",
+    "tier": 4,
+    "attack": 7,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "START_OF_COMBAT",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Start of Combat: Give the minion to the left of this Health equal to its Attack."
+  },
+  {
+    "id": "TB_BaconShop_HERO_702_Buddy",
+    "dbfId": 98690,
+    "name": "Mawsworn Soulkeeper",
+    "tier": 4,
+    "attack": 2,
+    "health": 2,
+    "race": "Undead",
+    "mechanics": [
+      "DEATHRATTLE"
+    ],
+    "text": "Deathrattle: Summon 2 random Undead."
+  },
+  {
+    "id": "TB_BaconShop_HERO_40_Buddy",
+    "dbfId": 77831,
+    "name": "Maxwell, Mighty Steed",
+    "tier": 4,
+    "attack": 1,
+    "health": 1,
+    "race": "Beast",
+    "mechanics": [],
+    "text": "When you sell this, get the Buddy of your Hero Power."
+  },
+  {
+    "id": "BG31_HERO_005_Buddy",
+    "dbfId": 122327,
+    "name": "Mini-Zerek",
+    "tier": 2,
+    "attack": 1,
+    "health": 1,
+    "race": null,
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "Battlecry: Choose a minion in the Tavern. Transform into a copy of it."
+  },
+  {
+    "id": "TB_BaconShop_HERO_33_Buddy",
+    "dbfId": 77837,
+    "name": "Mishmash",
+    "tier": 3,
+    "attack": 4,
+    "health": 4,
+    "race": "All",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever your Amalgam gains stats, this gains them too."
+  },
+  {
+    "id": "BGDUO_HERO_104_Buddy",
+    "dbfId": 113635,
+    "name": "Mister Chu",
+    "tier": 3,
+    "attack": 5,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, Pass the highest-Tier minion in the Tavern."
+  },
+  {
+    "id": "BG20_HERO_282_Buddy",
+    "dbfId": 77878,
+    "name": "Monstrosity",
+    "tier": 4,
+    "attack": 5,
+    "health": 10,
+    "race": "Undead",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After a friendly minion dies, gain its Attack."
+  },
+  {
+    "id": "TB_BaconShop_HERO_23_Buddy",
+    "dbfId": 77827,
+    "name": "Muckslinger",
+    "tier": 4,
+    "attack": 5,
+    "health": 5,
+    "race": null,
+    "mechanics": [],
+    "text": "Battlecry: Get a random Battlecry minion."
+  },
+  {
+    "id": "BG23_HERO_306_Buddy",
+    "dbfId": 98660,
+    "name": "Nathanos Blightcaller",
+    "tier": 4,
+    "attack": 6,
+    "health": 7,
+    "race": "Undead",
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "Battlecry: Sell a friendly minion. Split its stats evenly amongst its neighbors."
+  },
+  {
+    "id": "TB_BaconShop_HERO_58_Buddy",
+    "dbfId": 77723,
+    "name": "Nexus Lord",
+    "tier": 3,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "AURA"
+    ],
+    "text": "'Arcane Alteration' replaces with a card from one Tier higher."
+  },
+  {
+    "id": "BG20_HERO_301_Buddy",
+    "dbfId": 77809,
+    "name": "Nightmare Ectoplasm",
+    "tier": 1,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [],
+    "text": "When you 'Devour' this, spit its stats onto 1 extra minion."
+  },
+  {
+    "id": "BG31_HERO_003_Buddy",
+    "dbfId": 122331,
+    "name": "Outland Sunbeam",
+    "tier": 4,
+    "attack": 5,
+    "health": 5,
+    "race": "Elemental",
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "[x]Battlecry: Discover a Tavern spell that costs (3) or more from any Tier."
+  },
+  {
+    "id": "TB_BaconShop_HERO_91_Buddy",
+    "dbfId": 77859,
+    "name": "Phyresz",
+    "tier": 4,
+    "attack": 4,
+    "health": 4,
+    "race": "Elemental",
+    "mechanics": [
+      "DISCOVER"
+    ],
+    "text": "[x]When you sell this, Discover a plain copy of a different minion that you have exactly one of."
+  },
+  {
+    "id": "TB_BaconShop_HERO_12_Buddy",
+    "dbfId": 77843,
+    "name": "Pigeon Lord",
+    "tier": 1,
+    "attack": 3,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "AURA"
+    ],
+    "text": "[x]Your Refreshes are free while the Tavern doesn't have the minion type of your Hero Power."
+  },
+  {
+    "id": "BG21_HERO_030_Buddy",
+    "dbfId": 77874,
+    "name": "Piloted Whirl-O-Tron",
+    "tier": 4,
+    "attack": 6,
+    "health": 4,
+    "race": "Mech",
+    "mechanics": [
+      "START_OF_COMBAT",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Start of Combat: Copy your two left-most Deathrattles (except other Whirl-O-Trons)."
+  },
+  {
+    "id": "BG31_HERO_802_Buddy",
+    "dbfId": 122329,
+    "name": "Probius",
+    "tier": 4,
+    "attack": 8,
+    "health": 4,
+    "race": "Mech",
+    "mechanics": [
+      "MAGNETIC"
+    ],
+    "text": "[x]Magnetic After you Magnetize this to a Mech, make it Golden."
+  },
+  {
+    "id": "TB_BaconShop_HERO_67_Buddy",
+    "dbfId": 77776,
+    "name": "Raging Contender",
+    "tier": 6,
+    "attack": 6,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you use 'Trash for Treasure', gain Gold equal to the removed minion's Tier."
+  },
+  {
+    "id": "BG28_HERO_800_Buddy",
+    "dbfId": 113650,
+    "name": "Reliquary Attendant",
+    "tier": 3,
+    "attack": 6,
+    "health": 4,
+    "race": "Elemental",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Once per turn, after you cast a Tavern spell, get a new copy of it."
+  },
+  {
+    "id": "TB_BaconShop_HERO_01_Buddy",
+    "dbfId": 77479,
+    "name": "SI:7 Scout",
+    "tier": 1,
+    "attack": 2,
+    "health": 2,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you buy a card, gain +2/+2."
+  },
+  {
+    "id": "TB_BaconShop_HERO_62_Buddy",
+    "dbfId": 77800,
+    "name": "Shadow Warden",
+    "tier": 2,
+    "attack": 5,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "Battlecry: Your next Hero Power makes the target Golden."
+  },
+  {
+    "id": "BG25_HERO_103_Buddy",
+    "dbfId": 101459,
+    "name": "Shadowy Construct",
+    "tier": 2,
+    "attack": 4,
+    "health": 4,
+    "race": "Undead",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After a friendly minion dies, gain its maximum stats. (Once per combat.)"
+  },
+  {
+    "id": "BG24_HERO_100_Buddy",
+    "dbfId": 101435,
+    "name": "Shady Aristocrat",
+    "tier": 4,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [],
+    "text": "[x]When you sell this, Discover a Quest. Complete it to get an 8-Gold Coin Pouch."
+  },
+  {
+    "id": "TB_BaconShop_HERO_68_Buddy",
+    "dbfId": 77833,
+    "name": "Sharkbait",
+    "tier": 5,
+    "attack": 5,
+    "health": 3,
+    "race": [
+      "Beast",
+      "Pirate"
+    ],
+    "mechanics": [],
+    "text": "When you sell this, Refresh your Hero Power."
+  },
+  {
+    "id": "BG26_HERO_101_Buddy",
+    "dbfId": 114598,
+    "name": "Shining Sailor",
+    "tier": 3,
+    "attack": 4,
+    "health": 5,
+    "race": "Pirate",
+    "mechanics": [
+      "DIVINE_SHIELD",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Divine Shield The Tavern offers an extra Pirate whenever it is Refreshed."
+  },
+  {
+    "id": "TB_BaconShop_HERO_52_Buddy",
+    "dbfId": 77782,
+    "name": "Sinestra",
+    "tier": 2,
+    "attack": 2,
+    "health": 6,
+    "race": "Dragon",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever a friendly minion gains Attack during combat, give it +1 Health permanently."
+  },
+  {
+    "id": "TB_BaconShop_HERO_59_Buddy",
+    "dbfId": 77468,
+    "name": "Sklibb, Demon Hunter",
+    "tier": 3,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "The Tavern offers an extra minion of a higher Tier whenever it is Refreshed."
+  },
+  {
+    "id": "TB_BaconShop_HERO_16_Buddy",
+    "dbfId": 77774,
+    "name": "Snack Vendor",
+    "tier": 6,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, give this minion's stats to a Tier 3 minion."
+  },
+  {
+    "id": "TB_BaconShop_HERO_78_Buddy",
+    "dbfId": 77780,
+    "name": "Snow Elemental",
+    "tier": 3,
+    "attack": 5,
+    "health": 4,
+    "race": "Elemental",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]The Tavern offers an extra Frozen Elemental whenever it is Refreshed."
+  },
+  {
+    "id": "BG26_HERO_102_Buddy",
+    "dbfId": 113627,
+    "name": "Solemn Serenader",
+    "tier": 2,
+    "attack": 6,
+    "health": 5,
+    "race": "Undead",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you use your Hero Power on a minion, it gains half this minion's Attack. (Swaps to Health next turn!)"
+  },
+  {
+    "id": "BG21_HERO_020_Buddy",
+    "dbfId": 77872,
+    "name": "Sous Chef",
+    "tier": 1,
+    "attack": 2,
+    "health": 5,
+    "race": "Murloc",
+    "mechanics": [
+      "AURA"
+    ],
+    "text": "You can use your Hero Power an extra time each turn."
+  },
+  {
+    "id": "TB_BaconShop_HERO_55_Buddy",
+    "dbfId": 77786,
+    "name": "Sparkfin Soothsayer",
+    "tier": 2,
+    "attack": 4,
+    "health": 3,
+    "race": "Murloc",
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "[x]Battlecry: Transform minions in the Tavern into Murlocs of the same Tier."
+  },
+  {
+    "id": "BG22_HERO_001_Buddy",
+    "dbfId": 77882,
+    "name": "Spirit Raptor",
+    "tier": 1,
+    "attack": 3,
+    "health": 2,
+    "race": [
+      "Undead",
+      "Beast"
+    ],
+    "mechanics": [
+      "DEATHRATTLE",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you call upon a new Element, this remembers it. Deathrattle: Call upon those Elements."
+  },
+  {
+    "id": "TB_BaconShop_HERO_76_Buddy",
+    "dbfId": 77447,
+    "name": "Spirit of Air",
+    "tier": 1,
+    "attack": 5,
+    "health": 2,
+    "race": "Elemental",
+    "mechanics": [
+      "DEATHRATTLE"
+    ],
+    "text": "[x]Deathrattle: Give a random friendly minion Windfury, Divine Shield, and Taunt."
+  },
+  {
+    "id": "TB_BaconShop_HERO_41_Buddy",
+    "dbfId": 77825,
+    "name": "Sr. Tomb Diver",
+    "tier": 1,
+    "attack": 5,
+    "health": 1,
+    "race": null,
+    "mechanics": [
+      "DEATHRATTLE",
+      "TAUNT"
+    ],
+    "text": "Taunt Deathrattle: Make your right-most minion Golden."
+  },
+  {
+    "id": "BG33_HERO_000_Buddy",
+    "dbfId": 123075,
+    "name": "Stoneshell Guardian",
+    "tier": 4,
+    "attack": 3,
+    "health": 7,
+    "race": null,
+    "mechanics": [
+      "START_OF_COMBAT",
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Start of Combat: Copy all friendly Rallies (except other Stoneshells)."
+  },
+  {
+    "id": "BG22_HERO_003_Buddy",
+    "dbfId": 77886,
+    "name": "Stormpike Lieutenant",
+    "tier": 4,
+    "attack": 4,
+    "health": 7,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "At the end of your turn, give your right-most minion +10 Health."
+  },
+  {
+    "id": "TB_BaconShop_HERO_21_Buddy",
+    "dbfId": 77839,
+    "name": "Street Magician",
+    "tier": 2,
+    "attack": 3,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "AURA"
+    ],
+    "text": "'Prestidigitation' chooses from Better Secrets."
+  },
+  {
+    "id": "BG22_HERO_200_Buddy",
+    "dbfId": 82600,
+    "name": "Sub Scrubber",
+    "tier": 3,
+    "attack": 6,
+    "health": 6,
+    "race": "Mech",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you play a Mech, gain +3/+3."
+  },
+  {
+    "id": "BG22_HERO_201_Buddy",
+    "dbfId": 82604,
+    "name": "Submersible Chef",
+    "tier": 5,
+    "attack": 4,
+    "health": 3,
+    "race": null,
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "Battlecry: Get a random minion each from Tiers 1, 3, and 5."
+  },
+  {
+    "id": "BG25_HERO_105_Buddy",
+    "dbfId": 101349,
+    "name": "Talent Scout",
+    "tier": 5,
+    "attack": 4,
+    "health": 4,
+    "race": null,
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "[x]Battlecry: Make a Buddy Golden."
+  },
+  {
+    "id": "BG23_HERO_201_Buddy",
+    "dbfId": 98635,
+    "name": "Tamuzo",
+    "tier": 5,
+    "attack": 4,
+    "health": 4,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you summon a minion in combat, double its stats."
+  },
+  {
+    "id": "TB_BaconShop_HERO_29_Buddy",
+    "dbfId": 77475,
+    "name": "Tentacle of C'Thun",
+    "tier": 2,
+    "attack": 3,
+    "health": 3,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After a different friendly minion gains stats, gain +1/+1 until next turn."
+  },
+  {
+    "id": "TB_BaconShop_HERO_27_Buddy",
+    "dbfId": 77724,
+    "name": "Thawed Champion",
+    "tier": 6,
+    "attack": 4,
+    "health": 5,
+    "race": null,
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, make a random Frozen minion in the Tavern Golden."
+  },
+  {
+    "id": "BG31_HERO_006_Buddy",
+    "dbfId": 122342,
+    "name": "The Celestial Archive",
+    "tier": 1,
+    "attack": 4,
+    "health": 4,
+    "race": "Mech",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever you buy a Tavern spell that costs (0), get a copy of it."
+  },
+  {
+    "id": "BG28_HERO_801_Buddy",
+    "dbfId": 113631,
+    "name": "The Nine Frogs",
+    "tier": 6,
+    "attack": 9,
+    "health": 9,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you buy a minion, get a random Tavern spell from the same Tier. (9 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_94_Buddy",
+    "dbfId": 77845,
+    "name": "Ticket Collector",
+    "tier": 4,
+    "attack": 6,
+    "health": 6,
+    "race": null,
+    "mechanics": [],
+    "text": "When you sell this, Discover a Darkmoon Prize from the next Tier."
+  },
+  {
+    "id": "TB_BaconShop_HERO_39_Buddy",
+    "dbfId": 77819,
+    "name": "Titanic Guardian",
+    "tier": 3,
+    "attack": 5,
+    "health": 2,
+    "race": "Elemental",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Whenever a different minion in your hand or board gains Health, this also gains it."
+  },
+  {
+    "id": "TB_BaconShop_HERO_18_Buddy",
+    "dbfId": 77815,
+    "name": "Tuskarr Raider",
+    "tier": 5,
+    "attack": 6,
+    "health": 6,
+    "race": "Pirate",
+    "mechanics": [
+      "BACON_RALLY",
+      "BATTLECRY",
+      "DEATHRATTLE"
+    ],
+    "text": "Battlecry, Deathrattle, and Rally: Get a random Bounty."
+  },
+  {
+    "id": "BG31_HERO_801_Buddy",
+    "dbfId": 122369,
+    "name": "Tychus Findlay",
+    "tier": 3,
+    "attack": 4,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]After you cast two Tavern spells, get a random Battlecruiser Upgrade. (2 left!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_25_Buddy",
+    "dbfId": 77510,
+    "name": "Unearthed Underling",
+    "tier": 1,
+    "attack": 5,
+    "health": 5,
+    "race": "Undead",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever your hero takes damage, rewind it and gain stats equal to that amount."
+  },
+  {
+    "id": "TB_BaconShop_HERO_56_Buddy",
+    "dbfId": 77448,
+    "name": "Vaelastrasz",
+    "tier": 4,
+    "attack": 6,
+    "health": 6,
+    "race": "Dragon",
+    "mechanics": [
+      "BACON_RALLY"
+    ],
+    "text": "Rally: Get a random Dragon."
+  },
+  {
+    "id": "TB_BaconShop_HERO_53_Buddy",
+    "dbfId": 77855,
+    "name": "Valithria Dreamwalker",
+    "tier": 1,
+    "attack": 6,
+    "health": 4,
+    "race": "Dragon",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "Whenever a Dragon enters your warband or the Tavern, gain +1/+1."
+  },
+  {
+    "id": "BG22_HERO_004_Buddy",
+    "dbfId": 77888,
+    "name": "Varden's Aquarrior",
+    "tier": 1,
+    "attack": 3,
+    "health": 6,
+    "race": "Elemental",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]'Twice as Nice' also gives both minions stats equal to your Tier."
+  },
+  {
+    "id": "BG27_HERO_801_Buddy",
+    "dbfId": 113557,
+    "name": "Veranus, Stormlord's Mount",
+    "tier": 2,
+    "attack": 5,
+    "health": 2,
+    "race": "Dragon",
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, transform the minion to the left of this into one from a Tier higher (up to Tier 7!)"
+  },
+  {
+    "id": "TB_BaconShop_HERO_95_Buddy",
+    "dbfId": 77502,
+    "name": "Wandering Treant",
+    "tier": 4,
+    "attack": 3,
+    "health": 9,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "[x]Whenever a friendly Taunt minion is attacked, give your minions +1/+1 permanently."
+  },
+  {
+    "id": "BG21_HERO_010_Buddy",
+    "dbfId": 77870,
+    "name": "Warden Thelwater",
+    "tier": 3,
+    "attack": 2,
+    "health": 6,
+    "race": null,
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "At the start of your turn, get your next opponent's Buddy."
+  },
+  {
+    "id": "BG23_HERO_303_Buddy",
+    "dbfId": 98656,
+    "name": "Watfin",
+    "tier": 2,
+    "attack": 2,
+    "health": 5,
+    "race": "Beast",
+    "mechanics": [
+      "TRIGGER_VISUAL"
+    ],
+    "text": "After you guess correctly with 'Detective for Hire', get a plain copy of the minion."
+  },
+  {
+    "id": "BG23_HERO_305_Buddy",
+    "dbfId": 98650,
+    "name": "Waxadred, the Drippy",
+    "tier": 4,
+    "attack": 7,
+    "health": 5,
+    "race": [
+      "Elemental",
+      "Dragon"
+    ],
+    "mechanics": [
+      "BATTLECRY"
+    ],
+    "text": "[x]Battlecry: Refresh the Tavern with the highest- Tier minion from each opponent's warband."
+  },
+  {
+    "id": "TB_BaconShop_HERO_34_Buddy",
+    "dbfId": 77817,
+    "name": "Weebomination",
+    "tier": 4,
+    "attack": 6,
+    "health": 6,
+    "race": "Undead",
+    "mechanics": [
+      "END_OF_TURN_TRIGGER"
+    ],
+    "text": "[x]At the end of your turn, give the minion to the left +1 Health. (Improved by each Health your hero is missing!)"
+  },
+  {
+    "id": "BG32_HERO_002_Buddy",
+    "dbfId": 122325,
+    "name": "Zippers",
+    "tier": 4,
+    "attack": 5,
+    "health": 5,
+    "race": "Undead",
+    "mechanics": [
+      "DEATHRATTLE"
+    ],
+    "text": "Deathrattle: Get a helpful card."
+  }
+]

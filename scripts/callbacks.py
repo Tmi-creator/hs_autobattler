@@ -214,18 +214,35 @@ class CurriculumCallback(BaseCallback):
         populates ghost pool with competent boards).
     Phase 2 (ghost_start_step+): Enable ghost self-play
         (80% ghost pool / 20% smart bot by default).
+
+    If pool_preloaded=True, skip phase 1 and enable ghosts immediately.
     """
 
     def __init__(
         self,
         ghost_start_step: int = 400_000,
+        pool_preloaded: bool = False,
         verbose: int = 1,
     ) -> None:
         super().__init__(verbose)
         self.ghost_start_step = ghost_start_step
+        self.pool_preloaded = pool_preloaded
         self._ghost_enabled = False
+        self._first_step = True
 
     def _on_step(self) -> bool:
+        # If pool was loaded from disk, enable ghost immediately
+        if self._first_step and self.pool_preloaded:
+            self._first_step = False
+            self._ghost_enabled = True
+            if self.verbose > 0:
+                print("[CURRICULUM] Ghost pool pre-loaded, "
+                      "enabling ghost mode from step 0")
+            vec_env = cast(SupportsEnvMethod, self.training_env)
+            vec_env.env_method("enable_ghost_mode")
+            return True
+        self._first_step = False
+
         if (
             not self._ghost_enabled
             and self.num_timesteps >= self.ghost_start_step

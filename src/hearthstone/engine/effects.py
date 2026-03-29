@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .entities import Unit
     from .event_system import EffectContext
 
+from .configs import CARD_DB
 from .enums import CardIDs, EffectIDs, MechanicType, SpellIDs, Tags, UnitType
 from .event_system import (
     EntityRef,
     Event,
     EventType,
-    PosRef,
     TriggerDef,
-    Zone,
 )
+
+# =====================================================================
+# Helpers
+# =====================================================================
 
 
 def _is_self_play(ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
@@ -29,103 +32,50 @@ def _played_unit(ctx: EffectContext, event: Event) -> Optional[Unit]:
 def _is_friendly_death_exclude_self(ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
     if event.event_type != EventType.MINION_DIED:
         return False
-
     dead_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
     if not dead_pos:
         return False
-
     owner_pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not owner_pos:
         return False
-
     return (dead_pos.side == owner_pos.side) and (
         event.source is not None and event.source.uid != trigger_uid
     )
 
 
-def make_avenge_trigger(
-    n: int, effect_fn: Callable[[EffectContext, Event, int], None], name: str = "Avenge"
-) -> TriggerDef:
-    """
-    Make TriggerDef for Avenge mechanic (X).
-    n: How many allies should die
-    effect_fn: function that should play
-    """
-
-    def avenge_wrapper(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-        avenger = ctx.resolve_unit(EntityRef(trigger_uid))
-        if not avenger or not avenger.is_alive:
-            return
-
-        # correct limit because gold triggers twice
-        limit = n * 2 if avenger.is_golden else n
-        avenger.avenge_counter += 1
-        if avenger.avenge_counter >= limit:
-            avenger.avenge_counter = 0
-            repeats = 2 if avenger.is_golden else 1  # double the effect
-            for _ in range(repeats):
-                effect_fn(ctx, event, trigger_uid)
-
-    return TriggerDef(
-        event_type=EventType.MINION_DIED,
-        condition=_is_friendly_death_exclude_self,
-        effect=avenge_wrapper,
-        name=f"{name} (Avenge {n})",
-        priority=-10,
-    )
+def _is_self_death(ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
+    return event.source is not None and event.source.uid == trigger_uid
 
 
-def _gain_coin(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+def _is_friendly_soc(ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
+    """Condition: Start of Combat, and I'm on a board."""
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
-    if not pos:
-        return
-    ctx.gain_gold(pos.side, 1)
+    return pos is not None
 
 
-def _summon_tabbycat(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    pos = ctx.resolve_pos(EntityRef(trigger_uid))
-    if not pos:
-        return
-    ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1)
+# =====================================================================
+# Effect functions — Tier 1
+# =====================================================================
 
 
-def _summon_scallywag_token(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
-    if pos:
-        ctx.summon(pos.side, CardIDs.PIRATE_TOKEN, pos.slot)
-
-
-def _summon_imprisoner_token(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
-    if pos:
-        ctx.summon(pos.side, CardIDs.IMP_TOKEN, pos.slot)
-
-
-def _summon_crab_token(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
-    if pos:
-        ctx.summon(pos.side, CardIDs.CRAB_TOKEN, pos.slot)
-
-
+# --- Wrath Weaver: After you play a Demon, deal 1 dmg to hero, gain +2/+1 ---
 def _wrath_weaver_buff(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     played = _played_unit(ctx, event)
     if not played or UnitType.DEMON not in played.types:
         return
     if _is_self_play(ctx, event, trigger_uid):
         return
-
     weaver = ctx.resolve_unit(EntityRef(trigger_uid))
     if not weaver:
         return
-
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
-
     ctx.damage_hero(pos.side, 1)
     ctx.buff_perm(EntityRef(weaver.uid), 2, 1)
 
 
+# --- Swampstriker: After you summon a Murloc, gain +1 Attack ---
 def _swampstriker_buff(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     unit = _played_unit(ctx, event)
     if not unit:
@@ -134,12 +84,10 @@ def _swampstriker_buff(ctx: EffectContext, event: Event, trigger_uid: int) -> No
         return
     if _is_self_play(ctx, event, trigger_uid):
         return
-    pos = ctx.resolve_pos(EntityRef(trigger_uid))
-    if not pos:
-        return
     ctx.buff_perm(EntityRef(trigger_uid), 1, 0)
 
 
+# --- Minted Corsair: On sell, get Tavern Coin ---
 def _minted_corsair_coin(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
     pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
@@ -147,108 +95,133 @@ def _minted_corsair_coin(ctx: EffectContext, event: Event, trigger_uid: int) -> 
     ctx.add_spell_to_hand(pos.side, SpellIDs.TAVERN_COIN)
 
 
-def _spawn_of_nzoth_dr(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    """Give your minions +1/+1 (Golden: +2/+2)"""
-
-    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+# --- Dune Dweller: BC: Elementals in Tavern get +1/+1 this game ---
+def _dune_dweller_bc(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
     if not pos:
         return
     player = ctx.players_by_uid.get(pos.side)
     if not player:
         return
-
-    for unit in player.board:
-        ctx.buff_combat(EntityRef(unit.uid), 1, 1)
+    player.mechanics.modify_stat(MechanicType.ELEMENTAL_BUFF, 1, 1)
 
 
-def _kaboom_bot_dr(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    """Deal 4 damage to a random enemy minion"""
-    source_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
-    if not source_pos:
+# --- Ominous Seer: BC: Next tavern spell costs (1) less ---
+def _ominous_seer_bc(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
         return
-
-    enemy_side = 1 - source_pos.side
-    enemy_player = ctx.players_by_uid.get(enemy_side)
-
-    if not enemy_player or not enemy_player.board:
+    player = ctx.players_by_uid.get(pos.side)
+    if not player:
         return
-
-    target = random.choice(enemy_player.board)
-
-    damage = 4
-    if target.has_divine_shield:
-        target.tags.discard(Tags.DIVINE_SHIELD)
-        ctx.emit_event(
-            Event(
-                event_type=EventType.DIVINE_SHIELD_LOST,
-                source=EntityRef(target.uid),
-                source_pos=PosRef(side=enemy_side, zone=Zone.BOARD, slot=-1),
-            )
-        )
-    else:
-        target.cur_hp -= damage
-        ctx.emit_event(
-            Event(
-                event_type=EventType.MINION_DAMAGED,
-                source=EntityRef(trigger_uid),
-                target=EntityRef(target.uid),
-                value=damage,
-            )
-        )
+    player.spell_discount += 1
 
 
-def _deflect_o_bot_trigger(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    """Gain +1 Atk and DS when Mech summoned"""
-    summoned_unit = ctx.resolve_unit(event.source)
-    if not summoned_unit:
+# --- Razorfen Geomancer: BC: Get 2 Blood Gems ---
+def _razorfen_geomancer_bc(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
         return
-    if UnitType.MECH not in summoned_unit.types:
-        return
-    if summoned_unit.uid == trigger_uid:
-        return
-    deflecto = ctx.resolve_unit(EntityRef(trigger_uid))
-    if not deflecto or not deflecto.is_alive:
-        return
+    ctx.add_spell_to_hand(pos.side, SpellIDs.BLOOD_GEM)
+    ctx.add_spell_to_hand(pos.side, SpellIDs.BLOOD_GEM)
 
-    ctx.buff_combat(EntityRef(trigger_uid), 2, 0)
-    deflecto.tags.add(Tags.DIVINE_SHIELD)
 
+# --- Picky Eater: BC: Consume random tavern minion, gain its stats ---
+def _picky_eater_bc(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
+        return
+    result = ctx.consume_random_store_unit(pos.side)
+    if result:
+        atk, hp = result
+        ctx.buff_perm(EntityRef(trigger_uid), atk, hp)
+
+
+# --- River Skipper: On sell, get a random Tier 1 minion ---
+def _river_skipper_sell(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
+        return
+    # Pick a random T1 pool card
+    t1_ids = [
+        cid for cid, data in CARD_DB.items() if data["tier"] == 1 and not data.get("is_token")
+    ]
+    if not t1_ids:
+        return
+    chosen_id = random.choice(t1_ids)
+    ctx.add_unit_to_hand(pos.side, chosen_id)
+
+
+# --- Cord Puller: DR: Summon 1/1 Microbot ---
+def _cord_puller_dr(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if pos:
+        ctx.summon(pos.side, CardIDs.MICROBOT, pos.slot)
+
+
+# --- Harmless Bonehead: DR: Summon TWO 1/1 Skeletons ---
+def _harmless_bonehead_dr(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if pos:
+        ctx.summon(pos.side, CardIDs.SKELETON, pos.slot)
+        ctx.summon(pos.side, CardIDs.SKELETON, pos.slot)
+
+
+# --- Manasaber: DR: Summon TWO 0/1 Cublings with Taunt ---
+def _manasaber_dr(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if pos:
+        ctx.summon(pos.side, CardIDs.CUBLING, pos.slot)
+        ctx.summon(pos.side, CardIDs.CUBLING, pos.slot)
+
+
+# --- Misfit Dragonling: SoC: Gain +tier/+tier ---
+def _misfit_dragonling_soc(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    unit = ctx.resolve_unit(EntityRef(trigger_uid))
+    if not unit or not unit.is_alive:
+        return
+    pos = ctx.resolve_pos(EntityRef(trigger_uid))
+    if not pos:
+        return
+    player = ctx.players_by_uid.get(pos.side)
+    if not player:
+        return
+    tier = player.tavern_tier
+    ctx.buff_combat(EntityRef(trigger_uid), tier, tier)
+
+
+# --- Rot Hide Gnoll: +1 Atk per friendly death this combat ---
+def _rot_hide_gnoll_buff(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    gnoll = ctx.resolve_unit(EntityRef(trigger_uid))
+    if not gnoll or not gnoll.is_alive:
+        return
+    ctx.buff_combat(EntityRef(trigger_uid), 1, 0)
+
+
+# --- Twilight Hatchling: DR: Summon 3/3 Whelp that attacks immediately ---
+def _twilight_hatchling_dr(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if not pos:
+        return
+    ref = ctx.summon(pos.side, CardIDs.TWILIGHT_WHELP, pos.slot)
+    if ref:
+        whelp = ctx.resolve_unit(ref)
+        if whelp:
+            whelp.tags.add(Tags.IMMEDIATE_ATTACK)
+
+
+# --- Crab Deathrattle (from Surf n' Surf spellcraft) ---
+def _summon_crab_token(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+    pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+    if pos:
+        ctx.summon(pos.side, CardIDs.CRAB_TOKEN, pos.slot)
+
+
+# =====================================================================
+# Trigger Registry
+# =====================================================================
 
 TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
-    CardIDs.SHELL_COLLECTOR: [
-        TriggerDef(
-            event_type=EventType.MINION_PLAYED,
-            condition=_is_self_play,
-            effect=_gain_coin,
-            name="Shell Collector Battlecry",
-            priority=10,
-        )
-    ],
-    CardIDs.ALLEYCAT: [
-        TriggerDef(
-            event_type=EventType.MINION_PLAYED,
-            condition=_is_self_play,
-            effect=_summon_tabbycat,
-            name="Alleycat Battlecry",
-            priority=10,
-        )
-    ],
-    CardIDs.SCALLYWAG: [
-        TriggerDef(
-            event_type=EventType.MINION_DIED,
-            condition=_is_self_play,
-            effect=_summon_scallywag_token,
-            name="Scallywag Deathrattle",
-        )
-    ],
-    CardIDs.IMPRISONER: [
-        TriggerDef(
-            event_type=EventType.MINION_DIED,
-            condition=_is_self_play,
-            effect=_summon_imprisoner_token,
-            name="Imprisoner Deathrattle",
-        )
-    ],
     CardIDs.WRATH_WEAVER: [
         TriggerDef(
             event_type=EventType.MINION_PLAYED,
@@ -273,68 +246,114 @@ TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
             name="Minted Corsair Sell",
         )
     ],
+    CardIDs.DUNE_DWELLER: [
+        TriggerDef(
+            event_type=EventType.MINION_PLAYED,
+            condition=_is_self_play,
+            effect=_dune_dweller_bc,
+            name="Dune Dweller Battlecry",
+            priority=10,
+        )
+    ],
+    CardIDs.OMINOUS_SEER: [
+        TriggerDef(
+            event_type=EventType.MINION_PLAYED,
+            condition=_is_self_play,
+            effect=_ominous_seer_bc,
+            name="Ominous Seer Battlecry",
+            priority=10,
+        )
+    ],
+    CardIDs.RAZORFEN_GEOMANCER: [
+        TriggerDef(
+            event_type=EventType.MINION_PLAYED,
+            condition=_is_self_play,
+            effect=_razorfen_geomancer_bc,
+            name="Razorfen Geomancer Battlecry",
+            priority=10,
+        )
+    ],
+    CardIDs.PICKY_EATER: [
+        TriggerDef(
+            event_type=EventType.MINION_PLAYED,
+            condition=_is_self_play,
+            effect=_picky_eater_bc,
+            name="Picky Eater Battlecry",
+            priority=10,
+        )
+    ],
+    CardIDs.RIVER_SKIPPER: [
+        TriggerDef(
+            event_type=EventType.MINION_SOLD,
+            condition=_is_self_play,
+            effect=_river_skipper_sell,
+            name="River Skipper Sell",
+        )
+    ],
+    CardIDs.CORD_PULLER: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_self_death,
+            effect=_cord_puller_dr,
+            name="Cord Puller Deathrattle",
+        )
+    ],
+    CardIDs.HARMLESS_BONEHEAD: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_self_death,
+            effect=_harmless_bonehead_dr,
+            name="Harmless Bonehead Deathrattle",
+        )
+    ],
+    CardIDs.MANASABER: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_self_death,
+            effect=_manasaber_dr,
+            name="Manasaber Deathrattle",
+        )
+    ],
+    CardIDs.MISFIT_DRAGONLING: [
+        TriggerDef(
+            event_type=EventType.START_OF_COMBAT,
+            condition=_is_friendly_soc,
+            effect=_misfit_dragonling_soc,
+            name="Misfit Dragonling SoC",
+        )
+    ],
+    CardIDs.ROT_HIDE_GNOLL: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_friendly_death_exclude_self,
+            effect=_rot_hide_gnoll_buff,
+            name="Rot Hide Gnoll Buff",
+        )
+    ],
+    CardIDs.TWILIGHT_HATCHLING: [
+        TriggerDef(
+            event_type=EventType.MINION_DIED,
+            condition=_is_self_death,
+            effect=_twilight_hatchling_dr,
+            name="Twilight Hatchling Deathrattle",
+        )
+    ],
     EffectIDs.CRAB_DEATHRATTLE: [
         TriggerDef(
             event_type=EventType.MINION_DIED,
-            condition=lambda ctx, event, trigger_uid: (
-                event.source is not None and event.source.uid == trigger_uid
-            ),
+            condition=_is_self_death,
             effect=_summon_crab_token,
             name="Attached Crab Deathrattle",
         )
     ],
-    CardIDs.SPAWN_OF_NZOTH: [
-        TriggerDef(
-            event_type=EventType.MINION_DIED,
-            condition=lambda ctx, e, uid: bool(e.source and e.source.uid == uid),  # Self death
-            effect=_spawn_of_nzoth_dr,
-            name="Spawn of N'Zoth DR",
-        )
-    ],
-    CardIDs.KABOOM_BOT: [
-        TriggerDef(
-            event_type=EventType.MINION_DIED,
-            condition=lambda ctx, e, uid: bool(e.source and e.source.uid == uid),
-            effect=_kaboom_bot_dr,
-            name="Kaboom Bot DR",
-        )
-    ],
-    CardIDs.DEFLECT_O_BOT: [
-        TriggerDef(
-            event_type=EventType.MINION_SUMMONED,
-            # if someone else summoned on my side
-            condition=lambda ctx, e, uid: bool(
-                e.source_pos
-                and ctx.resolve_pos(EntityRef(uid))
-                and e.source_pos.side == ctx.resolve_pos(EntityRef(uid)).side  # type: ignore
-                and e.source
-                and e.source.uid != uid
-            ),
-            effect=_deflect_o_bot_trigger,
-            name="Deflect-o-Bot Trigger",
-        )
-    ],
 }
 
-
-def _summon_golden_tabbycat(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-    pos = ctx.resolve_pos(EntityRef(trigger_uid))
-    if not pos:
-        return
-    ctx.summon(pos.side, CardIDs.TABBYCAT, pos.slot + 1, is_golden=True)
+GOLDEN_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {}
 
 
-GOLDEN_TRIGGER_REGISTRY: Dict[str, List[TriggerDef]] = {
-    CardIDs.ALLEYCAT: [
-        TriggerDef(
-            event_type=EventType.MINION_PLAYED,
-            condition=_is_self_play,
-            effect=_summon_golden_tabbycat,
-            name="Golden Alleycat Battlecry",
-            priority=10,
-        )
-    ],
-}
+# =====================================================================
+# System triggers (global)
+# =====================================================================
 
 
 def _apply_elemental_buff(ctx: EffectContext, event: Event, trigger_uid: int) -> None:

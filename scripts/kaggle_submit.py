@@ -250,7 +250,16 @@ def mask_fn(base_env):
 
 
 
+
 GHOST_POOL = GhostPool(max_games=2000)
+GHOST_POOL_PATH = os.path.join(OUTPUT_DIR, "ghost_pool.pkl")
+
+# Load previous session's boards if available
+_loaded = GHOST_POOL.load(GHOST_POOL_PATH)
+if _loaded > 0:
+    print(f"[GHOST] Loaded {{_loaded}} games from previous session")
+else:
+    print("[GHOST] No previous ghost pool found, starting fresh")
 
 def make_env(rank, seed=42):
     def _init():
@@ -310,7 +319,10 @@ def train_mlp():
             GameLoggerCallback(
                 check_freq=50000, log_dir=logs_dir
             ),
-            CurriculumCallback(ghost_start_step=400_000),
+            CurriculumCallback(
+                ghost_start_step=200_000,
+                pool_preloaded=(_loaded > 0),
+            ),
             BoardPowerCallback(log_freq=2000),
         ],
     )
@@ -319,6 +331,11 @@ def train_mlp():
 
     final_path = os.path.join(OUTPUT_DIR, "models", "mlp_final")
     model.save(final_path)
+
+    # Persist ghost pool for future sessions / transformer phase
+    GHOST_POOL.save(GHOST_POOL_PATH)
+    print(f"[GHOST] Saved {{GHOST_POOL.size}} games to disk")
+
     run.finish()
     env.close()
     return final_path + ".zip"
@@ -392,7 +409,10 @@ def train_transformer():
             GameLoggerCallback(
                 check_freq=50000, log_dir=logs_dir
             ),
-            CurriculumCallback(ghost_start_step=400_000),
+            CurriculumCallback(
+                ghost_start_step=200_000,
+                pool_preloaded=True,  # MLP phase already populated it
+            ),
             BoardPowerCallback(log_freq=2000),
         ],
     )

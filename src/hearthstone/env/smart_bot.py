@@ -52,22 +52,18 @@ def score_unit(
         if t in board_types:
             s += 6.0
 
-    # Specific card bonuses
-    if card_id == CardIDs.DEFLECT_O_BOT:
-        if UnitType.MECH in board_types:
-            s += 25.0
-    elif card_id == CardIDs.ANNOY_O_MODULE:
-        if UnitType.MECH in board_types:
-            s += 20.0
-    elif card_id == CardIDs.WRATH_WEAVER:
+    # Specific card bonuses (Tier 1 pool)
+    if card_id == CardIDs.WRATH_WEAVER:
         if turn <= 4:
             s += 15.0
-    elif card_id == CardIDs.MURLOC_WARLEADER:
-        if UnitType.MURLOC in board_types:
-            s += 15.0
-    elif card_id == CardIDs.SOUTHSEA_CAPTAIN:
-        if UnitType.PIRATE in board_types:
-            s += 12.0
+    elif card_id == CardIDs.CRACKLING_CYCLONE:
+        s += 8.0  # DS + Windfury is strong early
+    elif card_id == CardIDs.ANNOY_O_TRON:
+        s += 5.0  # DS + Taunt is solid
+    elif card_id == CardIDs.ROT_HIDE_GNOLL:
+        s += 6.0  # Scales in combat
+    elif card_id == CardIDs.MISFIT_DRAGONLING:
+        s += 4.0  # SoC buff scales with tier
 
     return s
 

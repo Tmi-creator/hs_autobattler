@@ -18,21 +18,147 @@ COST_BUY = 3
 COST_REROLL = 1
 SPELLS_PER_ROLL = 1
 
-# Database cards (MVP)
+# =====================================================================
+# Card Database — Tier 1 (patch 234747, 21 cards)
+# =====================================================================
 CARD_DB: Dict[str, Any] = {
-    CardIDs.WRATH_WEAVER: {
-        "name": "Wrath Weaver",
+    # --- TIER 1 ---
+    CardIDs.ANNOY_O_TRON: {
+        "name": "Annoy-o-Tron",
         "tier": 1,
         "atk": 1,
-        "hp": 3,
-        "type": [UnitType.DEMON],
+        "hp": 2,
+        "type": [UnitType.MECH],
+        "tags": {Tags.DIVINE_SHIELD, Tags.TAUNT},
     },
-    CardIDs.SHELL_COLLECTOR: {
-        "name": "Shell Collector",
+    CardIDs.AUREATE_LAUREATE: {
+        "name": "Aureate Laureate",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.PIRATE],
+        "tags": {Tags.DIVINE_SHIELD},
+        # Battlecry: Make this minion Golden — shop-phase, TODO
+    },
+    CardIDs.CORD_PULLER: {
+        "name": "Cord Puller",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.MECH],
+        "tags": {Tags.DIVINE_SHIELD},
+        "deathrattle": True,
+    },
+    CardIDs.CRACKLING_CYCLONE: {
+        "name": "Crackling Cyclone",
         "tier": 1,
         "atk": 2,
         "hp": 1,
-        "type": [UnitType.NAGA],
+        "type": [UnitType.ELEMENTAL],
+        "tags": {Tags.DIVINE_SHIELD, Tags.WINDFURY},
+    },
+    CardIDs.DUNE_DWELLER: {
+        "name": "Dune Dweller",
+        "tier": 1,
+        "atk": 3,
+        "hp": 2,
+        "type": [UnitType.ELEMENTAL],
+        # Battlecry: Give Elementals in Tavern +1/+1 this game — shop-phase
+    },
+    CardIDs.FLIGHTY_SCOUT: {
+        "name": "Flighty Scout",
+        "tier": 1,
+        "atk": 3,
+        "hp": 3,
+        "type": [UnitType.MURLOC],
+        # SoC: If in hand, summon copy — C++ combat only
+    },
+    CardIDs.HARMLESS_BONEHEAD: {
+        "name": "Harmless Bonehead",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.UNDEAD],
+        "deathrattle": True,
+    },
+    CardIDs.MANASABER: {
+        "name": "Manasaber",
+        "tier": 1,
+        "atk": 4,
+        "hp": 1,
+        "type": [UnitType.BEAST],
+        "deathrattle": True,
+    },
+    CardIDs.MINTED_CORSAIR: {
+        "name": "Minted Corsair",
+        "tier": 1,
+        "atk": 1,
+        "hp": 3,
+        "type": [UnitType.PIRATE],
+    },
+    CardIDs.MISFIT_DRAGONLING: {
+        "name": "Misfit Dragonling",
+        "tier": 1,
+        "atk": 2,
+        "hp": 1,
+        "type": [UnitType.DRAGON],
+        # SoC: Gain stats equal to your Tier
+    },
+    CardIDs.OMINOUS_SEER: {
+        "name": "Ominous Seer",
+        "tier": 1,
+        "atk": 2,
+        "hp": 1,
+        "type": [UnitType.DEMON, UnitType.NAGA],
+        # Battlecry: Next tavern spell costs (1) less — shop-phase
+    },
+    CardIDs.PICKY_EATER: {
+        "name": "Picky Eater",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.DEMON],
+        # Battlecry: Consume random tavern minion for stats — shop-phase
+    },
+    CardIDs.RAZORFEN_GEOMANCER: {
+        "name": "Razorfen Geomancer",
+        "tier": 1,
+        "atk": 2,
+        "hp": 1,
+        "type": [UnitType.QUILBOAR],
+        # Battlecry: Get 2 Blood Gems — shop-phase
+    },
+    CardIDs.RISEN_RIDER: {
+        "name": "Risen Rider",
+        "tier": 1,
+        "atk": 2,
+        "hp": 1,
+        "type": [UnitType.UNDEAD],
+        "tags": {Tags.TAUNT, Tags.REBORN},
+    },
+    CardIDs.RIVER_SKIPPER: {
+        "name": "River Skipper",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.MURLOC],
+        # On sell: Get random T1 minion — shop-phase
+    },
+    CardIDs.ROT_HIDE_GNOLL: {
+        "name": "Rot Hide Gnoll",
+        "tier": 1,
+        "atk": 1,
+        "hp": 4,
+        "type": [UnitType.UNDEAD],
+        # +1 Atk per friendly death this combat — combat trigger
+    },
+    CardIDs.SURF_N_SURF: {
+        "name": "Surf n' Surf",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.NAGA, UnitType.BEAST],
+        # Spellcraft: DR summon 3/2 Crab — shop-phase spellcraft
     },
     CardIDs.SWAMPSTRIKER: {
         "name": "Swampstriker",
@@ -42,150 +168,61 @@ CARD_DB: Dict[str, Any] = {
         "type": [UnitType.MURLOC],
         "tags": {Tags.WINDFURY},
     },
-    CardIDs.ANNOY_O_TRON: {
-        "name": "Annoy-o-Tron",
+    CardIDs.TUSKED_CAMPER: {
+        "name": "Tusked Camper",
         "tier": 1,
-        "atk": 1,
-        "hp": 2,
-        "type": [UnitType.MECH],
-        "tags": {Tags.DIVINE_SHIELD, Tags.TAUNT},
-    },
-    CardIDs.ALLEYCAT: {
-        "name": "Alleycat",
-        "tier": 1,
-        "atk": 1,
-        "hp": 1,
-        "type": [UnitType.BEAST],
-        "token": CardIDs.TABBYCAT,
-    },
-    CardIDs.SCALLYWAG: {
-        "name": "Scallywag",
-        "tier": 1,
-        "atk": 3,
-        "hp": 1,
-        "type": [UnitType.PIRATE],
-        "deathrattle": True,
-    },
-    CardIDs.IMPRISONER: {
-        "name": "Imprisoner",
-        "tier": 1,
-        "atk": 3,
-        "hp": 3,
-        "type": [UnitType.DEMON],
-        "token": CardIDs.IMP_TOKEN,
-        "deathrattle": True,
-        "tags": {Tags.TAUNT},
-    },
-    CardIDs.MINTED_CORSAIR: {
-        "name": "Minted Corsair",
-        "tier": 1,
-        "atk": 1,
-        "hp": 3,
-        "type": [UnitType.PIRATE],
-    },
-    CardIDs.FLIGHTY_SCOUT: {
-        "name": "Flighty Scout",
-        "tier": 1,
-        "atk": 3,
-        "hp": 3,
-        "type": [UnitType.MURLOC],
-    },
-    CardIDs.DIRE_WOLF_ALPHA: {
-        "name": "Dire Wolf Alpha",
-        "tier": 1,
-        "atk": 1,
-        "hp": 2,
-        "type": [UnitType.BEAST],
-    },
-    # --- TIER 2 ---
-    CardIDs.LEAPFROGGER: {
-        "name": "Leapfrogger",
-        "tier": 2,
-        "atk": 4,
-        "hp": 5,
-        "type": [UnitType.BEAST],
-        "deathrattle": True,
-    },
-    CardIDs.MOLTEN_ROCK: {
-        "name": "Molten Rock",
-        "tier": 2,
-        "atk": 4,
-        "hp": 7,
-        "type": [UnitType.ELEMENTAL],
-        "tags": {Tags.TAUNT},
-    },
-    CardIDs.MURLOC_WARLEADER: {
-        "name": "Murloc Warleader",
-        "tier": 2,
-        "atk": 3,
-        "hp": 3,
-        "type": [UnitType.MURLOC],
-    },
-    CardIDs.SOUTHSEA_CAPTAIN: {
-        "name": "Southsea Captain",
-        "tier": 2,
-        "atk": 3,
-        "hp": 3,
-        "type": [UnitType.PIRATE],
-    },
-    CardIDs.ANNOY_O_MODULE: {
-        "name": "Annoy-o-Module",
-        "tier": 2,
         "atk": 2,
+        "hp": 3,
+        "type": [UnitType.QUILBOAR],
+        # Rally: Blood Gem on self — C++ combat only
+    },
+    CardIDs.TWILIGHT_HATCHLING: {
+        "name": "Twilight Hatchling",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.DRAGON],
+        "deathrattle": True,
+    },
+    CardIDs.WRATH_WEAVER: {
+        "name": "Wrath Weaver",
+        "tier": 1,
+        "atk": 1,
         "hp": 4,
-        "type": [UnitType.MECH],
-        "tags": {Tags.MAGNETIC, Tags.TAUNT, Tags.DIVINE_SHIELD},
-        "is_token": False,
-    },
-    CardIDs.SPAWN_OF_NZOTH: {
-        "name": "Spawn of N'Zoth",
-        "tier": 2,
-        "atk": 2,
-        "hp": 2,
-        "type": [UnitType.NEUTRAL],
-        "deathrattle": True,
-    },
-    CardIDs.KABOOM_BOT: {
-        "name": "Kaboom Bot",
-        "tier": 2,
-        "atk": 2,
-        "hp": 2,
-        "type": [UnitType.MECH],
-        "deathrattle": True,
-    },
-    # --- TIER 3 ---
-    CardIDs.DEFLECT_O_BOT: {
-        "name": "Deflect-o-Bot",
-        "tier": 3,
-        "atk": 3,
-        "hp": 2,
-        "type": [UnitType.MECH],
-        "tags": {Tags.DIVINE_SHIELD},
+        "type": [UnitType.DEMON],
     },
     # --- TOKENS ---
-    CardIDs.TABBYCAT: {
-        "name": "Tabbycat",
+    CardIDs.MICROBOT: {
+        "name": "Microbot",
         "tier": 1,
         "atk": 1,
+        "hp": 1,
+        "type": [UnitType.MECH],
+        "is_token": True,
+    },
+    CardIDs.SKELETON: {
+        "name": "Skeleton",
+        "tier": 1,
+        "atk": 1,
+        "hp": 1,
+        "type": [UnitType.UNDEAD],
+        "is_token": True,
+    },
+    CardIDs.CUBLING: {
+        "name": "Cubling",
+        "tier": 1,
+        "atk": 0,
         "hp": 1,
         "type": [UnitType.BEAST],
+        "tags": {Tags.TAUNT},
         "is_token": True,
     },
-    CardIDs.PIRATE_TOKEN: {
-        "name": "Pirate",
+    CardIDs.TWILIGHT_WHELP: {
+        "name": "Twilight Whelp",
         "tier": 1,
-        "atk": 1,
-        "hp": 1,
-        "type": [UnitType.PIRATE],
-        "tags": [Tags.IMMEDIATE_ATTACK],
-        "is_token": True,
-    },
-    CardIDs.IMP_TOKEN: {
-        "name": "Imp",
-        "tier": 1,
-        "atk": 1,
-        "hp": 1,
-        "type": [UnitType.DEMON],
+        "atk": 3,
+        "hp": 3,
+        "type": [UnitType.DRAGON],
         "is_token": True,
     },
     CardIDs.CRAB_TOKEN: {

@@ -6,7 +6,7 @@ from .auras import recalculate_board_auras
 from .configs import COST_BUY, COST_REROLL, SPELLS_PER_ROLL, TAVERN_SLOTS, TIER_UPGRADE_COSTS
 from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import HandCard, Player, Spell, StoreItem, Unit
-from .enums import SpellIDs, UnitType
+from .enums import CardIDs, SpellIDs, UnitType
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
 from .pool import CardPool, SpellPool
 from .spells import SPELL_TRIGGER_REGISTRY, SPELLS_REQUIRE_TARGET
@@ -66,6 +66,7 @@ class TavernManager:
             player.store.append(item)
 
         self._fill_tavern(player)
+        self._generate_spellcrafts(player)
 
     def roll_tavern(self, player: Player) -> tuple[bool, str]:
         """Paid roll (1 gold). Ignore freeze (throw all)."""
@@ -113,6 +114,22 @@ class TavernManager:
     def _make_unit(self, player: Player, cid: str) -> Unit:
         unit: Unit = Unit.create_from_db(cid, self.get_next_uid(), player.uid)
         return unit
+
+    # Spellcraft card_id -> spell_id mapping
+    SPELLCRAFT_MAP = {
+        CardIDs.SURF_N_SURF: SpellIDs.SURF_SPELLCRAFT,
+    }
+
+    def _generate_spellcrafts(self, player: Player) -> None:
+        """Generate temporary spellcraft spells for board minions that have it."""
+        for unit in player.board:
+            spell_id = self.SPELLCRAFT_MAP.get(unit.card_id)
+            if spell_id and len(player.hand) < 10:
+                spell = Spell.create_from_db(spell_id)
+                count = 2 if unit.is_golden else 1
+                for _ in range(count):
+                    if len(player.hand) < 10:
+                        player.hand.append(HandCard(uid=self.get_next_uid(), spell=spell))
 
     def upgrade_tavern(self, player: Player) -> Tuple[bool, str]:
         """Up tavern level"""

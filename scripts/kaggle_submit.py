@@ -231,7 +231,7 @@ from scripts.trans import TransformerFeaturesExtractor
 from scripts.categorical_critic import CategoricalMaskablePPO, CategoricalValuePolicy
 from hearthstone.env.ghost_pool import GhostPool
 from scripts.callbacks import (
-    BoardPowerCallback, CurriculumCallback, GameLoggerCallback
+    BoardPowerCallback, CurriculumCallback, EntropyDecayCallback, GameLoggerCallback
 )
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -440,6 +440,9 @@ def train_transformer():
                 pool_preloaded=(_loaded > 0),
             ),
             BoardPowerCallback(log_freq=2000),
+            EntropyDecayCallback(
+                ent_coef_start=0.04, ent_coef_end=0.01, decay_fraction=0.75
+            ),
         ],
     )
     elapsed = time.time() - start

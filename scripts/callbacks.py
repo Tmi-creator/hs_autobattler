@@ -256,3 +256,29 @@ class CurriculumCallback(BaseCallback):
             vec_env = cast(SupportsEnvMethod, self.training_env)
             vec_env.env_method("enable_ghost_mode")
         return True
+
+
+class EntropyDecayCallback(BaseCallback):
+    """Linearly decay ent_coef from initial value to final value."""
+
+    def __init__(
+        self,
+        ent_coef_start: float = 0.04,
+        ent_coef_end: float = 0.01,
+        decay_fraction: float = 0.75,
+        verbose: int = 0,
+    ) -> None:
+        super().__init__(verbose)
+        self.ent_coef_start = ent_coef_start
+        self.ent_coef_end = ent_coef_end
+        self.decay_fraction = decay_fraction
+
+    def _on_step(self) -> bool:
+        progress = 1.0 - self.model._current_progress_remaining  # 0→1
+        if progress < self.decay_fraction:
+            t = progress / self.decay_fraction  # 0→1 within decay window
+            ent_coef = self.ent_coef_start + t * (self.ent_coef_end - self.ent_coef_start)
+        else:
+            ent_coef = self.ent_coef_end
+        self.model.ent_coef = ent_coef
+        return True

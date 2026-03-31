@@ -1,89 +1,116 @@
 # Hearthstone Battlegrounds RL Environment
 
-This project is a high-performance environment for training Reinforcement Learning (RL) agents in **Hearthstone: Battlegrounds**.
+High-performance RL environment for training agents in **Hearthstone: Battlegrounds** with a custom game engine (Python + C++), Set Transformer architecture, and modern training pipeline.
 
-At its core lies a fully custom game engine written in Python that simulates key game mechanics (Tavern phase, Combat phase, Triplets, complex event chains) without requiring the original game client to run. The project is designed with a focus on simulation speed for efficient sample collection during model training.
+## Architecture
+
+```
+Game Engine (Python + C++ combat)
+    ↓
+Gymnasium Environment (obs/action/reward)
+    ↓
+Set Transformer Encoder
+  • DecomposedEncoder (card embedding + continuous + binary + types)
+  • FiLM (global context modulation)
+  • GTrXL Gating (stable PPO training)
+  • PMA (multi-seed aggregation)
+    ↓
+MaskablePPO (Categorical Critic + MC Oracle reward)
+```
 
 ## Features
 
-* **Custom Engine:** Full simulation of Hearthstone logic with zero Unity dependencies.
-* **Event-Driven Architecture:** The `event_system` handles complex trigger priorities (Deathrattles, Battlecries, "When damaged", Auras) just like the real game.
-* **Gym Interface:** The environment is wrapped in the standard `gymnasium` (OpenAI Gym) interface, allowing the use of modern RL algorithms (PPO, DQN, SAC).
-* **Complex Combat:** Honest combat simulation: attack order, Cleave, Divine Shield, Poisonous/Venomous, Reborn, Immediate Attack (Pirates), and dynamic Auras.
-* **Economy & Meta:** Logic for buying/selling, freezing the board, rerolling, collecting triplets, and upgrading the tavern.
+* **200+ cards** implemented via declarative CardDef system with auto-generated C++ effects
+* **C++ combat engine** — 7,400+ combats/sec (20x faster than Python), pybind11
+* **Card Embeddings** — `nn.Embedding(202, 64)` learned per-card representations
+* **Categorical Critic** — Symlog Two-Hot (255 bins, cross-entropy) from DreamerV3
+* **MC Oracle** — C++ engine as dense reward (PBRS): 20 combats per action for instant board evaluation
+* **Ghost Pool** — zero-inference self-play via recorded board trajectories with recency bias
+* **Action Masking** — dynamic masking of illegal actions via sb3-contrib MaskablePPO
 
 ## Project Structure
 
-The project is divided into the simulation core, the training environment, and execution scripts.
+### `src/hearthstone/engine/` — Game Engine
+* **`card_def.py`** — Single source of truth for all cards. Declarative EffectDef system (40+ effect types)
+* **`game.py`** — Main game loop, phase management
+* **`event_system.py`** — Event bus with trigger priorities
+* **`combat.py`** — Combat resolution (Cleave, Divine Shield, Poison, Reborn, Immediate Attack, Auras)
+* **`tavern.py`** — Tavern phase (buy/sell/roll/upgrade/freeze/discover)
+* **`entities.py`** — Unit, Player, Spell with 4-scope buff system
+* **`pool.py`** — Card pool management per tier
+* **`auras.py`** — Position-dependent aura recalculation
 
-### `src/hearthstone/engine` — Core
-The "Brain" of the game. Logic is modularized as follows:
+### `src/hearthstone/env/` — RL Environment
+* **`hs_env.py`** — Gymnasium wrapper, observation encoding, MC Oracle, reward function
+* **`ghost_pool.py`** — Historical board replay for self-play
+* **`smart_bot.py`** — Score-based heuristic opponent
 
-* **`game.py`**: Main orchestrator. Manages the game loop and phase switching.
-* **`event_system.py`**: Event Bus. The heart of the engine, managing the trigger queue.
-* **`combat.py`**: Combat phase logic. Target selection, damage calculation, death processing, and token spawning.
-* **`tavern.py`**: Recruitment phase logic (Bob's Tavern). Economy and card management.
-* **`entities.py`**: Base classes (`Unit`, `Player`, `Card`).
-* **`auras.py`**: System for recalculating static buffs (Wipe & Reapply logic).
-* **`pool.py`**: Minion pool management (tiers, copy counts).
-* **`configs.py` / `enums.py`**: Configurations, Card IDs, and Tag enumerations.
+### `scripts/` — Training & Analysis
+* **`trans.py`** — Set Transformer feature extractor (DecomposedEncoder, FiLM, GTrXL, PMA)
+* **`categorical_critic.py`** — Symlog Two-Hot categorical value head
+* **`train_transformer.py`** — Transformer PPO training pipeline
+* **`callbacks.py`** — WandB logging, curriculum, entropy decay, board power tracking
+* **`kaggle_submit.py`** — Self-contained Kaggle kernel with embedded source
+* **`generate_cpp_effects.py`** — Auto-generate C++ effects from CardDef
 
-### `src/hearthstone/env` — RL Environment
-* **`hs_env.py`**: Wraps the game in the Gym format. Converts the game state into an Observation Space vector and maps discrete agent actions to engine calls.
+### `cpp/` — C++ Combat Engine
+* **`src/combat.cpp`** — Full combat loop with POD structs, memcpy batch, GIL release
+* **`src/generated_effects.cpp`** — Auto-generated from card_def.py
+* **`bindings/pybind_module.cpp`** — `fast_combat()` and `fast_combat_batch()`
 
-### `scripts` — Execution & Training
-* **`train.py`**: Agent training pipeline (based on Stable Baselines 3).
-* **`test.py`**: Trained model validation and win-rate metric collection.
-### `tests` - Tests for different core mechanics (not updated)
-* **`run_simulation.py`**: Debug script for verifying mechanics (combat simulation, tavern scenarios).
+### `theory/` — Design Documents
+* **`todo.md`** — Original MARL-GPT roadmap
+* **`claude.md`** — Training pipeline design (ES → BC → PPO → Battle Predictor)
+* **`battle_predictor_design.md`** — Combat outcome predictor architecture
+* **`transformer_scaling_research.md`** — Scaling analysis from 60+ papers
+* **`reward_design_analysis.md`** — Reward function design and experiments
 
 ## Installation
 
-Requires Python 3.9+.
-
-1. **Clone the repository:**
-   ```bash
-   git clone <repository_url>
-   cd hs_autobattler
-   ```
-
-2. **Install dependencies:**
-   The project uses `pyproject.toml`.
-   ```bash
-   pip install -e .
-   ```
-
-## Usage
-
-### Training the Model
-Launch PPO training (hyperparameter config inside):
 ```bash
-python scripts/train.py
+pip install -e .
 ```
 
-### Testing Mechanics
-Launch simulation (Debug mode) to verify mechanics correctness
+### C++ Engine (optional, for faster combat)
 ```bash
-python tests/run_simulation.py
+pip install pybind11
+python scripts/generate_cpp_effects.py
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build
 ```
-more tests places in tests/... (not updated right now)
 
-## Current Status (Development)
+## Training
 
-The project is under active development.
+```bash
+# Transformer with Categorical Critic + MC Oracle
+python scripts/train_transformer.py
+
+# Submit to Kaggle (T4 GPU)
+python scripts/kaggle_submit.py
+```
+
+## Tests
+
+```bash
+pytest tests/ -q  # 709 tests
+```
+
+## Current Status
 
 **Implemented:**
-- [x] Basic Game Loop (Tavern <-> Combat)
-- [x] Event System and Queues
-- [x] Combat Mechanics (Cleave, Shield, Reborn, Venomous, Immediate Attack)
-- [x] Aura System (Stateless recalc)
-- [x] Gymnasium Integration
-- [x] Economy (Buy, Sell, Reroll, Triplets)
+- [x] 200+ cards with declarative CardDef system
+- [x] C++ combat engine (20x speedup)
+- [x] Set Transformer with card embeddings
+- [x] Categorical Critic (DreamerV3 Two-Hot)
+- [x] MC Oracle dense reward (PBRS)
+- [x] Ghost pool self-play with recency bias
+- [x] Kaggle training pipeline
 
-**Planned:**
-- [ ] Magnetism for Mechs
-- [ ] Full Card Set Implementation (currently ~40% of the base set)
-- [ ] New Model for learning with Transformers
+**In Progress:**
+- [ ] Breaking board_power plateau via MC Oracle
+- [ ] ES bot for Behavioral Cloning pretrain
+- [ ] Battle Predictor (neural combat outcome predictor)
+- [ ] Curriculum learning (tier-based progressive complexity)
 
 ---
 Created by Tmi-creator.

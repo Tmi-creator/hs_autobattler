@@ -11,6 +11,7 @@ from gymnasium import spaces
 
 from hearthstone.engine.configs import CARD_DB, SPELL_DB
 from hearthstone.engine.card_def import TRIGGER_REGISTRY
+from hearthstone.engine.cpp_bridge import CARD_ID_MAP, TAG_TO_BIT, TYPE_TO_BIT, get_cpp_engine
 from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
 from hearthstone.engine.enums import UnitType
 from hearthstone.engine.event_system import EventType
@@ -74,6 +75,13 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self._use_ghost: bool = False
         self._ghost_ratio: float = 0.8  # probability of using ghost vs bot
         self._env_id: int = id(self)  # unique per env instance
+
+        # MC Oracle: C++ engine as dense reward oracle
+        self._oracle_n_combats: int = 20
+        self._oracle_cached_wr: float = 0.5
+        self._oracle_seed: int = random.getrandbits(32)
+        self._oracle_ghost_cpp: list | None = None  # cached C++ tuples for ghost board
+        self._oracle_ghost_tier: int = 1
 
         self.all_types = list(UnitType)
         self.num_types = len(self.all_types)  # 11
@@ -200,6 +208,11 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         ):
             self._ghost_trajectory = self.ghost_pool.sample_trajectory()
 
+        # Reset MC Oracle state
+        self._oracle_cached_wr = 0.5
+        self._oracle_seed = random.getrandbits(32)
+        self._oracle_ghost_cpp = None
+
         return self._get_obs(), {}
 
     def set_opponent(self, model: MaskablePPO) -> None:
@@ -317,14 +330,18 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         if not success:
             return self._get_obs(), 0.0, self.game.game_over, truncated, {}
 
-        # === REWARD: Round Outcome + Action Penalty + Terminal ===
-        # No per-action positive rewards — prevents sell-cycle exploit.
-        # Dense signal from round outcomes (+1/-1), soft penalty for action spam.
+        # === REWARD: MC Oracle PBRS + Round Outcome + Terminal ===
+        # Dense reward from C++ combat oracle on board-changing actions.
+        # Round outcome (+1/-1) at END_TURN. Terminal ±100.
 
-        reward: float = -0.005  # action penalty: discourages infinite buy-sell loops
+        reward: float = -0.005  # action penalty: discourages infinite loops
 
-        if action_type == "END_TURN":
-            reward = 0.0  # END_TURN itself is free (no penalty for ending)
+        if action_type in ("BUY", "SELL", "PLAY"):
+            # MC Oracle: run N combats to measure board strength change
+            reward += self._oracle_reward(player)
+
+        elif action_type == "END_TURN":
+            reward = 0.0  # END_TURN itself is free
             self.actions_in_turn = 0
 
             self._auto_position_board(player)
@@ -341,19 +358,23 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             damage_dealt = p1_hp_before - p1_hp_after
             damage_taken = p0_hp_before - p0_hp_after
 
-            # Round outcome: discrete +1/-1 (no damage magnitude bias)
+            # Round outcome: +1/-1
             if damage_dealt > damage_taken:
-                reward += 1.0   # won this combat
+                reward += 1.0
             elif damage_taken > damage_dealt:
-                reward -= 1.0   # lost this combat
-            # draw: reward += 0
+                reward -= 1.0
 
-            # Terminal: game win/loss (dominates everything)
+            # Terminal: game win/loss
             if done:
                 if p0_hp_after > 0:
                     reward += 100.0
                 else:
                     reward -= 100.0
+
+            # Prepare oracle for next turn (cache ghost board)
+            if not done:
+                self._oracle_prepare_ghost()
+                self._oracle_cached_wr = self._oracle_eval_winrate(player)
 
         return self._get_obs(), reward, done, truncated, {}
 
@@ -427,6 +448,60 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             power += math.sqrt(u_score)
 
         return power
+
+    # ================================================================
+    # MC Oracle: use C++ combat engine as dense reward signal (PBRS)
+    # ================================================================
+
+    @staticmethod
+    def _unit_to_cpp(unit: Unit) -> tuple:
+        """Convert Unit → C++ tuple. Mirrors CombatManager._unit_to_cpp."""
+        cpp_types = 0
+        for t in unit.types:
+            cpp_types |= TYPE_TO_BIT.get(t, 0)
+        cpp_tags = 0
+        for tag in unit.tags:
+            cpp_tags |= TAG_TO_BIT.get(tag, 0)
+        return (
+            CARD_ID_MAP.get(unit.card_id, 0),
+            unit.cur_atk, unit.cur_hp,
+            cpp_types, cpp_tags,
+            unit.tier, unit.is_golden,
+        )
+
+    def _oracle_prepare_ghost(self) -> None:
+        """Cache C++ tuples for the current ghost board (called once per turn)."""
+        enemy = self.game.players[self.enemy_id]
+        if enemy.board:
+            self._oracle_ghost_cpp = [self._unit_to_cpp(u) for u in enemy.board]
+            self._oracle_ghost_tier = enemy.tavern_tier
+        else:
+            self._oracle_ghost_cpp = None
+
+    def _oracle_eval_winrate(self, player: Player) -> float:
+        """Run N combats via C++ engine, return winrate [0, 1]."""
+        cpp = get_cpp_engine()
+        if cpp is None or not player.board or self._oracle_ghost_cpp is None:
+            return 0.5
+
+        side0 = [self._unit_to_cpp(u) for u in player.board]
+        results = cpp.fast_combat_batch(
+            side0, self._oracle_ghost_cpp,
+            self._oracle_seed, self._oracle_n_combats,
+            tavern_tier_0=player.tavern_tier,
+            tavern_tier_1=self._oracle_ghost_tier,
+        )
+        self._oracle_seed += self._oracle_n_combats
+
+        wins = sum(1 for outcome, _ in results if outcome == 2)  # 2 = WIN for side0
+        return wins / len(results)
+
+    def _oracle_reward(self, player: Player) -> float:
+        """Compute PBRS reward: delta winrate after action × scale."""
+        wr_after = self._oracle_eval_winrate(player)
+        delta = wr_after - self._oracle_cached_wr
+        self._oracle_cached_wr = wr_after
+        return delta * 10.0
 
     def _play_enemy_turn(self) -> None:
         p_idx = self.enemy_id

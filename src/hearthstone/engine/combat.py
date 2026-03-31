@@ -2,8 +2,8 @@ import random
 from typing import List, Optional, Tuple
 
 from .auras import recalculate_board_auras
+from .card_def import AVENGE_REGISTRY, GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY, AvengeEffect
 from .cpp_bridge import CARD_ID_MAP, TAG_TO_BIT, TYPE_TO_BIT, get_cpp_engine
-from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import Player, Unit
 from .enums import BattleOutcome, Tags
 from .event_system import (
@@ -18,6 +18,102 @@ from .event_system import (
     TriggerInstance,
     Zone,
 )
+
+
+def _execute_avenge(
+    avenger: Unit,
+    avenge_def: AvengeEffect,
+    combat_players: dict[int, Player],
+    dead_side_uid: int,
+) -> None:
+    """Apply avenge buff based on the AvengeEffect definition."""
+    side_uid = dead_side_uid
+    player = combat_players.get(side_uid)
+    if not player:
+        return
+
+    board = player.board
+    buff_atk = avenge_def.buff_atk
+    buff_hp = avenge_def.buff_hp
+    use_perm = avenge_def.buff_scope == "perm"
+
+    def _apply_buff(unit: Unit) -> None:
+        if not unit.is_alive:
+            return
+        if use_perm:
+            unit.perm_atk_add += buff_atk
+            unit.perm_hp_add += buff_hp
+        else:
+            unit.combat_atk_add += buff_atk
+            unit.combat_hp_add += buff_hp
+        unit.recalc_stats()
+
+    target = avenge_def.buff_target
+
+    if target == "self":
+        _apply_buff(avenger)
+
+    elif target == "friendly_type":
+        t = avenge_def.target_type
+        for unit in board:
+            if t is None or t in unit.types:
+                _apply_buff(unit)
+
+    elif target == "random_friendly_type":
+        t = avenge_def.target_type
+        candidates = [u for u in board if (t is None or t in u.types) and u.is_alive]
+        if candidates:
+            _apply_buff(random.choice(candidates))
+
+    elif target == "adjacent":
+        # find avenger index in board
+        idx = next((i for i, u in enumerate(board) if u.uid == avenger.uid), -1)
+        if idx == -1:
+            return
+        for adj_idx in (idx - 1, idx + 1):
+            if 0 <= adj_idx < len(board):
+                _apply_buff(board[adj_idx])
+
+    elif target == "free_refresh":
+        player.free_refreshes += 1
+
+    elif target == "add_spell":
+        import random as _random
+
+        from .configs import SPELL_DB as _SPELL_DB
+        from .entities import HandCard as _HandCard
+        from .entities import Spell as _Spell
+        from .enums import SpellIDs as _SpellIDs
+
+        spell_id = _SpellIDs.TAVERN_COIN
+        pool_spells = [
+            sid
+            for sid, data in _SPELL_DB.items()
+            if data.get("pool", True) and sid != _SpellIDs.TRIPLET_REWARD
+        ]
+        if pool_spells:
+            spell_id = _random.choice(pool_spells)
+        spell = _Spell.create_from_db(spell_id)
+        player.hand.append(_HandCard(uid=0, spell=spell))
+
+    elif target == "add_unit":
+        import random as _random
+
+        from .configs import CARD_DB as _CARD_DB
+        from .entities import HandCard as _HandCard
+        from .entities import Unit as _Unit
+
+        candidates = [
+            cid
+            for cid, data in _CARD_DB.items()
+            if not data.get("is_token") and data.get("tier", 1) >= 1
+        ]
+        if not candidates:
+            return
+        chosen = _random.choice(candidates)
+        uid_val = max((u.uid for p in combat_players.values() for u in p.board), default=10000) + 1
+        new_unit = _Unit.create_from_db(chosen, uid_val, side_uid)
+        player.hand.append(_HandCard(uid=uid_val, unit=new_unit))
 
 
 class CombatManager:
@@ -45,19 +141,51 @@ class CombatManager:
         for tag in unit.tags:
             cpp_tags |= TAG_TO_BIT.get(tag, 0)
         return (
-            cpp_card_id, unit.cur_atk, unit.cur_hp,
-            cpp_types, cpp_tags, unit.tier, unit.is_golden,
+            cpp_card_id,
+            unit.cur_atk,
+            unit.cur_hp,
+            cpp_types,
+            cpp_tags,
+            unit.tier,
+            unit.is_golden,
         )
+
+    @staticmethod
+    def _apply_hand_soc(player: Player) -> None:
+        """Pre-combat: summon copies of hand units with StartOfCombat-from-hand effects.
+        Currently: Flighty Scout — SoC: if in hand, summon a copy."""
+        from .enums import CardIDs
+
+        for hc in list(player.hand):
+            if not hc.unit or hc.unit.card_id != CardIDs.FLIGHTY_SCOUT:
+                continue
+            if len(player.board) >= 7:
+                break
+            copy = Unit.create_from_db(
+                hc.unit.card_id,
+                -1,
+                player.uid,
+                hc.unit.is_golden,
+            )
+            copy.perm_atk_add = hc.unit.perm_atk_add
+            copy.perm_hp_add = hc.unit.perm_hp_add
+            copy.recalc_stats()
+            player.board.append(copy)
 
     def resolve_combat_fast(self, player_1: Player, player_2: Player) -> tuple[BattleOutcome, int]:
         """C++ accelerated combat — same interface as resolve_combat()."""
         cpp = get_cpp_engine()
         assert cpp is not None, "C++ engine not loaded"
+        # Pre-combat: handle hand-based SoC effects before passing to C++
+        self._apply_hand_soc(player_1)
+        self._apply_hand_soc(player_2)
         side0 = [self._unit_to_cpp(u) for u in player_1.board]
         side1 = [self._unit_to_cpp(u) for u in player_2.board]
         seed = random.getrandbits(64)
         outcome, damage = cpp.fast_combat(
-            side0, side1, seed,
+            side0,
+            side1,
+            seed,
             tavern_tier_0=player_1.tavern_tier,
             tavern_tier_1=player_2.tavern_tier,
         )
@@ -495,6 +623,19 @@ class CombatManager:
                     if i < attack_indices[p_idx]:
                         attack_indices[p_idx] += units_added
                     i += units_added
+
+                    # Avenge: decrement counter on all alive friendlies on dead_side
+                    dead_side_uid = unit.owner_id
+                    for friendly in board:
+                        if not friendly.is_alive:
+                            continue
+                        avenge_def = AVENGE_REGISTRY.get(friendly.card_id)
+                        if not avenge_def or friendly.avenge_counter <= 0:
+                            continue
+                        friendly.avenge_counter -= 1
+                        if friendly.avenge_counter == 0:
+                            friendly.avenge_counter = avenge_def.threshold
+                            _execute_avenge(friendly, avenge_def, combat_players, dead_side_uid)
 
                 else:
                     i += 1

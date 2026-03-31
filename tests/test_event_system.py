@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Callable, Dict
 
+import pytest
+
 from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
 from hearthstone.engine.enums import CardIDs, EffectIDs, SpellIDs
 from hearthstone.engine.event_system import (
@@ -53,7 +55,7 @@ class TestEffectContextResolve:
 
     def test_resolve_unit_on_board(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -63,7 +65,7 @@ class TestEffectContextResolve:
 
     def test_resolve_unit_in_hand(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.hand.append(HandCard(uid=1, unit=unit))
         ctx = _make_context({0: p})
 
@@ -73,7 +75,7 @@ class TestEffectContextResolve:
 
     def test_resolve_unit_in_store(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.store.append(StoreItem(unit=unit))
         ctx = _make_context({0: p})
 
@@ -93,7 +95,7 @@ class TestEffectContextResolve:
 
     def test_resolve_pos_correct_zone(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -105,8 +107,8 @@ class TestEffectContextResolve:
 
     def test_resolve_pos_second_slot(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        u1 = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
-        u2 = Unit.create_from_db(CardIDs.TABBYCAT, uid=2, owner_id=0)
+        u1 = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
+        u2 = Unit.create_from_db(CardIDs.MICROBOT, uid=2, owner_id=0)
         p.board = [u1, u2]
         ctx = _make_context({0: p})
 
@@ -116,8 +118,8 @@ class TestEffectContextResolve:
 
     def test_iter_board_units(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        u1 = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
-        u2 = Unit.create_from_db(CardIDs.TABBYCAT, uid=2, owner_id=0)
+        u1 = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
+        u2 = Unit.create_from_db(CardIDs.MICROBOT, uid=2, owner_id=0)
         p.board = [u1, u2]
         ctx = _make_context({0: p})
 
@@ -128,7 +130,7 @@ class TestEffectContextResolve:
 
     def test_iter_store_units(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.economy.store = [
             StoreItem(unit=unit),
             StoreItem(spell=Spell.create_from_db(SpellIDs.BANANA)),
@@ -150,7 +152,7 @@ class TestEffectContextBuffs:
 
     def test_buff_perm_updates_stats(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -163,7 +165,7 @@ class TestEffectContextBuffs:
 
     def test_buff_turn_updates_stats(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -174,7 +176,7 @@ class TestEffectContextBuffs:
 
     def test_buff_combat_updates_stats(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -237,34 +239,34 @@ class TestEffectContextActions:
         p = Player(uid=0, board=[], hand=[])
         ctx = _make_context({0: p})
 
-        ref = ctx.summon(0, CardIDs.TABBYCAT, 0)
+        ref = ctx.summon(0, CardIDs.MICROBOT, 0)
 
         assert ref is not None
         assert len(p.board) == 1
-        assert p.board[0].card_id == CardIDs.TABBYCAT
+        assert p.board[0].card_id == CardIDs.MICROBOT
 
     def test_summon_full_board_returns_none(self) -> None:
         p = Player(uid=0, board=[], hand=[])
         for i in range(7):
-            p.board.append(Unit.create_from_db(CardIDs.TABBYCAT, uid=i + 1, owner_id=0))
+            p.board.append(Unit.create_from_db(CardIDs.MICROBOT, uid=i + 1, owner_id=0))
         ctx = _make_context({0: p})
 
-        ref = ctx.summon(0, CardIDs.TABBYCAT, 0)
+        ref = ctx.summon(0, CardIDs.MICROBOT, 0)
 
         assert ref is None
         assert len(p.board) == 7
 
     def test_summon_at_specific_index(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        u1 = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
-        u2 = Unit.create_from_db(CardIDs.TABBYCAT, uid=2, owner_id=0)
+        u1 = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
+        u2 = Unit.create_from_db(CardIDs.MICROBOT, uid=2, owner_id=0)
         p.board = [u1, u2]
         ctx = _make_context({0: p})
 
-        ctx.summon(0, CardIDs.SCALLYWAG, 1)
+        ctx.summon(0, CardIDs.HARMLESS_BONEHEAD, 1)
 
         assert len(p.board) == 3
-        assert p.board[1].card_id == CardIDs.SCALLYWAG
+        assert p.board[1].card_id == CardIDs.HARMLESS_BONEHEAD
 
     def test_summon_emits_event(self) -> None:
         p = Player(uid=0, board=[], hand=[])
@@ -276,7 +278,7 @@ class TestEffectContextActions:
             return counter[0]
 
         ctx = EffectContext({0: p}, uid_provider, queue)
-        ctx.summon(0, CardIDs.TABBYCAT, 0)
+        ctx.summon(0, CardIDs.MICROBOT, 0)
 
         assert len(queue) > 0
         assert queue[0].event_type == EventType.MINION_SUMMONED
@@ -292,7 +294,7 @@ class TestEffectContextAttach:
 
     def test_attach_perm(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -302,7 +304,7 @@ class TestEffectContextAttach:
 
     def test_attach_turn(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -312,7 +314,7 @@ class TestEffectContextAttach:
 
     def test_attach_combat(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -322,7 +324,7 @@ class TestEffectContextAttach:
 
     def test_attach_stacks_additively(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board.append(unit)
         ctx = _make_context({0: p})
 
@@ -351,8 +353,8 @@ class TestTriggerCollection:
         mock_unit: Callable[..., Unit],
     ) -> None:
         p = empty_game.players[0]
-        shell = mock_unit(CardIDs.SHELL_COLLECTOR, owner_id=p.uid)
-        p.board.append(shell)
+        seer = mock_unit(CardIDs.OMINOUS_SEER, owner_id=p.uid)
+        p.board.append(seer)
 
         event = Event(event_type=EventType.MINION_PLAYED)
         ctx = _make_context({p.uid: p})
@@ -360,7 +362,7 @@ class TestTriggerCollection:
         triggers = empty_game.event_manager.collect_triggers(event, ctx)
         trigger_names = [t.trigger_def.name for t in triggers]
 
-        assert "Shell Collector Battlecry" in trigger_names
+        assert "Ominous Seer Battlecry" in trigger_names
 
     def test_golden_unit_without_golden_registry_doubles_stacks(
         self,
@@ -379,20 +381,21 @@ class TestTriggerCollection:
 
         assert weaver_trig.stacks == 2  # No golden_trigger_registry entry → 2x
 
+    @pytest.mark.skip(reason="No cards with golden_trigger_registry entries in current patch")
     def test_golden_unit_with_golden_registry_uses_it(
         self,
         empty_game: "Game",
         mock_unit: Callable[..., Unit],
     ) -> None:
         p = empty_game.players[0]
-        cat = mock_unit(CardIDs.ALLEYCAT, owner_id=p.uid, is_golden=True)
+        cat = mock_unit(CardIDs.OMINOUS_SEER, owner_id=p.uid, is_golden=True)
         p.board.append(cat)
 
         event = Event(event_type=EventType.MINION_PLAYED)
         ctx = _make_context({p.uid: p})
 
         triggers = empty_game.event_manager.collect_triggers(event, ctx)
-        alley_trig = next(t for t in triggers if "Golden Alleycat" in t.trigger_def.name)
+        alley_trig = next(t for t in triggers if "Golden" in t.trigger_def.name)
 
         assert alley_trig.stacks == 1  # Golden registry → stacks=1, uses golden effect
 
@@ -402,7 +405,7 @@ class TestTriggerCollection:
         mock_unit: Callable[..., Unit],
     ) -> None:
         p = empty_game.players[0]
-        unit = mock_unit(CardIDs.TABBYCAT, owner_id=p.uid)
+        unit = mock_unit(CardIDs.MICROBOT, owner_id=p.uid)
         unit.attached_turn[EffectIDs.CRAB_DEATHRATTLE] = 2
         p.board.append(unit)
 
@@ -421,7 +424,7 @@ class TestTriggerCollection:
         mock_unit: Callable[..., Unit],
     ) -> None:
         p = empty_game.players[0]
-        unit = mock_unit(CardIDs.TABBYCAT, owner_id=p.uid)
+        unit = mock_unit(CardIDs.MICROBOT, owner_id=p.uid)
         unit.attached_turn[EffectIDs.CRAB_DEATHRATTLE] = 0  # Zero stacks
         p.board.append(unit)
 
@@ -444,8 +447,8 @@ class TestReindex:
 
     def test_reindex_after_board_change(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        u1 = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
-        u2 = Unit.create_from_db(CardIDs.TABBYCAT, uid=2, owner_id=0)
+        u1 = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
+        u2 = Unit.create_from_db(CardIDs.MICROBOT, uid=2, owner_id=0)
         p.board = [u1, u2]
         ctx = _make_context({0: p})
 
@@ -459,7 +462,7 @@ class TestReindex:
 
     def test_reindex_clears_stale_entries(self) -> None:
         p = Player(uid=0, board=[], hand=[])
-        u1 = Unit.create_from_db(CardIDs.TABBYCAT, uid=1, owner_id=0)
+        u1 = Unit.create_from_db(CardIDs.MICROBOT, uid=1, owner_id=0)
         p.board = [u1]
         ctx = _make_context({0: p})
 

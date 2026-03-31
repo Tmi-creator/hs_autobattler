@@ -58,11 +58,13 @@ def _pack_project_b64() -> str:
         for fname in [
             "__init__.py",
             "trans.py",
+            "categorical_critic.py",
             "callbacks.py",
             "train.py",
             "train_transformer.py",
             "evaluate_pvp.py",
             "visualize_attention.py",
+            "generate_cpp_effects.py",
         ]:
             fp = scripts_dir / fname
             if fp.exists():
@@ -163,11 +165,17 @@ if __name__ == "__main__":
         check=True,
     )
 
-    # === 2.5. Build C++ combat engine ===
+    # === 2.5. Generate C++ effects + Build C++ combat engine ===
     import glob
     CPP_DIR = os.path.join(PROJECT_DIR, "cpp")
     _so_files = glob.glob(os.path.join(CPP_BUILD, "hs_engine_cpp*"))
     if os.path.isdir(CPP_DIR) and not _so_files:
+        # Generate C++ effects from Python card_def.py
+        _gen_script = os.path.join(PROJECT_DIR, "scripts", "generate_cpp_effects.py")
+        if os.path.exists(_gen_script):
+            print("[C++ CODEGEN] Generating effects from card_def.py...")
+            subprocess.run([sys.executable, _gen_script], check=True)
+
         print("[C++ BUILD] Compiling combat engine...")
         os.makedirs(CPP_BUILD, exist_ok=True)
         _cmakedir = subprocess.check_output(
@@ -212,8 +220,6 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 import numpy as np
 import torch
 from typing import cast
-from sb3_contrib import MaskablePPO
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed
@@ -222,6 +228,7 @@ from wandb.integration.sb3 import WandbCallback
 
 from hearthstone.env.hs_env import HearthstoneEnv
 from scripts.trans import TransformerFeaturesExtractor
+from scripts.categorical_critic import CategoricalMaskablePPO, CategoricalValuePolicy
 from hearthstone.env.ghost_pool import GhostPool
 from scripts.callbacks import (
     BoardPowerCallback, CurriculumCallback, GameLoggerCallback
@@ -233,8 +240,8 @@ if DEVICE == "cuda":
     print(f"[GPU] {{torch.cuda.get_device_name(0)}}")
 
 SEED = 42
-N_ENVS = 4
-TOTAL_TIMESTEPS = 1_500_000
+N_ENVS = 8
+TOTAL_TIMESTEPS = 4_500_000
 
 
 def setup_determinism(seed):
@@ -342,20 +349,30 @@ def train_mlp():
 
 
 # =========================================
-# PHASE 2: Train Transformer
+# Train Transformer (Categorical Critic + Card Embeddings)
 # =========================================
 def train_transformer():
     print("\\n" + "=" * 60)
-    print("PHASE 2: Training Transformer Agent")
+    print("Training Transformer (Categorical Critic + Card Embeddings)")
     print("=" * 60)
     setup_determinism(SEED)
 
+    # Get num_card_ids from env
+    _tmp = HearthstoneEnv()
+    num_card_ids = _tmp.num_card_ids
+    del _tmp
+    print(f"[CARDS] Card vocabulary: {{num_card_ids}} unique IDs")
+
     run = wandb.init(
         project="hs_autobattler_comparison",
-        name="transformer",
+        name="transformer_categorical",
         config={{
-            "model": "Transformer", "timesteps": TOTAL_TIMESTEPS,
-            "n_envs": N_ENVS, "d_model": 128, "n_heads": 4, "n_layers": 4,
+            "model": "Transformer+CategoricalCritic",
+            "timesteps": TOTAL_TIMESTEPS,
+            "n_envs": N_ENVS,
+            "d_model": 128, "n_heads": 4, "n_layers": 4,
+            "num_card_ids": num_card_ids,
+            "critic": "two_hot_255bins",
         }},
         sync_tensorboard=True,
     )
@@ -369,32 +386,41 @@ def train_transformer():
 
     policy_kwargs = dict(
         features_extractor_class=TransformerFeaturesExtractor,
-        features_extractor_kwargs=dict(d_model=128, n_heads=4, n_layers=4, d_context=10),
+        features_extractor_kwargs=dict(
+            d_model=128, n_heads=4, n_layers=4, d_context=10,
+            num_card_ids=num_card_ids,
+        ),
         net_arch=dict(pi=[128], vf=[128]),
     )
 
     tb_log = os.path.join(OUTPUT_DIR, "tb_logs", "transformer")
-    model = MaskablePPO(
-        MaskableActorCriticPolicy, env, verbose=1,
-        learning_rate=3e-4, gamma=0.99, batch_size=256,
-        n_steps=2048, ent_coef=0.01,
+    model = CategoricalMaskablePPO(
+        CategoricalValuePolicy, env, verbose=1,
+        learning_rate=3e-4, gamma=0.999, batch_size=256,
+        n_steps=2048, ent_coef=0.04,
         policy_kwargs=policy_kwargs,
         seed=SEED, device=DEVICE,
         tensorboard_log=tb_log,
     )
 
-    # Zero-Init (DreamerV3)
-    for module in [model.policy.action_net, model.policy.value_net]:
-        if hasattr(module, "weight"):
-            torch.nn.init.zeros_(module.weight)
-        if hasattr(module, "bias") and module.bias is not None:
-            torch.nn.init.zeros_(module.bias)
-    print("[INIT] Zero-Init applied")
+    # torch.compile — skip on old GPUs (P100/sm_60 not supported by triton)
+    try:
+        import torch._dynamo
+        _sm = torch.cuda.get_device_capability()
+        if _sm >= (7, 0):
+            model.policy = torch.compile(model.policy)
+            print(f"[COMPILE] torch.compile applied (sm_{{_sm[0]}}{{_sm[1]}})")
+        else:
+            print(f"[COMPILE] Skipped — GPU sm_{{_sm[0]}}{{_sm[1]}} < 7.0")
+    except Exception as e:
+        print(f"[COMPILE] Skipped: {{e}}")
 
     ext = model.policy.features_extractor
     n_params = sum(p.numel() for p in ext.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.policy.parameters() if p.requires_grad)
     print(f"[MODEL] Transformer: {{n_params:,}} extractor, {{total_params:,}} total")
+    print(f"[MODEL] Critic: Categorical Two-Hot (255 bins, symlog [-20, +20])")
+    print(f"[MODEL] Card Embedding: nn.Embedding({{num_card_ids}}, 64)")
 
     start = time.time()
     model.learn(
@@ -411,7 +437,7 @@ def train_transformer():
             ),
             CurriculumCallback(
                 ghost_start_step=200_000,
-                pool_preloaded=True,  # MLP phase already populated it
+                pool_preloaded=(_loaded > 0),
             ),
             BoardPowerCallback(log_freq=2000),
         ],
@@ -421,58 +447,13 @@ def train_transformer():
 
     final_path = os.path.join(OUTPUT_DIR, "models", "transformer_final")
     model.save(final_path)
+
+    GHOST_POOL.save(GHOST_POOL_PATH)
+    print(f"[GHOST] Saved {{GHOST_POOL.size}} games")
+
     run.finish()
     env.close()
     return final_path + ".zip"
-
-
-# =========================================
-# PHASE 3: PvP
-# =========================================
-def evaluate_pvp(mlp_path, trans_path, n_games=200):
-    print("\\n" + "=" * 60)
-    print(f"PHASE 3: PvP Evaluation ({{n_games}} games each way)")
-    print("=" * 60)
-
-    mlp = MaskablePPO.load(mlp_path, device="cpu")
-    trans = MaskablePPO.load(trans_path, device="cpu")
-
-    def run_match(agent, opponent, n, seed=42):
-        env = HearthstoneEnv()
-        wins, losses, draws = 0, 0, 0
-        for i in range(n):
-            obs, _ = env.reset(seed=seed + i)
-            env.set_opponent(opponent)
-            done, truncated = False, False
-            while not done and not truncated:
-                masks = np.asarray(env.action_masks(), dtype=bool)
-                action, _ = agent.predict(obs, action_masks=masks, deterministic=True)
-                obs, _, done, truncated, _ = env.step(int(action))
-            p0 = env.game.players[env.my_player_id]
-            p1 = env.game.players[env.enemy_id]
-            if p0.health > 0 and p1.health <= 0: wins += 1
-            elif p0.health <= 0 and p1.health > 0: losses += 1
-            else: draws += 1
-        return {{"wins": wins, "losses": losses, "draws": draws, "wr": wins / n * 100}}
-
-    print("[MATCH 1] Transformer vs MLP...")
-    s1 = run_match(trans, mlp, n_games, seed=100)
-    print(f"  Trans WR: {{s1['wr']:.1f}}% ({{s1['wins']}}W/{{s1['losses']}}L/{{s1['draws']}}D)")
-
-    print("[MATCH 2] MLP vs Transformer...")
-    s2 = run_match(mlp, trans, n_games, seed=200)
-    print(f"  MLP WR: {{s2['wr']:.1f}}% ({{s2['wins']}}W/{{s2['losses']}}L/{{s2['draws']}}D)")
-
-    overall_trans = (s1["wr"] + (100 - s2["wr"])) / 2
-    print(f"\\n[OVERALL] Transformer: {{overall_trans:.1f}}% | MLP: {{100-overall_trans:.1f}}%")
-
-    run = wandb.init(project="hs_autobattler_comparison", name="pvp_results")
-    wandb.log({{
-        "pvp/trans_wr_as_agent": s1["wr"],
-        "pvp/mlp_wr_as_agent": s2["wr"],
-        "pvp/trans_overall_wr": overall_trans,
-    }})
-    run.finish()
 
 
 # =========================================
@@ -489,12 +470,10 @@ if __name__ == "__main__":
         except Exception:
             print("[WARN] No WANDB key — logging disabled")
             os.environ["WANDB_MODE"] = "offline"
-    print("[START] HS Autobattler: MLP vs Transformer Comparison")
+    print("[START] HS Autobattler: Transformer + Categorical Critic")
     print(f"[CONFIG] {{TOTAL_TIMESTEPS:,}} timesteps, {{N_ENVS}} envs, device={{DEVICE}}")
 
-    mlp_path = train_mlp()
-    trans_path = train_transformer()
-    evaluate_pvp(mlp_path, trans_path)
+    train_transformer()
 
     print("\\n[ALL DONE]")
 '''

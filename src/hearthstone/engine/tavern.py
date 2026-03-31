@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .auras import recalculate_board_auras
+from .card_def import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .configs import COST_BUY, COST_REROLL, SPELLS_PER_ROLL, TAVERN_SLOTS, TIER_UPGRADE_COSTS
-from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import HandCard, Player, Spell, StoreItem, Unit
 from .enums import CardIDs, SpellIDs, UnitType
 from .event_system import EntityRef, Event, EventManager, EventType, PosRef, TriggerInstance, Zone
@@ -44,6 +44,7 @@ class TavernManager:
             ),
             {player.uid: player},
             self.get_next_uid,
+            card_pool=self.pool,
         )
         max_gold = min(10, 3 + turn_number - 1)
         player.gold = max_gold + player.gold_next_turn
@@ -66,14 +67,21 @@ class TavernManager:
             player.store.append(item)
 
         self._fill_tavern(player)
+        self.event_manager.process_event(
+            Event(event_type=EventType.TAVERN_REFRESHED,
+                  source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0)),
+            {player.uid: player}, self.get_next_uid, card_pool=self.pool,
+        )
         self._generate_spellcrafts(player)
 
     def roll_tavern(self, player: Player) -> tuple[bool, str]:
-        """Paid roll (1 gold). Ignore freeze (throw all)."""
-        if player.gold < COST_REROLL:
-            return False, "Not enough gold"
-
-        player.gold -= COST_REROLL
+        """Paid roll (1 gold). Ignore freeze (throw all). Free if player.free_refreshes > 0."""
+        if player.free_refreshes > 0:
+            player.free_refreshes -= 1
+        else:
+            if player.gold < COST_REROLL:
+                return False, "Not enough gold"
+            player.gold -= COST_REROLL
 
         all_unit_ids = [item.unit.card_id for item in player.store if item.unit]
         self.pool.return_cards(all_unit_ids)
@@ -81,6 +89,11 @@ class TavernManager:
         player.store.clear()
 
         self._fill_tavern(player)
+        self.event_manager.process_event(
+            Event(event_type=EventType.TAVERN_REFRESHED,
+                  source_pos=PosRef(side=player.uid, zone=Zone.HERO, slot=0)),
+            {player.uid: player}, self.get_next_uid, card_pool=self.pool,
+        )
 
         return True, "Rolled"
 
@@ -102,7 +115,12 @@ class TavernManager:
                 )
                 players = {player.uid: player}
 
-                self.event_manager.process_event(event, players, self.get_next_uid)
+                self.event_manager.process_event(
+                    event,
+                    players,
+                    self.get_next_uid,
+                    card_pool=self.pool,
+                )
         cnt_spells = len([u for u in player.store if u.spell])
         if cnt_spells >= SPELLS_PER_ROLL:
             return
@@ -210,7 +228,12 @@ class TavernManager:
             source_pos=source_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self.get_next_uid)
+        self.event_manager.process_event(
+            event,
+            players_by_uid,
+            self.get_next_uid,
+            card_pool=self.pool,
+        )
 
         for i, u in enumerate(player.board):
             if u.uid == uid:
@@ -260,7 +283,12 @@ class TavernManager:
                     source_pos=PosRef(side=player.uid, zone=Zone.HAND, slot=hand_index),
                     target_pos=PosRef(side=player.uid, zone=Zone.BOARD, slot=target_index),
                 )
-                self.event_manager.process_event(event, {player.uid: player}, self.get_next_uid)
+                self.event_manager.process_event(
+                    event,
+                    {player.uid: player},
+                    self.get_next_uid,
+                    card_pool=self.pool,
+                )
 
                 player.hand.pop(hand_index)
 
@@ -489,10 +517,27 @@ class TavernManager:
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
         self.event_manager.process_event(
-            event, players_by_uid, self.get_next_uid, extra_triggers=[trigger]
+            event,
+            players_by_uid,
+            self.get_next_uid,
+            extra_triggers=[trigger],
+            card_pool=self.pool,
         )
         player.hand.pop(hand_index)
         recalculate_board_auras(player.board)
+
+        # Resolve any discover request set by the spell handler.
+        if player.pending_discovery_request:
+            req = player.pending_discovery_request
+            player.pending_discovery_request = None
+            self.start_discovery(
+                player,
+                source=req.source,
+                tier=req.tier,
+                exact_tier=req.exact_tier,
+                predicate=req.predicate,
+            )
+
         return True, f"Cast {spell.card_id}"
 
     def _resolve_battlecry(
@@ -514,7 +559,12 @@ class TavernManager:
             target_pos=target_pos,
         )
         players_by_uid: Dict[int, Player] = {player.uid: player}
-        self.event_manager.process_event(event, players_by_uid, self.get_next_uid)
+        self.event_manager.process_event(
+            event,
+            players_by_uid,
+            self.get_next_uid,
+            card_pool=self.pool,
+        )
         recalculate_board_auras(player.board)
 
     def swap_units(self, player: Player, index_a: int, index_b: int) -> Tuple[bool, str]:
@@ -541,6 +591,7 @@ class TavernManager:
             ),
             {player.uid: player},
             self.get_next_uid,
+            card_pool=self.pool,
         )
 
         player.hand[:] = [

@@ -6,12 +6,11 @@ from typing import Callable, Protocol, TypedDict, cast
 import numpy as np
 import torch
 import wandb
-from sb3_contrib import MaskablePPO
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
+from scripts.categorical_critic import CategoricalMaskablePPO, CategoricalValuePolicy
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 from wandb.integration.sb3 import WandbCallback
 
 from hearthstone.env.hs_env import HearthstoneEnv
@@ -57,7 +56,7 @@ class SupportsLearn(Protocol):
         self,
         total_timesteps: int,
         callback: list[object],
-    ) -> MaskablePPO: ...
+    ) -> CategoricalMaskablePPO: ...
 
 
 def _mask_fn(base_env: object) -> np.ndarray:
@@ -92,10 +91,10 @@ def main() -> None:
         "policy_type": "TransformerPolicy",
         "total_timesteps": 1_500_000,
         "learning_rate": 0.0003,
-        "gamma": 0.99,
+        "gamma": 0.999,
         "batch_size": 256,
-        "n_steps": 2048,
-        "ent_coef": 0.01,
+        "n_steps": 4096,
+        "ent_coef": 0.04,
         "n_envs": 8,
         "seed": SEED,
         # Transformer hyperparams
@@ -125,7 +124,13 @@ def main() -> None:
     print("Environment check passed!")
 
     print(f"Initializing {config['n_envs']} parallel environments...")
-    env = SubprocVecEnv([make_env(i, SEED) for i in range(config["n_envs"])])
+    env = DummyVecEnv([make_env(i, SEED) for i in range(config["n_envs"])])
+
+    # Get num_card_ids from environment
+    _tmp_env = HearthstoneEnv()
+    num_card_ids = _tmp_env.num_card_ids
+    del _tmp_env
+    print(f"Card vocabulary size: {num_card_ids}")
 
     # === TRANSFORMER POLICY ===
     policy_kwargs = dict(
@@ -135,12 +140,13 @@ def main() -> None:
             n_heads=config["n_heads"],
             n_layers=config["n_layers"],
             d_context=10,  # global(7) + enemy(3)
+            num_card_ids=num_card_ids,
         ),
         net_arch=dict(pi=[128], vf=[128]),
     )
 
-    model = MaskablePPO(
-        MaskableActorCriticPolicy,
+    model = CategoricalMaskablePPO(
+        CategoricalValuePolicy,
         env,
         verbose=1,
         learning_rate=config["learning_rate"],

@@ -10,7 +10,7 @@ from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 from wandb.integration.sb3 import WandbCallback
 
 from hearthstone.env.hs_env import HearthstoneEnv
@@ -117,7 +117,7 @@ def main() -> None:
     print("Environment check passed!")
 
     print(f"Initializing {config['n_envs']} parallel environments...")
-    env = SubprocVecEnv([make_env(i, SEED) for i in range(config["n_envs"])])
+    env = DummyVecEnv([make_env(i, SEED) for i in range(config["n_envs"])])
 
     policy_kwargs = dict(net_arch=config["net_arch"])
 

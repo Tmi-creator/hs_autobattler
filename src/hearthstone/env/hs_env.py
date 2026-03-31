@@ -10,7 +10,7 @@ import numpy as np
 from gymnasium import spaces
 
 from hearthstone.engine.configs import CARD_DB, SPELL_DB
-from hearthstone.engine.effects import TRIGGER_REGISTRY
+from hearthstone.engine.card_def import TRIGGER_REGISTRY
 from hearthstone.engine.entities import HandCard, Player, Spell, StoreItem, Unit
 from hearthstone.engine.enums import UnitType
 from hearthstone.engine.event_system import EventType
@@ -53,6 +53,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         all_ids = sorted(list(CARD_DB.keys()) + list(SPELL_DB.keys()))
 
         self.static_id_map = {cid: i + 1 for i, cid in enumerate(all_ids)}
+        self.num_card_ids = len(all_ids) + 1  # +1 for padding id 0
 
         self.game = Game()
         self.my_player_id = 0
@@ -62,8 +63,8 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         self.actions_in_turn = 0
         self.max_actions_in_turn = 30
-        # Action Space 26 -> 32
-        self.action_space = spaces.Discrete(32)
+        # Action Space: 0=END, 1=ROLL, 2-8=BUY, 9-15=SELL, 16-25=PLAY, 26-31=SWAP, 32=UPGRADE, 33=FREEZE
+        self.action_space = spaces.Discrete(34)
 
         self.opponent_model: Optional["MaskablePPO"] = None
 
@@ -114,12 +115,12 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         )
 
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(total_obs_size,), dtype=np.float32
+            low=0, high=MAX_CARDS_IN_GAME, shape=(total_obs_size,), dtype=np.float32
         )
 
         # Pre-allocated buffers (avoid per-step allocations)
         self._obs_buffer = np.zeros(total_obs_size, dtype=np.float32)
-        self._mask_buffer = np.zeros(32, dtype=np.bool_)
+        self._mask_buffer = np.zeros(34, dtype=np.bool_)
         self._obs_size = total_obs_size
 
         # Pre-compute zone offsets for fast obs writing
@@ -216,16 +217,12 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         player = self.game.players[self.my_player_id]
         is_discovering = player.is_discovering
-        prev_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
         # === ACTION MAPPING ===
         action_type: str = "UNKNOWN"
         kwargs: dict[str, int] = {}
-
-        reward: float = 0.0
         done = False
 
         if is_discovering:
-            # (2-4 -> 0-2)
             if 2 <= action <= 4:
                 action_type = "DISCOVER_CHOICE"
                 kwargs["index"] = action - 2
@@ -233,33 +230,25 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                 action_type = "INVALID_DURING_DISCOVERY"
 
         elif self.is_targeting:
-            # Use button BUY (2-8) for target on board (0-6)
             if 2 <= action <= 8:
-                action_type = "PLAY"  # Continue playing
+                action_type = "PLAY"
                 kwargs["hand_index"] = (
                     self.pending_spell_hand_index
                     if self.pending_spell_hand_index is not None
                     else 0
                 )
                 kwargs["target_index"] = action - 2
-
-                # Reset targeting after play
                 self.pending_spell_hand_index = None
                 self.is_targeting = False
                 self.pending_target_kind = None
-
-            # button END TURN (0) as CANCEL
             elif action == 0:
                 action_type = "CANCEL_CAST"
                 self.pending_spell_hand_index = None
                 self.is_targeting = False
                 self.pending_target_kind = None
-                # Just reset state
-
             else:
                 action_type = "INVALID_NEED_TARGET"
         else:
-            # basic mapping
             if action == 0:
                 action_type = "END_TURN"
             elif action == 1:
@@ -267,33 +256,11 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             elif 2 <= action <= 8:
                 action_type = "BUY"
                 kwargs["index"] = action - 2
-
-                # === REWARD BEFORE BUY TRIPLE ===
-                buy_index = action - 2
-                if buy_index < len(player.store):
-                    store_item = player.store[buy_index]
-                    if store_item.unit:
-                        card_id = store_item.unit.card_id
-
-                        # count cards
-                        count_on_board = sum(1 for u in player.board if u.card_id == card_id)
-                        count_in_hand = sum(
-                            1 for c in player.hand if c.unit and c.unit.card_id == card_id
-                        )
-
-                        total_copies = count_on_board + count_in_hand
-                        # big reward for triple
-                        if total_copies == 2:
-                            reward += 2.5
-                        # not really big for pair
-                        elif total_copies == 1:
-                            reward += 0.5
             elif 9 <= action <= 15:
                 action_type = "SELL"
                 kwargs["index"] = action - 9
             elif 16 <= action <= 25:
                 h_idx = action - 16
-                # Check, is there a card and require it target or not
                 if h_idx < len(player.hand):
                     card = player.hand[h_idx]
                     card_id = (
@@ -302,11 +269,10 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                         else (card.unit.card_id if card.unit else None)
                     )
                     if card_id in SPELLS_REQUIRE_TARGET:
-                        # GO INTO TARGET MODE
                         self.pending_spell_hand_index = h_idx
                         self.is_targeting = True
                         action_type = "WAIT_FOR_TARGET"
-                    elif card.unit and card.unit.has_magnetic:  # try magnet mech
+                    elif card.unit and card.unit.has_magnetic:
                         has_mech = any(UnitType.MECH in u.types for u in player.board)
                         if has_mech:
                             self.is_targeting = True
@@ -318,12 +284,9 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                             kwargs["hand_index"] = h_idx
                             kwargs["insert_index"] = -1
                     else:
-                        # default
                         action_type = "PLAY"
                         kwargs["hand_index"] = h_idx
                         kwargs["insert_index"] = -1
-                        if card.spell and card.spell.card_id == "S999":
-                            reward += 3.0
                 else:
                     action_type = "INVALID_HAND_INDEX"
             elif 26 <= action <= 31:
@@ -332,6 +295,11 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                 idx_b = idx_a + 1
                 kwargs["index_a"] = idx_a
                 kwargs["index_b"] = idx_b
+            elif action == 32:
+                action_type = "UPGRADE"
+            elif action == 33:
+                self.game.step(self.my_player_id, "FREEZE")
+                action_type = "END_TURN"
 
         p0_hp_before = player.health
         p1_hp_before = self.game.players[self.enemy_id].health
@@ -339,83 +307,53 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # Engine run
 
         if action_type == "WAIT_FOR_TARGET":
-            # Don't go into game.step, just change state
-            # Return reward 0 and new obs (where is_targeting=1 and is_selected=1)
             return self._get_obs(), 0.0, False, truncated, {}
 
         elif action_type == "CANCEL_CAST":
-            return self._get_obs(), -0.01, False, truncated, {}
+            return self._get_obs(), 0.0, False, truncated, {}
 
         success, done, _ = self.game.step(self.my_player_id, action_type, **kwargs)
 
-        # Errors
         if not success:
-            return self._get_obs(), 0, self.game.game_over, truncated, {}
+            return self._get_obs(), 0.0, self.game.game_over, truncated, {}
 
-        current_board_power = self._calculate_board_power(self.game.players[self.my_player_id])
-        power_delta = current_board_power - prev_board_power
-        if power_delta > 0:
-            reward += power_delta * 0.05
-        if action_type == "SWAP":
-            reward -= 0.01
+        # === REWARD: Round Outcome + Action Penalty + Terminal ===
+        # No per-action positive rewards — prevents sell-cycle exploit.
+        # Dense signal from round outcomes (+1/-1), soft penalty for action spam.
 
-        # Combat + EndOfTurn
-        if action_type == "END_TURN" and not done:
+        reward: float = -0.005  # action penalty: discourages infinite buy-sell loops
+
+        if action_type == "END_TURN":
+            reward = 0.0  # END_TURN itself is free (no penalty for ending)
             self.actions_in_turn = 0
-            if player.gold > 2:
-                reward -= 0.1 * player.gold
-
-            if self.game.turn_count < 9:  # penalty in early game for waiting
-                if len(player.board) < 7:
-                    has_unit_in_hand = False
-                    for card in player.hand:
-                        if card.unit:
-                            has_unit_in_hand = True
-                            break
-
-                    if has_unit_in_hand:
-                        penalty = 1.5 if self.game.turn_count < 4 else 0.8
-                        reward -= penalty
-
-            # less pain for spells
-            has_utility_spell = False
-            for card in player.hand:
-                if card.spell and card.spell.card_id not in ["S999"]:
-                    has_utility_spell = True
-                    break
-            if has_utility_spell and len(player.board) > 0:
-                reward -= 0.5
 
             self._auto_position_board(player)
 
-            # Record agent's board for ghost pool
             if self.ghost_pool is not None:
                 self.ghost_pool.record_turn(self._env_id, self.game.turn_count, player)
 
             self._play_enemy_turn()
             done = self.game.game_over
 
-            # Reward for fight
             p0_hp_after = self.game.players[self.my_player_id].health
             p1_hp_after = self.game.players[self.enemy_id].health
 
             damage_dealt = p1_hp_before - p1_hp_after
             damage_taken = p0_hp_before - p0_hp_after
 
-            reward += damage_dealt * 0.2
-            reward -= damage_taken * 0.2
+            # Round outcome: discrete +1/-1 (no damage magnitude bias)
+            if damage_dealt > damage_taken:
+                reward += 1.0   # won this combat
+            elif damage_taken > damage_dealt:
+                reward -= 1.0   # lost this combat
+            # draw: reward += 0
 
+            # Terminal: game win/loss (dominates everything)
             if done:
                 if p0_hp_after > 0:
-                    reward += 5.0
+                    reward += 100.0
                 else:
-                    reward -= 5.0
-
-        if len(player.hand) >= 10:  # punish for bullshit blocking good cards in hand
-            reward -= 0.5
-        for card in player.hand:
-            if card.spell and card.spell.card_id == "S999":
-                reward -= 0.2  # punish for every move while not played
+                    reward -= 100.0
 
         return self._get_obs(), reward, done, truncated, {}
 
@@ -717,7 +655,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
             buf[off + 0] = 1.0  # Is Present
             # buf[off + 1] = 0.0  # Is Spell (already 0)
-            buf[off + 2] = self.static_id_map.get(card_id, 0) / MAX_CARDS_IN_GAME
+            buf[off + 2] = float(self.static_id_map.get(card_id, 0))  # raw int for nn.Embedding
             buf[off + 3] = 3.0 / MAX_COST
             buf[off + 4] = unit.tier / MAX_TIER
             buf[off + 5] = 1.0 if is_frozen else 0.0
@@ -760,7 +698,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         elif spell is not None:
             buf[off + 0] = 1.0  # Is Present
             buf[off + 1] = 1.0  # Is Spell
-            buf[off + 2] = self.static_id_map.get(spell.card_id, 0) / MAX_CARDS_IN_GAME
+            buf[off + 2] = float(self.static_id_map.get(spell.card_id, 0))  # raw int for nn.Embedding
             buf[off + 3] = spell.cost / MAX_COST
             buf[off + 4] = spell.tier / MAX_TIER
             buf[off + 5] = 1.0 if is_frozen else 0.0
@@ -790,7 +728,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         """
         Return boolean masks valid actions
         True - action is available, False - banned
-        Index order = action_space(Discrete 32)
+        Index order = action_space(Discrete 34)
         """
         p_id = self.my_player_id if player_idx is None else player_idx
         player = self.game.players[p_id]
@@ -857,8 +795,14 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         # SWAP (26-31)
         for i in range(6):
-            masks[26 + i] = False  # now he's very stupid, so he cant handle this power of choice
+            masks[26 + i] = False  # positioning handled by auto_position / positioning module
             # masks[26 + i] = (i + 1 < len(player.board))
+
+        # UPGRADE (32)
+        masks[32] = (player.gold >= player.up_cost and player.tavern_tier < 6)
+
+        # FREEZE_AND_END_TURN (33) — same availability as END_TURN
+        masks[33] = True
 
         return masks
 

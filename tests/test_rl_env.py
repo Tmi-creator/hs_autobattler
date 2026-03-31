@@ -37,7 +37,9 @@ class TestObservationSpace:
     def test_obs_values_within_bounds(self, env: HearthstoneEnv) -> None:
         obs, _ = env.reset(seed=42)
         assert np.all(obs >= 0.0), f"Min value: {obs.min()}"
-        assert np.all(obs <= 1.0 + 1e-6), f"Max value: {obs.max()}"
+        # card_id (index 2 in each entity) is raw integer up to MAX_CARDS_IN_GAME
+        from hearthstone.env.hs_env import MAX_CARDS_IN_GAME
+        assert np.all(obs <= MAX_CARDS_IN_GAME + 1e-6), f"Max value: {obs.max()}"
 
     def test_obs_dtype_is_float32(self, env: HearthstoneEnv) -> None:
         obs, _ = env.reset(seed=42)
@@ -72,7 +74,7 @@ class TestActionMasks:
     def test_masks_shape_and_dtype(self, env: HearthstoneEnv) -> None:
         env.reset(seed=42)
         masks = env.action_masks()
-        assert masks.shape == (32,)
+        assert masks.shape == (34,)
         assert masks.dtype == np.bool_
 
     def test_end_turn_always_valid_in_default_phase(self, env: HearthstoneEnv) -> None:
@@ -149,7 +151,7 @@ class TestActionMasks:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, 9999, player.uid)
         player.board.append(unit)
 
         spell = Spell.create_from_db(SpellIDs.BANANA)
@@ -171,9 +173,9 @@ class TestActionMasks:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        cat = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)
+        non_mech = Unit.create_from_db(CardIDs.FLIGHTY_SCOUT, 9999, player.uid)  # Murloc, not Mech
         mech = Unit.create_from_db(CardIDs.ANNOY_O_TRON, 9998, player.uid)
-        player.board = [cat, mech]
+        player.board = [non_mech, mech]
 
         env.is_targeting = True
         env.pending_target_kind = "MAGNETIZE"
@@ -181,8 +183,8 @@ class TestActionMasks:
 
         masks = env.action_masks()
 
-        assert not masks[2]  # cat is Beast → invalid
-        assert masks[3]  # mech is Mech → valid
+        assert not masks[2]  # Flighty Scout is Murloc → invalid
+        assert masks[3]  # Annoy-o-Tron is Mech → valid
 
     def test_max_actions_forces_end_turn_only(self, env: HearthstoneEnv) -> None:
         """After max_actions_in_turn, only END_TURN should be valid."""
@@ -235,7 +237,7 @@ class TestStepCycle:
     def test_step_sell_removes_from_board(self, env: HearthstoneEnv) -> None:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, 9999, player.uid)
         player.board.append(unit)
         board_before = len(player.board)
 
@@ -254,7 +256,7 @@ class TestStepCycle:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        cat = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)
+        cat = Unit.create_from_db(CardIDs.MICROBOT, 9999, player.uid)
         player.board.append(cat)
 
         spell = Spell.create_from_db(SpellIDs.BANANA)
@@ -276,7 +278,7 @@ class TestStepCycle:
 
         assert not env.is_targeting
         assert env.pending_spell_hand_index is None
-        assert reward == pytest.approx(-0.01)
+        assert reward == pytest.approx(0.0)
 
 
 # ===================================================================
@@ -294,7 +296,7 @@ class TestEntityEncoding:
 
     def test_unit_is_present_flag(self, env: HearthstoneEnv) -> None:
         env.reset(seed=42)
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, 9999, 0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, 9999, 0)
         vec = env._encode_single_entity(unit)
         assert vec[0] == 1.0  # is_present
         assert vec[1] == 0.0  # not a spell
@@ -338,7 +340,7 @@ class TestEntityEncoding:
 
     def test_frozen_store_item(self, env: HearthstoneEnv) -> None:
         env.reset(seed=42)
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, 9999, 0)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, 9999, 0)
         item = StoreItem(unit=unit, is_frozen=True)
         vec = env._encode_single_entity(item)
         assert vec[5] == 1.0  # is_frozen
@@ -365,9 +367,9 @@ class TestCanPlayCard:
     def test_unit_full_board_cannot_play(self, env: HearthstoneEnv) -> None:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
-        player.board = [Unit.create_from_db(CardIDs.TABBYCAT, i, player.uid) for i in range(7)]
+        player.board = [Unit.create_from_db(CardIDs.MICROBOT, i, player.uid) for i in range(7)]
 
-        unit = Unit.create_from_db(CardIDs.TABBYCAT, 999, player.uid)
+        unit = Unit.create_from_db(CardIDs.MICROBOT, 999, player.uid)
         player.hand.append(HandCard(uid=999, unit=unit))
 
         assert not env._can_play_card(player, len(player.hand) - 1)
@@ -399,8 +401,8 @@ class TestAutoPosition:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        cat = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)
-        cleaver = Unit.create_from_db(CardIDs.TABBYCAT, 9998, player.uid)
+        cat = Unit.create_from_db(CardIDs.MICROBOT, 9999, player.uid)
+        cleaver = Unit.create_from_db(CardIDs.MICROBOT, 9998, player.uid)
         cleaver.tags.add(Tags.CLEAVE)
         cleaver.perm_atk_add = 5
         cleaver.recalc_stats()
@@ -414,8 +416,8 @@ class TestAutoPosition:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        normal = Unit.create_from_db(CardIDs.MOLTEN_ROCK, 9999, player.uid)
-        poison = Unit.create_from_db(CardIDs.TABBYCAT, 9998, player.uid)
+        normal = Unit.create_from_db(CardIDs.ROT_HIDE_GNOLL, 9999, player.uid)
+        poison = Unit.create_from_db(CardIDs.MICROBOT, 9998, player.uid)
         poison.tags.add(Tags.POISONOUS)
 
         player.board = [normal, poison]
@@ -427,9 +429,10 @@ class TestAutoPosition:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        # Molten Rock: 4/7 Taunt, atk<5 → penalty (-2000)
-        tank = Unit.create_from_db(CardIDs.MOLTEN_ROCK, 9999, player.uid)
-        attacker = Unit.create_from_db(CardIDs.TABBYCAT, 9998, player.uid)
+        # ROT_HIDE_GNOLL: 1/4, with Taunt and atk<5 → penalty (-2000)
+        tank = Unit.create_from_db(CardIDs.ROT_HIDE_GNOLL, 9999, player.uid)
+        tank.tags.add(Tags.TAUNT)  # give it taunt so the low-atk penalty applies
+        attacker = Unit.create_from_db(CardIDs.MICROBOT, 9998, player.uid)
         attacker.perm_atk_add = 5
         attacker.recalc_stats()
 
@@ -483,11 +486,11 @@ class TestBoardPower:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        weak_unit = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)  # 1/1
+        weak_unit = Unit.create_from_db(CardIDs.MICROBOT, 9999, player.uid)  # 1/1
         player.board = [weak_unit]
         weak_power = env._calculate_board_power(player)
 
-        strong_unit = Unit.create_from_db(CardIDs.MOLTEN_ROCK, 9998, player.uid)  # 4/7
+        strong_unit = Unit.create_from_db(CardIDs.ROT_HIDE_GNOLL, 9998, player.uid)  # 1/4
         player.board = [strong_unit]
         strong_power = env._calculate_board_power(player)
 
@@ -497,11 +500,11 @@ class TestBoardPower:
         env.reset(seed=42)
         player = env.game.players[env.my_player_id]
 
-        no_ds = Unit.create_from_db(CardIDs.TABBYCAT, 9999, player.uid)
+        no_ds = Unit.create_from_db(CardIDs.MICROBOT, 9999, player.uid)
         player.board = [no_ds]
         power_no_ds = env._calculate_board_power(player)
 
-        with_ds = Unit.create_from_db(CardIDs.TABBYCAT, 9998, player.uid)
+        with_ds = Unit.create_from_db(CardIDs.MICROBOT, 9998, player.uid)
         with_ds.tags.add(Tags.DIVINE_SHIELD)
         player.board = [with_ds]
         power_ds = env._calculate_board_power(player)

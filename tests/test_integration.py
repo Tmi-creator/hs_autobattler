@@ -68,7 +68,7 @@ class TestIndexShiftOnDeath:
         """Kill unit at position 0 (before attack_index=1).
         Attack index must shift from 1 → 0."""
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT, CardIDs.TABBYCAT, CardIDs.TABBYCAT],
+            [CardIDs.MICROBOT, CardIDs.MICROBOT, CardIDs.MICROBOT],
             [],
         )
         # Kill first cat
@@ -88,7 +88,7 @@ class TestIndexShiftOnDeath:
         """Kill unit at position 2 (after attack_index=0).
         Attack index must not change."""
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT, CardIDs.TABBYCAT, CardIDs.TABBYCAT],
+            [CardIDs.MICROBOT, CardIDs.MICROBOT, CardIDs.MICROBOT],
             [],
         )
         boards[0][2].cur_hp = 0
@@ -106,7 +106,7 @@ class TestIndexShiftOnDeath:
     ) -> None:
         """Kill positions 0 and 1 simultaneously. Verify board is correct."""
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT, CardIDs.TABBYCAT, CardIDs.FLIGHTY_SCOUT],
+            [CardIDs.MICROBOT, CardIDs.MICROBOT, CardIDs.FLIGHTY_SCOUT],
             [],
         )
         boards[0][0].cur_hp = 0
@@ -132,44 +132,44 @@ class TestDeathrattleSummonIndexing:
     """Deathrattle summons insert units mid-board, which can shift
     indices of units that haven't been processed yet."""
 
-    def test_scallywag_dr_summons_at_correct_position(
+    def test_cord_puller_dr_summons_microbot(
         self,
         combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
     ) -> None:
-        """Scallywag dies → Pirate Token appears at Scallywag's old position."""
+        """Cord Puller dies → Microbot token appears."""
         players, boards, cm = combat_players(
-            [CardIDs.SCALLYWAG, CardIDs.TABBYCAT],
-            [CardIDs.TABBYCAT],  # enemy needs a target for immediate attack
+            [CardIDs.CORD_PULLER, CardIDs.MICROBOT],
+            [],
         )
-        scallywag = boards[0][0]
-        cat_uid = boards[0][1].uid
-        scallywag.cur_hp = 0
+        cord = boards[0][0]
+        second_uid = boards[0][1].uid
+        cord.cur_hp = 0
 
         cm.cleanup_dead(boards, [0, 0], players)
 
-        # Token should appear where Scallywag was (index 0) if board has space,
-        # and cat is at index 1. Token has IMMEDIATE_ATTACK and may have already
-        # attacked and died, so we just verify no crash and ≥1 unit remains.
+        # Token should appear; at least the second unit remains.
         assert len(boards[0]) >= 1
+        # The surviving bot is still present
+        assert any(u.uid == second_uid for u in boards[0])
 
-    def test_imprisoner_dr_summons_imp_token(
+    def test_harmless_bonehead_dr_summons_skeletons(
         self,
         combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
     ) -> None:
-        """Imprisoner dies → Imp Token spawns. Verify it's a Demon."""
+        """Harmless Bonehead dies → 2 Skeleton tokens spawn. Verify they are Undead."""
         players, boards, cm = combat_players(
-            [CardIDs.IMPRISONER],
+            [CardIDs.HARMLESS_BONEHEAD],
             [],
         )
         boards[0][0].cur_hp = 0
 
         cm.cleanup_dead(boards, [0, 0], players)
 
-        # Imp token should have spawned
-        assert len(boards[0]) == 1
-        imp = boards[0][0]
-        assert imp.card_id == CardIDs.IMP_TOKEN
-        assert UnitType.DEMON in imp.types
+        # Two skeletons should have spawned
+        assert len(boards[0]) == 2
+        for token in boards[0]:
+            assert token.card_id == CardIDs.SKELETON
+            assert UnitType.UNDEAD in token.types
 
 
 # ===================================================================
@@ -230,113 +230,62 @@ class TestReborn:
 class TestAuraRecalculation:
     """Auras must be stateless: added fresh each recalc, not stacking."""
 
-    def test_dire_wolf_alpha_buffs_neighbors(
+    def test_aura_recalc_no_crash_on_empty_board(
         self,
         mock_unit: Callable[..., Unit],
     ) -> None:
-        """[Cat, Wolf, Cat] → both cats get +1 atk from Wolf."""
-        cat_l = mock_unit(CardIDs.TABBYCAT)
-        wolf = mock_unit(CardIDs.DIRE_WOLF_ALPHA)
-        cat_r = mock_unit(CardIDs.TABBYCAT)
-        board = [cat_l, wolf, cat_r]
+        """recalculate_board_auras on a board with no aura sources should not crash."""
+        u1 = mock_unit(CardIDs.MICROBOT)
+        u2 = mock_unit(CardIDs.ANNOY_O_TRON)
+        board = [u1, u2]
 
         recalculate_board_auras(board)
 
-        # Tabbycat base atk = 1. Wolf aura = +1.
-        assert cat_l.cur_atk == 2
-        assert cat_r.cur_atk == 2
-        # Wolf does NOT buff itself
-        assert wolf.aura_atk_add == 0
+        # No aura sources in current patch → aura layers stay at 0
+        assert u1.aura_atk_add == 0
+        assert u2.aura_atk_add == 0
 
     def test_aura_does_not_stack_on_double_recalc(
         self,
         mock_unit: Callable[..., Unit],
     ) -> None:
-        """Calling recalculate_board_auras twice must NOT double the buff."""
-        cat = mock_unit(CardIDs.TABBYCAT)
-        wolf = mock_unit(CardIDs.DIRE_WOLF_ALPHA)
-        board = [cat, wolf]
+        """Calling recalculate_board_auras twice must NOT accumulate aura adds."""
+        u1 = mock_unit(CardIDs.MICROBOT)
+        u2 = mock_unit(CardIDs.FLIGHTY_SCOUT)
+        board = [u1, u2]
 
         recalculate_board_auras(board)
         recalculate_board_auras(board)
 
-        # Cat should still have +1 from wolf, not +2
-        assert cat.aura_atk_add == 1
-        assert cat.cur_atk == 2
+        # No aura sources → still 0 after two passes
+        assert u1.aura_atk_add == 0
+        assert u2.aura_atk_add == 0
 
-    def test_aura_disappears_when_source_removed(
+    def test_aura_layer_reset_clears_values(
         self,
         mock_unit: Callable[..., Unit],
     ) -> None:
-        """Remove wolf → neighbor no longer buffed."""
-        cat = mock_unit(CardIDs.TABBYCAT)
-        wolf = mock_unit(CardIDs.DIRE_WOLF_ALPHA)
-        board = [cat, wolf]
+        """reset_aura_layer zeroes out any manually-set aura adds."""
+        unit = mock_unit(CardIDs.MICROBOT)
+        unit.aura_atk_add = 5
+        unit.aura_hp_add = 3
 
-        recalculate_board_auras(board)
-        assert cat.cur_atk == 2
+        unit.reset_aura_layer()
 
-        board.remove(wolf)
-        recalculate_board_auras(board)
+        assert unit.aura_atk_add == 0
+        assert unit.aura_hp_add == 0
 
-        # Aura gone
-        assert cat.aura_atk_add == 0
-        assert cat.cur_atk == 1
+    @pytest.mark.skip(reason="DIRE_WOLF_ALPHA, MURLOC_WARLEADER, SOUTHSEA_CAPTAIN auras not in current patch")
+    def test_type_aura_buffs_matching_type(self) -> None:
+        pass
 
-    @pytest.mark.parametrize(
-        "card_id, unit_type, expected_atk_bonus",
-        [
-            (CardIDs.MURLOC_WARLEADER, UnitType.MURLOC, 2),
-            (CardIDs.SOUTHSEA_CAPTAIN, UnitType.PIRATE, 1),
-        ],
-        ids=["warleader-murloc", "captain-pirate"],
-    )
-    def test_type_aura_buffs_matching_type(
-        self,
-        mock_unit: Callable[..., Unit],
-        card_id: CardIDs,
-        unit_type: UnitType,
-        expected_atk_bonus: int,
-    ) -> None:
-        """Type-specific auras buff units of matching type only."""
-        # Create a matching unit
-        matching_ids = {
-            UnitType.MURLOC: CardIDs.SWAMPSTRIKER,
-            UnitType.PIRATE: CardIDs.SCALLYWAG,
-        }
-        ally = mock_unit(matching_ids[unit_type])
-        aura_source = mock_unit(card_id)
-        board = [ally, aura_source]
+    @pytest.mark.skip(reason="MURLOC_WARLEADER aura not in current patch")
+    def test_murloc_warleader_does_not_buff_non_murlocs(self) -> None:
+        pass
 
-        recalculate_board_auras(board)
-
-        assert ally.aura_atk_add == expected_atk_bonus
-
-    def test_murloc_warleader_does_not_buff_non_murlocs(
-        self,
-        mock_unit: Callable[..., Unit],
-    ) -> None:
-        warleader = mock_unit(CardIDs.MURLOC_WARLEADER)
-        cat = mock_unit(CardIDs.TABBYCAT)  # Beast, not Murloc
-        board = [warleader, cat]
-
-        recalculate_board_auras(board)
-
-        assert cat.aura_atk_add == 0
-
-    def test_golden_dire_wolf_doubles_aura(
-        self,
-        mock_unit: Callable[..., Unit],
-    ) -> None:
-        cat = mock_unit(CardIDs.TABBYCAT)
-        wolf = mock_unit(CardIDs.DIRE_WOLF_ALPHA, is_golden=True)
-        board = [cat, wolf]
-
-        recalculate_board_auras(board)
-
-        # Golden Wolf: +2/+0 to neighbors
-        assert cat.aura_atk_add == 2
-        assert cat.cur_atk == 3  # base 1 + aura 2
+    @pytest.mark.skip(reason="DIRE_WOLF_ALPHA aura not in current patch")
+    def test_golden_dire_wolf_doubles_aura(self) -> None:
+        pass
 
 
 # ===================================================================
@@ -354,7 +303,7 @@ class TestDivineShield:
         """Unit with DS takes 0 actual damage, DS removed."""
         players, boards, cm = combat_players(
             [CardIDs.ANNOY_O_TRON],
-            [CardIDs.TABBYCAT],
+            [CardIDs.MICROBOT],
         )
         annoy = boards[0][0]
         assert annoy.has_divine_shield
@@ -382,8 +331,8 @@ class TestPoison:
         combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
     ) -> None:
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT],
-            [CardIDs.MOLTEN_ROCK],  # 4/7 taunt
+            [CardIDs.MICROBOT],
+            [CardIDs.ROT_HIDE_GNOLL],  # 1/4 Undead
         )
         cat = boards[0][0]
         cat.tags.add(Tags.POISONOUS)
@@ -402,7 +351,7 @@ class TestPoison:
         combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
     ) -> None:
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT],
+            [CardIDs.MICROBOT],
             [CardIDs.ANNOY_O_TRON],  # 1/2 DS Taunt
         )
         cat = boards[0][0]
@@ -423,8 +372,8 @@ class TestPoison:
     ) -> None:
         """Venomous (one-time poison) should be removed after attacking."""
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT],
-            [CardIDs.MOLTEN_ROCK],
+            [CardIDs.MICROBOT],
+            [CardIDs.ROT_HIDE_GNOLL],
         )
         cat = boards[0][0]
         cat.tags.add(Tags.VENOMOUS)
@@ -452,8 +401,8 @@ class TestCleave:
     ) -> None:
         """Attacker with Cleave targeting middle of 3 → all 3 take damage."""
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT],
-            [CardIDs.TABBYCAT, CardIDs.TABBYCAT, CardIDs.TABBYCAT],
+            [CardIDs.MICROBOT],
+            [CardIDs.MICROBOT, CardIDs.MICROBOT, CardIDs.MICROBOT],
         )
         attacker = boards[0][0]
         attacker.tags.add(Tags.CLEAVE)
@@ -477,8 +426,8 @@ class TestCleave:
     ) -> None:
         """Cleave targeting leftmost unit → only target + right neighbor."""
         players, boards, cm = combat_players(
-            [CardIDs.TABBYCAT],
-            [CardIDs.TABBYCAT, CardIDs.TABBYCAT, CardIDs.TABBYCAT],
+            [CardIDs.MICROBOT],
+            [CardIDs.MICROBOT, CardIDs.MICROBOT, CardIDs.MICROBOT],
         )
         attacker = boards[0][0]
         attacker.tags.add(Tags.CLEAVE)
@@ -519,9 +468,9 @@ class TestWindfury:
         p0.board = [swamp]
 
         # Enemy: 0 atk, high HP → survives both hits
-        dummy = mock_unit(CardIDs.MOLTEN_ROCK, owner_id=p1.uid)  # 4/7
+        dummy = mock_unit(CardIDs.ROT_HIDE_GNOLL, owner_id=p1.uid)  # 1/4
         dummy.cur_atk = 0
-        dummy.perm_atk_add = -4
+        dummy.perm_atk_add = -1
         dummy.recalc_stats()
         p1.board = [dummy]
 
@@ -555,7 +504,7 @@ class TestCombatOutcome:
         p1 = empty_game.players[1]
 
         # P0: one tier-1 unit. P1: empty board → P0 wins instantly.
-        cat = mock_unit(CardIDs.TABBYCAT, owner_id=p0.uid)
+        cat = mock_unit(CardIDs.MICROBOT, owner_id=p0.uid)
         p0.board = [cat]
         p1.board = []
 
@@ -565,7 +514,7 @@ class TestCombatOutcome:
 
         assert outcome == BattleOutcome.WIN
         # damage = sum(unit.tier for surviving units) + tavern_tier
-        # Tabbycat tier 1 + tavern 3 = 4
+        # Microbot token tier 1 + tavern 3 = 4
         assert damage == 1 + 3
 
     def test_draw_when_both_boards_empty(
@@ -589,53 +538,15 @@ class TestCombatOutcome:
 # ===================================================================
 
 
+@pytest.mark.skip(reason="ANNOY_O_MODULE (Magnetic) not in current patch")
 class TestMagnetic:
     """Magnetic merges into target Mech, transferring stats and tags."""
 
-    def test_magnetize_adds_stats(
-        self,
-        empty_game: "Game",
-        player: Player,
-        tavern: "TavernManager",
-        mock_unit: Callable[..., Unit],
-    ) -> None:
-        # Target Mech on board
-        mech = mock_unit(CardIDs.ANNOY_O_TRON)  # 1/2 DS Taunt Mech
-        player.board.append(mech)
-        base_atk = mech.cur_atk
-        base_hp = mech.cur_hp
+    def test_magnetize_adds_stats(self) -> None:
+        pass
 
-        # Annoy-o-Module: 2/4 Magnetic DS Taunt Mech
-        module = mock_unit(CardIDs.ANNOY_O_MODULE)
-        player.hand.append(HandCard(uid=module.uid, unit=module))
-
-        success, info = tavern.play_unit(player, hand_index=0, insert_index=-1, target_index=0)
-
-        assert success
-        # Stats: base + module base merged into perm layer
-        assert mech.cur_atk == base_atk + module.base_atk
-        assert mech.cur_hp >= base_hp + module.base_hp
-
-    def test_magnetize_transfers_tags(
-        self,
-        empty_game: "Game",
-        player: Player,
-        tavern: "TavernManager",
-        mock_unit: Callable[..., Unit],
-    ) -> None:
-        mech = mock_unit(CardIDs.ANNOY_O_TRON)
-        # Remove DS to test transfer
-        mech.tags.discard(Tags.DIVINE_SHIELD)
-        player.board.append(mech)
-
-        module = mock_unit(CardIDs.ANNOY_O_MODULE)  # has DS, Taunt, Magnetic
-        player.hand.append(HandCard(uid=module.uid, unit=module))
-
-        tavern.play_unit(player, hand_index=0, insert_index=-1, target_index=0)
-
-        # DS transferred (Magnetic tag itself NOT transferred)
-        assert Tags.DIVINE_SHIELD in mech.tags
-        assert Tags.MAGNETIC not in mech.tags
+    def test_magnetize_transfers_tags(self) -> None:
+        pass
 
 
 # ===================================================================
@@ -665,7 +576,7 @@ class TestSpellCasting:
         atk_expected: int,
         hp_expected: int,
     ) -> None:
-        target = mock_unit(CardIDs.TABBYCAT)  # 1/1
+        target = mock_unit(CardIDs.MICROBOT)  # 1/1
         player.board.append(target)
 
         spell = Spell.create_from_db(spell_id)
@@ -686,7 +597,7 @@ class TestSpellCasting:
         tavern: "TavernManager",
         mock_unit: Callable[..., Unit],
     ) -> None:
-        cat = mock_unit(CardIDs.TABBYCAT)
+        cat = mock_unit(CardIDs.MICROBOT)
         player.board.append(cat)
 
         spell = Spell.create_from_db(SpellIDs.FORTIFY)
@@ -744,7 +655,7 @@ class TestSurfSpellcraft:
         combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
     ) -> None:
         # Enchant a cat with Surf Spellcraft
-        cat = mock_unit(CardIDs.TABBYCAT)
+        cat = mock_unit(CardIDs.MICROBOT)
         player.board.append(cat)
 
         spell = Spell.create_from_db(SpellIDs.SURF_SPELLCRAFT)
@@ -781,7 +692,7 @@ class TestSurfSpellcraft:
         mock_unit: Callable[..., Unit],
     ) -> None:
         """Surf Spellcraft attached effect uses turn layer → gone after end of turn."""
-        cat = mock_unit(CardIDs.TABBYCAT)
+        cat = mock_unit(CardIDs.MICROBOT)
         player.board.append(cat)
 
         spell = Spell.create_from_db(SpellIDs.SURF_SPELLCRAFT)
@@ -804,57 +715,38 @@ class TestSurfSpellcraft:
 class TestBattlecryTriggers:
     """Battlecries fire through the event system when a unit is played."""
 
-    def test_alleycat_summons_tabbycat(
+    def test_twilight_hatchling_deathrattle_summons_whelp(
         self,
         empty_game: "Game",
         player: Player,
         tavern: "TavernManager",
         mock_unit: Callable[..., Unit],
+        combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
     ) -> None:
-        cat = mock_unit(CardIDs.ALLEYCAT)
-        player.hand.append(HandCard(uid=cat.uid, unit=cat))
+        """Twilight Hatchling dies → Twilight Whelp token spawns."""
+        hatchling = mock_unit(CardIDs.TWILIGHT_HATCHLING)
+        player.board.append(hatchling)
 
-        tavern.play_unit(player, hand_index=0, insert_index=0)
+        p0 = empty_game.players[0]
+        p1 = empty_game.players[1]
+        p1.board = []
+        cp0 = p0.combat_copy()
+        cp1 = p1.combat_copy()
+        cp_dict: Dict[int, Player] = {cp0.uid: cp0, cp1.uid: cp1}
 
-        # Alleycat + Tabbycat
-        assert len(player.board) == 2
-        assert player.board[0].card_id == CardIDs.ALLEYCAT
-        assert player.board[1].card_id == CardIDs.TABBYCAT
+        cp0.board[0].cur_hp = 0
+        empty_game.combat.cleanup_dead([cp0.board, cp1.board], [0, 0], cp_dict)
 
-    def test_golden_alleycat_summons_golden_tabbycat(
-        self,
-        empty_game: "Game",
-        player: Player,
-        tavern: "TavernManager",
-        mock_unit: Callable[..., Unit],
-    ) -> None:
-        """Golden Alleycat has custom golden registry → summons golden Tabbycat."""
-        # Create golden alleycat manually (skip triplet for focused test)
-        cat = mock_unit(CardIDs.ALLEYCAT, is_golden=True)
-        player.hand.append(HandCard(uid=cat.uid, unit=cat))
+        assert len(cp0.board) == 1
+        assert cp0.board[0].card_id == CardIDs.TWILIGHT_WHELP
 
-        tavern.play_unit(player, hand_index=0, insert_index=0)
+    @pytest.mark.skip(reason="ALLEYCAT battlecry not in current patch")
+    def test_alleycat_summons_tabbycat(self) -> None:
+        pass
 
-        # Golden cat + golden tabbycat + reward spell
-        tabbies = [u for u in player.board if u.card_id == CardIDs.TABBYCAT]
-        assert len(tabbies) == 1
-        assert tabbies[0].is_golden
-
-    def test_shell_collector_gives_coin(
-        self,
-        empty_game: "Game",
-        player: Player,
-        tavern: "TavernManager",
-        mock_unit: Callable[..., Unit],
-    ) -> None:
-        shell = mock_unit(CardIDs.SHELL_COLLECTOR)
-        player.hand.append(HandCard(uid=shell.uid, unit=shell))
-        gold_before = player.gold
-
-        tavern.play_unit(player, hand_index=0, insert_index=0)
-
-        # Shell Collector battlecry gives 1 gold
-        assert player.gold == gold_before + 1
+    @pytest.mark.skip(reason="SHELL_COLLECTOR battlecry not in current patch")
+    def test_shell_collector_gives_coin(self) -> None:
+        pass
 
     def test_wrath_weaver_buffs_on_demon_played(
         self,
@@ -864,15 +756,13 @@ class TestBattlecryTriggers:
         mock_unit: Callable[..., Unit],
     ) -> None:
         """Wrath Weaver on board gets +2/+1 when another Demon is played."""
-        weaver = mock_unit(CardIDs.WRATH_WEAVER)  # 1/3 Demon
+        weaver = mock_unit(CardIDs.WRATH_WEAVER)  # 1/4 Demon
         player.board.append(weaver)
-        weaver_atk_before = weaver.cur_atk
-        weaver_hp_before = weaver.cur_hp
         hp_hero_before = player.health
 
-        # Play a demon
-        imp = mock_unit(CardIDs.IMPRISONER)  # 3/3 Demon
-        player.hand.append(HandCard(uid=imp.uid, unit=imp))
+        # Play another demon (PICKY_EATER is 1/1 Demon, in current patch)
+        demon = mock_unit(CardIDs.PICKY_EATER)  # 1/1 Demon
+        player.hand.append(HandCard(uid=demon.uid, unit=demon))
 
         tavern.play_unit(player, hand_index=0, insert_index=1)
 
@@ -920,7 +810,7 @@ class TestGameStep:
         empty_game.players[1].health = 1
 
         # Give P0 a strong board, P1 nothing
-        strong = mock_unit(CardIDs.MOLTEN_ROCK, owner_id=0)  # 4/7
+        strong = mock_unit(CardIDs.ROT_HIDE_GNOLL, owner_id=0)  # 1/4
         empty_game.players[0].board = [strong]
         empty_game.players[1].board = []
 
@@ -988,7 +878,7 @@ class TestFullCombatDeterministic:
 
         results = []
         for _ in range(5):
-            p0.board = [mock_unit(CardIDs.SCALLYWAG, owner_id=p0.uid)]
+            p0.board = [mock_unit(CardIDs.MINTED_CORSAIR, owner_id=p0.uid)]
             p1.board = [mock_unit(CardIDs.ANNOY_O_TRON, owner_id=p1.uid)]
             random.seed(12345)
             result = combat_manager.resolve_combat(p0, p1)
@@ -1007,9 +897,9 @@ class TestFullCombatDeterministic:
         p0 = empty_game.players[0]
         p1 = empty_game.players[1]
 
-        cat = mock_unit(CardIDs.TABBYCAT, owner_id=p0.uid)
+        cat = mock_unit(CardIDs.MICROBOT, owner_id=p0.uid)
         p0.board = [cat]
-        p1.board = [mock_unit(CardIDs.TABBYCAT, owner_id=p1.uid)]
+        p1.board = [mock_unit(CardIDs.MICROBOT, owner_id=p1.uid)]
 
         hp_before = cat.cur_hp
         uid_before = cat.uid
@@ -1035,30 +925,30 @@ class TestBoardFullSummon:
         combat_players: Callable[..., Tuple[Dict[int, Player], List[List[Unit]], CombatManager]],
         mock_unit: Callable[..., Unit],
     ) -> None:
-        """Imprisoner dies with 6 other units on board (7 total).
-        After death, board has 6 units. Token SHOULD appear (board was 7, now 6)."""
+        """Harmless Bonehead dies with 6 other units on board (7 total).
+        After death, board has 6 units. DR summons 2 Skeletons but only 1 fits (→7)."""
         players, boards, cm = combat_players(
             [
-                CardIDs.IMPRISONER,
-                CardIDs.TABBYCAT,
-                CardIDs.TABBYCAT,
-                CardIDs.TABBYCAT,
-                CardIDs.TABBYCAT,
-                CardIDs.TABBYCAT,
-                CardIDs.TABBYCAT,
+                CardIDs.HARMLESS_BONEHEAD,
+                CardIDs.MICROBOT,
+                CardIDs.MICROBOT,
+                CardIDs.MICROBOT,
+                CardIDs.MICROBOT,
+                CardIDs.MICROBOT,
+                CardIDs.MICROBOT,
             ],
             [],
         )
 
-        # Kill Imprisoner (index 0)
+        # Kill Harmless Bonehead (index 0)
         boards[0][0].cur_hp = 0
 
         cm.cleanup_dead(boards, [0, 0], players)
 
-        # Board had 7, popped 1 (→6), DR summons 1 (→7)
+        # Board had 7, popped 1 (→6), DR tries to summon 2 Skeletons, at most 1 fits (→7)
         assert len(boards[0]) == 7
-        # Imp token at the front
-        assert boards[0][0].card_id == CardIDs.IMP_TOKEN
+        # At least one Skeleton token at the front
+        assert boards[0][0].card_id == CardIDs.SKELETON
 
 
 # ===================================================================
@@ -1073,7 +963,7 @@ class TestStatLayerIsolation:
         self,
         mock_unit: Callable[..., Unit],
     ) -> None:
-        unit = mock_unit(CardIDs.TABBYCAT)
+        unit = mock_unit(CardIDs.MICROBOT)
         unit.combat_atk_add = 5
         unit.combat_hp_add = 5
         unit.recalc_stats()
@@ -1090,7 +980,7 @@ class TestStatLayerIsolation:
         self,
         mock_unit: Callable[..., Unit],
     ) -> None:
-        unit = mock_unit(CardIDs.TABBYCAT)
+        unit = mock_unit(CardIDs.MICROBOT)
         unit.turn_atk_add = 10
         unit.turn_hp_add = 10
         unit.recalc_stats()
@@ -1126,7 +1016,7 @@ class TestCombatCopy:
         self,
         mock_unit: Callable[..., Unit],
     ) -> None:
-        original = mock_unit(CardIDs.TABBYCAT)
+        original = mock_unit(CardIDs.MICROBOT)
         original.combat_atk_add = 99
         original.avenge_counter = 5
 
@@ -1141,7 +1031,7 @@ class TestCombatCopy:
         mock_unit: Callable[..., Unit],
     ) -> None:
         p = empty_game.players[0]
-        cat = mock_unit(CardIDs.TABBYCAT, owner_id=p.uid)
+        cat = mock_unit(CardIDs.MICROBOT, owner_id=p.uid)
         p.board = [cat]
 
         cp = p.combat_copy()

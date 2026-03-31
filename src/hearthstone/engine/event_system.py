@@ -38,6 +38,8 @@ class EventType(Enum):
     MINION_ADDED_TO_SHOP = auto()
     DIVINE_SHIELD_LOST = auto()
     OVERKILL = auto()
+    TAVERN_REFRESHED = auto()
+    HERO_DAMAGED = auto()
 
 
 @dataclass(frozen=True)
@@ -102,10 +104,12 @@ class EffectContext:
         players_by_uid: Dict[int, Player],
         uid_provider: Callable[[], int],
         event_queue: Deque[Event],
+        card_pool: Optional[object] = None,
     ):
         self.players_by_uid = players_by_uid
         self._uid_provider = uid_provider
         self._event_queue = event_queue
+        self.card_pool = card_pool  # CardPool, None during combat
         self._uid_to_pos: Dict[int, PosRef] = {}
         for player_id, _ in players_by_uid.items():
             self._reindex_side(player_id)
@@ -140,6 +144,40 @@ class EffectContext:
         if not player:
             return []
         return list(enumerate(player.board))
+
+    def get_adjacent(self, side: int, uid: int) -> list[tuple[int, Unit]]:
+        """Return live adjacent units [(slot, Unit), ...] for the unit with given uid."""
+        player = self.players_by_uid.get(side)
+        if not player:
+            return []
+        idx = None
+        for i, u in enumerate(player.board):
+            if u.uid == uid:
+                idx = i
+                break
+        if idx is None:
+            return []
+        result = []
+        if idx > 0:
+            result.append((idx - 1, player.board[idx - 1]))
+        if idx < len(player.board) - 1:
+            result.append((idx + 1, player.board[idx + 1]))
+        return result
+
+    def get_leftmost(self, side: int) -> Optional[tuple[int, Unit]]:
+        """Return (0, unit) for the leftmost board unit, or None if empty."""
+        player = self.players_by_uid.get(side)
+        if not player or not player.board:
+            return None
+        return (0, player.board[0])
+
+    def get_rightmost(self, side: int) -> Optional[tuple[int, Unit]]:
+        """Return (last_idx, unit) for the rightmost board unit, or None if empty."""
+        player = self.players_by_uid.get(side)
+        if not player or not player.board:
+            return None
+        idx = len(player.board) - 1
+        return (idx, player.board[idx])
 
     def resolve_pos(self, ref: Optional[EntityRef]) -> Optional[PosRef]:
         if not ref:
@@ -191,6 +229,16 @@ class EffectContext:
         player = self.players_by_uid.get(side)
         if player:
             player.health -= amount
+            self.emit_event(Event(
+                event_type=EventType.HERO_DAMAGED,
+                source_pos=PosRef(side=side, zone=Zone.HERO, slot=0),
+                value=amount,
+            ))
+
+    def heal_hero(self, side: int, amount: int) -> None:
+        player = self.players_by_uid.get(side)
+        if player:
+            player.health += amount
 
     def buff_perm(self, target_ref: EntityRef, atk: int, hp: int) -> None:
         unit = self.resolve_unit(target_ref)
@@ -247,8 +295,10 @@ class EffectContext:
         unit.attached_combat[effect_id] = unit.attached_combat.get(effect_id, 0) + count
 
     def consume_random_store_unit(self, side: int) -> tuple[int, int] | None:
-        """Remove a random unit from the store. Returns (atk, hp) or None."""
+        """Remove a random unit from the store and return it to the pool.
+        Returns (atk, hp) or None."""
         import random
+
         player = self.players_by_uid.get(side)
         if not player:
             return None
@@ -260,17 +310,51 @@ class EffectContext:
         if not consumed:
             return None
         atk, hp = consumed.cur_atk, consumed.cur_hp
+        if self.card_pool:
+            self.card_pool.return_cards([consumed.card_id])
         player.store.pop(idx)
         return atk, hp
 
     def add_unit_to_hand(self, side: int, card_id: str) -> bool:
-        """Create a unit from DB and add it to the player's hand. Returns True on success."""
+        """Create a unit from DB and add it to the player's hand.
+        Does NOT interact with pool — use draw_from_pool for pool-aware version."""
         player = self.players_by_uid.get(side)
         if not player or len(player.hand) >= 10:
             return False
         uid = self._uid_provider()
         new_unit = Unit.create_from_db(card_id, uid, side)
         player.hand.append(HandCard(uid=uid, unit=new_unit))
+        return True
+
+    def draw_from_pool(self, side: int, tier: int, count: int = 1) -> list[str]:
+        """Draw random unit(s) from the shared pool into player's hand.
+        Returns list of drawn card_ids (may be shorter than count if hand full)."""
+        player = self.players_by_uid.get(side)
+        if not player or not self.card_pool:
+            return []
+        drawn = self.card_pool.draw_cards(count, max_tier=tier)
+        added = []
+        for card_id in drawn:
+            if len(player.hand) >= 10:
+                break
+            uid = self._uid_provider()
+            new_unit = Unit.create_from_db(card_id, uid, side)
+            player.hand.append(HandCard(uid=uid, unit=new_unit))
+            added.append(card_id)
+        not_added = drawn[len(added) :]
+        if not_added:
+            self.card_pool.return_cards(not_added)
+        return added
+
+    def make_golden(self, ref: EntityRef) -> bool:
+        """Make a unit golden: double base stats, set is_golden flag."""
+        unit = self.resolve_unit(ref)
+        if not unit or unit.is_golden:
+            return False
+        unit.is_golden = True
+        unit.base_atk *= 2
+        unit.base_hp *= 2
+        unit.recalc_stats()
         return True
 
     def summon(
@@ -323,9 +407,10 @@ class EventManager:
         players_by_uid: Dict[int, Player],
         uid_provider: Callable[[], int],
         extra_triggers: Optional[List[TriggerInstance]] = None,
+        card_pool: Optional[object] = None,
     ) -> None:
         queue: Deque[Event] = deque([event])
-        ctx = EffectContext(players_by_uid, uid_provider, queue)
+        ctx = EffectContext(players_by_uid, uid_provider, queue, card_pool)
         initial_event = event
         while queue:
             current_event = queue.popleft()
@@ -340,7 +425,6 @@ class EventManager:
                         )
 
     def collect_triggers(self, event: Event, ctx: EffectContext) -> List[TriggerInstance]:
-        from .effects import SYSTEM_TRIGGER_REGISTRY
 
         triggers: List[TriggerInstance] = []
         for _player_id, player in ctx.players_by_uid.items():
@@ -378,6 +462,24 @@ class EventManager:
                                         stacks=count,
                                     )
                                 )
+
+            # Also scan hand for START_OF_COMBAT and MINION_PLAYED triggers
+            if event.event_type in (EventType.START_OF_COMBAT, EventType.MINION_PLAYED):
+                for hc in player.hand:
+                    if not hc.unit:
+                        continue
+                    unit = hc.unit
+                    active_defs = self.trigger_registry.get(unit.card_id, [])
+                    stacks_multiplier = 2 if unit.is_golden else 1
+                    for trigger_def in active_defs:
+                        if trigger_def.event_type == event.event_type:
+                            triggers.append(
+                                TriggerInstance(
+                                    trigger_def=trigger_def,
+                                    trigger_uid=unit.uid,
+                                    stacks=stacks_multiplier,
+                                )
+                            )
         if event.event_type in SYSTEM_TRIGGER_REGISTRY:
             for trig_def in SYSTEM_TRIGGER_REGISTRY[event.event_type]:
                 triggers.append(
@@ -387,6 +489,40 @@ class EventManager:
                         stacks=1,
                     )
                 )
+
+        # Multiplier auras (Brann/Titus/Drakkari): increase stacks on matching triggers
+        if not hasattr(self, '_multiplier_cache'):
+            from .card_def import ALL_CARDS
+            self._multiplier_cache = {
+                card.card_id: card.multiplier
+                for card in ALL_CARDS if card.multiplier is not None
+            }
+        for _player_id, player in ctx.players_by_uid.items():
+            for unit in player.board:
+                mult_def = self._multiplier_cache.get(unit.card_id)
+                if not mult_def:
+                    continue
+                if mult_def.event_type_name != event.event_type.name:
+                    continue
+                # Apply: increase stacks on same-side triggers that match
+                for i, trigger in enumerate(triggers):
+                    # Determine the side of the trigger's owning unit
+                    trigger_pos = ctx.resolve_pos(EntityRef(trigger.trigger_uid))
+                    trigger_side = trigger_pos.side if trigger_pos else -1
+                    if trigger_side != -1 and trigger_side != _player_id:
+                        continue  # only boost own side
+                    if trigger.trigger_uid == unit.uid:
+                        continue  # multiplier doesn't boost itself
+                    if mult_def.self_only:
+                        # Only boost triggers where the unit's event source is itself
+                        if event.source and event.source.uid != trigger.trigger_uid:
+                            continue
+                    triggers[i] = TriggerInstance(
+                        trigger_def=trigger.trigger_def,
+                        trigger_uid=trigger.trigger_uid,
+                        stacks=trigger.stacks + mult_def.extra_stacks,
+                    )
+
         return triggers
 
     def order_triggers(
@@ -445,3 +581,38 @@ class EventManager:
             )
 
         return sorted(triggers, key=sort_key)
+
+
+# =====================================================================
+# System triggers (global, not tied to any card)
+# =====================================================================
+
+
+def _apply_elemental_buff(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+    unit = ctx.resolve_unit(event.source)
+    if not unit:
+        return
+    if UnitType.ELEMENTAL not in unit.types:
+        return
+    pos = ctx.resolve_pos(event.source)
+    if not pos:
+        return
+    player = ctx.players_by_uid.get(pos.side)
+    if not player:
+        return
+    from .enums import MechanicType
+    buff_atk, buff_hp = player.mechanics.get_stat(MechanicType.ELEMENTAL_BUFF)
+    if (buff_atk > 0 or buff_hp > 0) and event.source:
+        ctx.buff_perm(event.source, buff_atk, buff_hp)
+
+
+SYSTEM_TRIGGER_REGISTRY = {
+    EventType.MINION_ADDED_TO_SHOP: [
+        TriggerDef(
+            event_type=EventType.MINION_ADDED_TO_SHOP,
+            condition=lambda ctx, e, ref: True,
+            effect=_apply_elemental_buff,
+            name="Global Elemental Buff",
+        )
+    ]
+}

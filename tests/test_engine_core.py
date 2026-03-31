@@ -60,7 +60,7 @@ class TestEconomy:
         tavern: "TavernManager",
         mock_unit: Callable[..., Unit],
     ) -> None:
-        unit = mock_unit(CardIDs.ALLEYCAT)
+        unit = mock_unit(CardIDs.MANASABER)
         _inject_unit_into_store(player, unit)
         gold_before = player.gold
 
@@ -124,7 +124,7 @@ class TestEconomy:
         tavern: "TavernManager",
         mock_unit: Callable[..., Unit],
     ) -> None:
-        unit = mock_unit(CardIDs.ALLEYCAT)
+        unit = mock_unit(CardIDs.MANASABER)
         _inject_unit_into_store(player, unit)
         player.gold = COST_BUY - 1
 
@@ -352,7 +352,7 @@ class TestTriplets:
         mock_unit: Callable[..., Unit],
     ) -> None:
         """1 copy on board + 1 in hand + 1 bought → golden."""
-        cid = CardIDs.DIRE_WOLF_ALPHA
+        cid = CardIDs.FLIGHTY_SCOUT
         u_board = mock_unit(cid)
         player.board.append(u_board)
 
@@ -462,10 +462,10 @@ class TestEdgeCases:
     ) -> None:
         # Fill hand to 10
         for _ in range(10):
-            u = mock_unit(CardIDs.ALLEYCAT)
+            u = mock_unit(CardIDs.MANASABER)
             player.hand.append(HandCard(uid=u.uid, unit=u))
 
-        unit = mock_unit(CardIDs.ALLEYCAT)
+        unit = mock_unit(CardIDs.MANASABER)
         _inject_unit_into_store(player, unit)
 
         success, info = tavern.buy_unit(player, 0)
@@ -482,10 +482,10 @@ class TestEdgeCases:
     ) -> None:
         # Fill board to 7
         for _ in range(7):
-            u = mock_unit(CardIDs.ALLEYCAT)
+            u = mock_unit(CardIDs.MANASABER)
             player.board.append(u)
 
-        u_hand = mock_unit(CardIDs.ALLEYCAT)
+        u_hand = mock_unit(CardIDs.MANASABER)
         player.hand.append(HandCard(uid=u_hand.uid, unit=u_hand))
 
         success, info = tavern.play_unit(player, hand_index=0, insert_index=0)
@@ -535,7 +535,7 @@ class TestEdgeCases:
         tavern: "TavernManager",
         mock_unit: Callable[..., Unit],
     ) -> None:
-        u_a = mock_unit(CardIDs.ALLEYCAT)
+        u_a = mock_unit(CardIDs.MANASABER)
         u_b = mock_unit(CardIDs.ANNOY_O_TRON)
         player.board.extend([u_a, u_b])
         uid_a, uid_b = u_a.uid, u_b.uid
@@ -552,11 +552,11 @@ class TestEdgeCases:
         tavern: "TavernManager",
         mock_unit: Callable[..., Unit],
     ) -> None:
-        u1 = mock_unit(CardIDs.ALLEYCAT)
+        u1 = mock_unit(CardIDs.MANASABER)
         u2 = mock_unit(CardIDs.ANNOY_O_TRON)
         player.board.extend([u1, u2])
 
-        u_new = mock_unit(CardIDs.SCALLYWAG)
+        u_new = mock_unit(CardIDs.HARMLESS_BONEHEAD)
         player.hand.append(HandCard(uid=u_new.uid, unit=u_new))
 
         # Insert between the two existing units (index 1)

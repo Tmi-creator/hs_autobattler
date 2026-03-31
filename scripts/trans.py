@@ -180,50 +180,62 @@ class DecomposedEncoder(nn.Module):
     Гетерогенный энкодер сущностей с раздельной обработкой разнотипных признаков.
 
     Вместо наивного Linear(37, d_model) для всех признаков сразу, энкодер разделяет
-    входной вектор на три семантические группы и обрабатывает их независимо:
+    входной вектор на четыре семантические группы и обрабатывает их независимо:
 
-      1. Continuous (5):  card_id_norm, cost, tier, ATK, HP
+      1. Card ID (1):     raw integer → nn.Embedding(vocab, d_card) → Linear → d_model
+         Каждая карта получает уникальный обучаемый вектор в латентном пространстве.
+         Похожие карты (мурлоки) кластеризуются автоматически через backprop.
+      2. Continuous (4):  cost, tier, ATK, HP
          → symlog-совместимые скаляры → Linear → d_model
-      2. Binary (20):     is_present, is_spell, is_frozen, 17 keyword/effect flags
+      3. Binary (20):     is_present, is_spell, is_frozen, 17 keyword/effect flags
          → бинарные индикаторы → Linear → d_model
-      3. Types (11):      one-hot вектор расовых типов (Beast, Mech, Demon...)
+      4. Types (11):      one-hot вектор расовых типов (Beast, Mech, Demon...)
          → категориальный вход → Linear → d_model
 
     Результаты суммируются (аддитивное смешивание, аналогично позиционным эмбеддингам
     в классическом Transformer) и дополняются Zone Embedding (emb_team).
 
-    Раскладка вектора сущности из hs_env.py (37 float):
-      [0] is_present  [1] is_spell  [2] card_id_norm  [3] cost  [4] tier
+    Раскладка вектора сущности из hs_env.py (EF float):
+      [0] is_present  [1] is_spell  [2] card_id (raw int)  [3] cost  [4] tier
       [5] is_frozen  [6] ATK  [7] HP  [8..24] 17 flags  [25] is_selected
       [26..36] 11 type one-hots
     """
 
     # Индексы признаков в entity-векторе из hs_env.py
-    _CONTINUOUS_IDX = [2, 3, 4, 6, 7]       # card_id_norm, cost, tier, ATK, HP
+    _CARD_ID_IDX = 2                         # raw integer card_id (for nn.Embedding)
+    _CONTINUOUS_IDX = [3, 4, 6, 7]           # cost, tier, ATK, HP (card_id removed)
     _BINARY_IDX = [0, 1, 5] + list(range(8, 26))  # is_present, is_spell, is_frozen, 17 flags, is_selected
     _TYPE_IDX = list(range(26, 37))          # 11 type one-hots
 
-    def __init__(self, d_model: int, max_teams: int = 5):
+    def __init__(self, d_model: int, max_teams: int = 5, num_card_ids: int = 300):
         super().__init__()
+        d_card = d_model // 2  # 64 при d_model=128, достаточно для similarity structure 200+ карт
+        self.emb_card = nn.Embedding(num_card_ids, d_card, padding_idx=0)
+
         self.proj_continuous = nn.Linear(len(self._CONTINUOUS_IDX), d_model)
         self.proj_binary = nn.Linear(len(self._BINARY_IDX), d_model)
         self.proj_types = nn.Linear(len(self._TYPE_IDX), d_model)
+        self.proj_card = nn.Linear(d_card, d_model)
 
         # Zone Embedding: идентификатор зоны (доска, таверна, рука, дискавер)
         self.emb_team = nn.Embedding(max_teams, d_model)
 
     def forward(self, val: torch.Tensor, team_id: torch.Tensor) -> torch.Tensor:
         """
-        val: [B, N, 37] — сырые entity-вектора
+        val: [B, N, EF] — сырые entity-вектора (index 2 = raw card_id int)
         team_id: [B, N] — ID зоны каждого слота
         → [B, N, d_model]
         """
+        # Card embedding: extract raw int, lookup in embedding table
+        card_ids = val[..., self._CARD_ID_IDX].long().clamp(0, self.emb_card.num_embeddings - 1)
+        x_card = self.proj_card(self.emb_card(card_ids))
+
         x_cont = self.proj_continuous(val[..., self._CONTINUOUS_IDX])
         x_bin = self.proj_binary(val[..., self._BINARY_IDX])
         x_type = self.proj_types(val[..., self._TYPE_IDX])
 
         # Аддитивное смешивание (как token + position в BERT)
-        x = x_cont + x_bin + x_type + self.emb_team(team_id)
+        x = x_card + x_cont + x_bin + x_type + self.emb_team(team_id)
         return x
 
 
@@ -315,7 +327,7 @@ class TransformerFeaturesExtractor(BaseFeaturesExtractor):
     _ZONES = [(7, 1), (10, 2), (7, 3), (3, 4)]  # (slots, team_id)
     _GLOBAL_SIZE = 7
     _ENEMY_SIZE = 3
-    _EF = 37
+    _EF = 38  # 26 base features + 12 unit types (incl. ALL)
 
     def __init__(
         self,
@@ -325,6 +337,7 @@ class TransformerFeaturesExtractor(BaseFeaturesExtractor):
         n_layers: int = 4,
         d_context: int = 10,
         max_teams: int = 5,
+        num_card_ids: int = 300,
         use_symlog: bool = True,
         use_gating: bool = True,
         use_pma: bool = True,
@@ -335,7 +348,7 @@ class TransformerFeaturesExtractor(BaseFeaturesExtractor):
         self._total_slots = sum(s for s, _ in self._ZONES)
 
         # --- Encoder ---
-        self.encoder = DecomposedEncoder(d_model, max_teams)
+        self.encoder = DecomposedEncoder(d_model, max_teams, num_card_ids=num_card_ids)
 
         # --- FiLM: pre-Attention модуляция ---
         self.film = FiLM(d_context, d_model)
@@ -371,7 +384,7 @@ class TransformerFeaturesExtractor(BaseFeaturesExtractor):
     def _parse_flat_obs(self, flat: torch.Tensor) -> tuple[
         torch.Tensor, torch.Tensor, torch.Tensor
     ]:
-        """[B, 1009] → val [B, N, 37], team_id [B, N], context [B, 10]"""
+        """[B, 1036] → val [B, N, 38], team_id [B, N], context [B, 10]"""
         B, device = flat.shape[0], flat.device
 
         global_vec = flat[:, :self._GLOBAL_SIZE]
@@ -396,11 +409,14 @@ class TransformerFeaturesExtractor(BaseFeaturesExtractor):
         return val, team_id, context
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        """[B, 1009] → [B, d_model]"""
+        """[B, 1036] → [B, d_model]"""
         val, team_id, context = self._parse_flat_obs(observations)
 
         if self.use_symlog:
+            # Preserve card_id (index 2) before symlog — it's a raw integer for embedding lookup
+            card_ids = val[..., 2].clone()
             val = symlog(val)
+            val[..., 2] = card_ids
 
         # 1. DecomposedEncoder: val + zone → [B, N, D]
         x = self.encoder(val, team_id)

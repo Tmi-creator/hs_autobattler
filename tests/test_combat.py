@@ -19,18 +19,17 @@ if TYPE_CHECKING:
 class TestBasicCombat:
     """Verify that resolve_combat returns correct BattleOutcome."""
 
-    def test_annoy_o_tron_vs_scallywag(
+    def test_annoy_o_tron_vs_harmless_bonehead(
         self,
         empty_game: "Game",
         mock_unit: Callable[..., Unit],
         combat_manager: CombatManager,
     ) -> None:
-        """Annoy-o-Tron (1/2 DS Taunt) should beat Scallywag (3/1) because
-        DS absorbs the first hit and token attacks into taunt."""
+        """Annoy-o-Tron (1/2 DS Taunt) vs Harmless Bonehead (1/1 DR) — verifies no crash."""
         p0 = empty_game.players[0]
         p1 = empty_game.players[1]
         p0.board = [mock_unit(CardIDs.ANNOY_O_TRON, owner_id=p0.uid)]
-        p1.board = [mock_unit(CardIDs.SCALLYWAG, owner_id=p1.uid)]
+        p1.board = [mock_unit(CardIDs.HARMLESS_BONEHEAD, owner_id=p1.uid)]
 
         random.seed(42)
         outcome, damage = combat_manager.resolve_combat(p0, p1)
@@ -61,7 +60,7 @@ class TestBasicCombat:
     ) -> None:
         p0 = empty_game.players[0]
         p1 = empty_game.players[1]
-        p0.board = [mock_unit(CardIDs.TABBYCAT, owner_id=p0.uid)]
+        p0.board = [mock_unit(CardIDs.MICROBOT, owner_id=p0.uid)]
         p1.board = []
 
         outcome, damage = combat_manager.resolve_combat(p0, p1)

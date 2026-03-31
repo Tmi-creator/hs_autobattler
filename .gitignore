@@ -234,3 +234,4 @@ scripts/_kaggle_build/
 .agents/
 .agent_context/
 .claude/
+.vscode/

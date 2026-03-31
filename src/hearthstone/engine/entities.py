@@ -156,6 +156,12 @@ class Unit:
         return self.cur_hp > 0
 
     def combat_copy(self) -> Unit:
+        # Init avenge_counter from card definition (if card has Avenge)
+        avenge_init = 0
+        card_data = CARD_DB.get(self.card_id) or CARD_DB.get(CardIDs(self.card_id), {})
+        if isinstance(card_data, dict):
+            avenge_init = card_data.get("avenge_threshold", 0)
+
         unit = replace(
             self,
             types=list(self.types),
@@ -168,7 +174,7 @@ class Unit:
             combat_atk_add=0,
             aura_hp_add=0,
             aura_atk_add=0,
-            avenge_counter=0,
+            avenge_counter=avenge_init,
         )
         unit.recalc_stats()
         unit.restore_stats()
@@ -311,6 +317,7 @@ class MechanicState:
     modifiers: Dict[MechanicType, Tuple[int, int]] = field(
         default_factory=lambda: MECHANIC_DEFAULTS.copy()
     )
+    scaling_counters: Dict[str, int] = field(default_factory=dict)
 
     def modify_stat(self, key: MechanicType, atk_add: int, hp_add: int) -> None:
         """Universal method for mechanic buff"""
@@ -319,6 +326,12 @@ class MechanicState:
 
     def get_stat(self, key: MechanicType) -> Tuple[int, int]:
         return self.modifiers.get(key, (0, 0))
+
+    def get_scaling(self, key: str) -> int:
+        return self.scaling_counters.get(key, 0)
+
+    def increment_scaling(self, key: str, amount: int = 1) -> None:
+        self.scaling_counters[key] = self.scaling_counters.get(key, 0) + amount
 
 
 @dataclass
@@ -333,6 +346,15 @@ class DiscoveryState:
 
 
 @dataclass
+class DiscoveryRequest:
+    """Pending discover request set by spell handlers, consumed by TavernManager."""
+    tier: int
+    exact_tier: bool = False
+    predicate: object = None  # Optional[Callable] — kept as object to avoid TYPE_CHECKING dance
+    source: str = "Spell"
+
+
+@dataclass
 class Player:
     uid: int
     board: List[Unit]
@@ -342,6 +364,9 @@ class Player:
     health: int = 30
 
     discovery: DiscoveryState = field(default_factory=DiscoveryState)
+    pending_discovery_request: Optional[DiscoveryRequest] = None
+    free_refreshes: int = 0
+    lost_last_combat: bool = False
 
     def combat_copy(self) -> Player:
         return Player(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .enums import CardIDs, EffectIDs, MechanicType, SpellIDs, Tags, UnitType
 
@@ -13,12 +13,14 @@ if TYPE_CHECKING:
 def _event_system():
     """Lazy import to avoid circular import via configs -> entities -> event_system."""
     from . import event_system as _es  # noqa: PLC0415
+
     return _es
 
 
 # ---------------------------------------------------------------------------
 # Condition helpers (needed by factory functions below)
 # ---------------------------------------------------------------------------
+
 
 def _is_self_play(_ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
     return event.source is not None and event.source.uid == trigger_uid
@@ -54,22 +56,26 @@ def _is_friendly_soc(ctx: EffectContext, _event: Event, trigger_uid: int) -> boo
 # EffectDef base + subclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EffectDef:
     """Base class for declarative effects."""
+
     pass
 
 
 @dataclass
 class DeathrattleSummon(EffectDef):
     """On death, summon token(s) at the dead unit's position."""
-    token_id: str       # CardIDs value (string)
+
+    token_id: str  # CardIDs value (string)
     count: int = 1
 
 
 @dataclass
 class DeathrattleSummonWithTag(EffectDef):
     """On death, summon token(s) and add a tag to each summoned unit."""
+
     token_id: str
     count: int = 1
     tag: Tags = Tags.IMMEDIATE_ATTACK
@@ -78,19 +84,22 @@ class DeathrattleSummonWithTag(EffectDef):
 @dataclass
 class BattlecryGainGold(EffectDef):
     """On self-play, gain gold immediately."""
+
     amount: int = 1
 
 
 @dataclass
 class BattlecryAddSpell(EffectDef):
     """On self-play, add spell(s) to hand."""
-    spell_id: str       # SpellIDs value
+
+    spell_id: str  # SpellIDs value
     count: int = 1
 
 
 @dataclass
 class BattlecrySummonAtRight(EffectDef):
     """On self-play, summon a unit immediately to the right."""
+
     token_id: str
     count: int = 1
 
@@ -104,26 +113,84 @@ class BattlecryBuffSelf(EffectDef):
 @dataclass
 class BattlecrySpellDiscount(EffectDef):
     """On self-play, reduce spell cost by `amount` for the rest of the game."""
+
     amount: int = 1
 
 
 @dataclass
 class BattlecryModifyMechanic(EffectDef):
     """Modify a global mechanic stat (like Dune Dweller's elemental buff)."""
+
     mechanic: MechanicType
     atk: int = 0
     hp: int = 0
 
 
 @dataclass
-class BattlecryConsumeShopUnit(EffectDef):
+class ConsumeShopUnit(EffectDef):
     """Consume random shop unit, gain its stats."""
+
     pass
+
+
+@dataclass
+class BattlecryMakeGolden(EffectDef):
+    """Make this minion golden on play."""
+
+    pass
+
+
+@dataclass
+class SellForGold(EffectDef):
+    """This minion sells for N gold instead of 1."""
+
+    amount: int = 3
+
+
+@dataclass
+class RallyBuff(EffectDef):
+    """Rally: when this unit attacks, buff itself (combat scope)."""
+
+    atk: int = 0
+    hp: int = 0
+    use_blood_gem: bool = False  # if True, use player's Blood Gem values instead of atk/hp
+
+
+@dataclass
+class StartOfCombatFromHand(EffectDef):
+    """SoC: if this is in your hand, summon a copy onto your board."""
+
+    pass
+
+
+@dataclass
+class AvengeEffect(EffectDef):
+    """Avenge(N): after N friendly deaths in combat, fire inner effect.
+    The inner effect describes WHAT happens — buff self, buff type, buff adjacent, etc."""
+
+    threshold: int
+    # What to do when avenge fires:
+    buff_atk: int = 0
+    buff_hp: int = 0
+    buff_scope: str = "combat"  # "combat" or "perm"
+    buff_target: str = "self"  # "self", "friendly_type", "adjacent", "random_friendly_type"
+    target_type: Optional[UnitType] = None  # for friendly_type / random_friendly_type
+
+
+@dataclass
+class MultiplierDef:
+    """Not an EffectDef — metadata on CardDef for cards like Brann/Titus/Drakkari.
+    When this unit is on board, matching triggers get extra stacks."""
+
+    event_type_name: str  # EventType name to match (e.g. "MINION_PLAYED")
+    self_only: bool = True  # True = only self-play triggers (battlecries), False = all
+    extra_stacks: int = 1  # How many extra stacks (1 = double, 2 = triple)
 
 
 @dataclass
 class OnFriendlyPlayType(EffectDef):
     """When any friendly unit of specific type is played, buff self."""
+
     trigger_type: UnitType
     atk: int = 0
     hp: int = 0
@@ -133,6 +200,7 @@ class OnFriendlyPlayType(EffectDef):
 @dataclass
 class OnFriendlyPlayTypeDamageHero(EffectDef):
     """When friendly unit of specific type is played (excl. self), damage own hero and buff self."""
+
     trigger_type: UnitType
     hero_dmg: int = 1
     atk: int = 0
@@ -143,6 +211,7 @@ class OnFriendlyPlayTypeDamageHero(EffectDef):
 @dataclass
 class SellAddSpell(EffectDef):
     """On self-sell, add spell(s) to hand."""
+
     spell_id: str
     count: int = 1
 
@@ -150,6 +219,7 @@ class SellAddSpell(EffectDef):
 @dataclass
 class SellGetRandomUnit(EffectDef):
     """On self-sell, add a random T{tier} minion to hand."""
+
     tier: int = 1
 
 
@@ -162,12 +232,14 @@ class StartOfCombatBuffSelf(EffectDef):
 @dataclass
 class StartOfCombatBuffSelfByTier(EffectDef):
     """Gain +tier/+tier at start of combat."""
+
     pass
 
 
 @dataclass
 class OnFriendlyDeathBuff(EffectDef):
     """Gain stats when any friendly minion dies (excluding self), as a combat buff."""
+
     atk: int = 0
     hp: int = 0
 
@@ -176,6 +248,7 @@ class OnFriendlyDeathBuff(EffectDef):
 class OnFriendlySummonedTypeBuff(EffectDef):
     """When a friendly unit of specific type is summoned (not played),
     gain +atk/+hp and optionally divine shield."""
+
     trigger_type: UnitType
     atk: int = 0
     hp: int = 0
@@ -187,6 +260,7 @@ class OnFriendlySummonedTypeBuff(EffectDef):
 @dataclass
 class DeathrattleBuffAllFriendlies(EffectDef):
     """On death, give all surviving friendly minions +atk/+hp (combat buff)."""
+
     atk: int = 0
     hp: int = 0
 
@@ -194,31 +268,578 @@ class DeathrattleBuffAllFriendlies(EffectDef):
 @dataclass
 class DeathrattleRandomEnemyDamage(EffectDef):
     """On death, deal damage to a random enemy minion."""
+
     damage: int = 4
 
 
 @dataclass
 class CustomEffect(EffectDef):
     """For complex effects that cannot be described declaratively."""
-    trigger_defs: list = field(default_factory=list)   # List[TriggerDef]
+
+    trigger_defs: list = field(default_factory=list)  # List[TriggerDef]
+
+
+@dataclass
+class EndOfTurnAddSpell(EffectDef):
+    """End of turn: add spell(s) to hand."""
+
+    spell_id: str
+    count: int = 1
+
+
+@dataclass
+class EndOfTurnBuffAdjacent(EffectDef):
+    """End of turn: buff adjacent units."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class EndOfTurnBuffSelf(EffectDef):
+    """End of turn: buff self."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class EndOfTurnBuffBoard(EffectDef):
+    """End of turn: buff all friendly board units."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class EndOfTurnBuffBoardByType(EffectDef):
+    """End of turn: buff all friendly board units of a type."""
+
+    trigger_type: UnitType
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class StartOfCombatBuffFriendlyType(EffectDef):
+    """SoC: give all friendly units of type +atk/+hp (combat buff)."""
+
+    trigger_type: UnitType
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class BattlecryBuffAllByType(EffectDef):
+    """BC: give all friendly units of type +atk/+hp (perm buff)."""
+
+    trigger_type: UnitType
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnFriendlyPlayTypeAddSpell(EffectDef):
+    """When friendly of type is played, add spell to hand."""
+
+    trigger_type: UnitType
+    spell_id: str
+    count: int = 1
+    exclude_self: bool = True
+
+
+@dataclass
+class OnSummonedTypeBuffRandomOther(EffectDef):
+    """When friendly of type is summoned, buff a random OTHER friendly of that type."""
+
+    trigger_type: UnitType
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class SellAddUnit(EffectDef):
+    """On sell: add a specific unit to hand."""
+
+    card_id: str
+
+
+@dataclass
+class RallyBuffRandomFriendlyType(EffectDef):
+    """Rally: when this attacks, buff a random other friendly of type (combat buff)."""
+
+    trigger_type: UnitType
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class SellGetRandomUnitByType(EffectDef):
+    """On sell: get a random unit of specific type from pool."""
+
+    unit_type: UnitType
+
+
+@dataclass
+class ConsumeShopUnitForRandomFriendly(EffectDef):
+    """BC: a random friendly of type consumes a shop unit for its stats."""
+
+    trigger_type: UnitType
+
+
+@dataclass
+class OnTavernRefreshBuffRightmostShop(EffectDef):
+    """After tavern refreshed: buff rightmost shop minion with atk/hp and optionally Reborn."""
+
+    atk: int = 0
+    hp: int = 0
+    give_reborn: bool = False
+    use_blood_gem: bool = False  # if True, apply blood gem count times instead
+
+
+@dataclass
+class SellBuffBoardScaling(EffectDef):
+    """On sell: buff all board minions +atk/+hp, and increment scaling counter."""
+
+    scaling_key: str
+    atk_per: int = 0
+    hp_per: int = 0
+
+
+@dataclass
+class StartOfCombatDamageAndBuffAdjacent(EffectDef):
+    """SoC: deal damage to adjacent minions and give them ATK buff."""
+
+    damage: int = 1
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnHeroDamagedHealAndBuffSelf(EffectDef):
+    """After hero takes damage: undo the damage and buff self +hp."""
+
+    hp: int = 1
+
+
+@dataclass
+class EndOfTurnBuffAdjacentPerGolden(EffectDef):
+    """EOT: buff adjacent +atk/+hp, repeat for each friendly golden minion."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class SellDiscover(EffectDef):
+    """On sell: discover a minion of base_tier (improves each turn via scaling_key)."""
+
+    base_tier: int = 1
+    scaling_key: str = ""
+
+
+@dataclass
+class DeathrattleAddSpell(EffectDef):
+    """On death: add spell(s) to hand."""
+
+    spell_id: str = ""
+    count: int = 1
+
+
+@dataclass
+class RallyAddSpell(EffectDef):
+    """Rally: when this unit attacks, add spell(s) to hand."""
+
+    spell_id: str = ""
+    count: int = 1
+
+
+@dataclass
+class EndOfTurnBuffSelfPerGolden(EffectDef):
+    """EOT: buff self +atk/+hp for each friendly golden minion."""
+
+    atk_per: int = 0
+    hp_per: int = 0
+
+
+@dataclass
+class OnDivineShieldLostAddSpell(EffectDef):
+    """After a friendly minion loses Divine Shield, add a spell to hand."""
+
+    spell_id: str = ""
+    count: int = 1
+
+
+@dataclass
+class BattlecryBuffAllByTypeIncludeHand(EffectDef):
+    """BC: give all OTHER friendly units of type in hand AND board +atk/+hp."""
+
+    trigger_type: UnitType = UnitType.NEUTRAL
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class RallyDamageOwnBoard(EffectDef):
+    """Rally: when this unit attacks, deal damage to all other friendly minions."""
+
+    damage: int = 1
+
+
+@dataclass
+class DeathrattleModifyMechanic(EffectDef):
+    """On death: permanently modify a global mechanic."""
+
+    mechanic: MechanicType = MechanicType.BLOOD_GEM
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class StartOfCombatBuffRandomFriendlyTypeAndDS(EffectDef):
+    """SoC: give another friendly unit of type +atk/+hp and Divine Shield."""
+
+    trigger_type: UnitType = UnitType.DRAGON
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnSelfDamagedBuffBoard(EffectDef):
+    """When this minion takes damage, buff all other friendly minions."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnFriendlyRebornBuffSelf(EffectDef):
+    """After a friendly minion triggers Reborn, buff self permanently."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class DeathrattleBuffFriendlyTypeGlobal(EffectDef):
+    """On death: permanently buff all friendly units of type +atk/+hp (even in hand)."""
+
+    trigger_type: UnitType = UnitType.UNDEAD
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class DeathrattleBuffShop(EffectDef):
+    """On death: permanently buff all tavern shop minions +atk/+hp this game."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class DeathrattleBuffHandRandom(EffectDef):
+    """On death: give a random minion in hand +atk/+hp."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class StartOfCombatGainGold(EffectDef):
+    """Start of turn (shop phase): gain gold. Used for start-of-turn gold generators."""
+
+    amount: int = 1
+
+
+@dataclass
+class OnFriendlyAttackBuffSelf(EffectDef):
+    """When another friendly unit of type attacks, buff that unit permanently."""
+
+    trigger_type: UnitType = UnitType.DRAGON
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnSpellCastBuffSelf(EffectDef):
+    """When a tavern spell is cast (played on a minion), gain +atk/+hp."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnGainGoldBuffSelf(EffectDef):
+    """After gaining gold (Tavern Coin), buff self +atk/+hp."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class DeathrattleDamageAllMinions(EffectDef):
+    """On death: deal damage to ALL minions on both sides."""
+
+    damage: int = 3
+
+
+@dataclass
+class StartOfCombatBuffAllFriendlyType(EffectDef):
+    """SoC: buff all friendly units of type +atk/+hp permanently."""
+
+    trigger_type: UnitType = UnitType.DRAGON
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class StartOfCombatGiveFriendlyTypeReborn(EffectDef):
+    """SoC: give a random friendly unit of type Reborn."""
+
+    trigger_type: UnitType = UnitType.UNDEAD
+
+
+@dataclass
+class AvengeAddSpell(EffectDef):
+    """Avenge(N): add a spell to hand."""
+
+    threshold: int = 3
+    spell_id: str = ""
+    count: int = 1
+
+
+@dataclass
+class BattlecryAddRandomUnit(EffectDef):
+    """BC: add a random unit of specific type from pool to hand."""
+
+    unit_type: Optional[UnitType] = None
+    tier: Optional[int] = None
+
+
+@dataclass
+class BattlecryGainFreeRefreshes(EffectDef):
+    """BC: gain N free refreshes immediately."""
+
+    count: int = 2
+
+
+@dataclass
+class OnDivineShieldLostBuffUnit(EffectDef):
+    """After a friendly minion loses Divine Shield, give it +atk/+hp permanently."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class RallyBuffAllOthersByType(EffectDef):
+    """Rally: buff all other friendly minions of type with 2 blood gems."""
+
+    trigger_type: UnitType = UnitType.PIRATE
+    count: int = 2  # number of blood gems to play
+
+
+@dataclass
+class EndOfTurnAddRandomSpell(EffectDef):
+    """End of turn: add a random tavern spell from pool to hand."""
+
+    pass
+
+
+@dataclass
+class OnFriendlyPlayTypeBuffSelfInHand(EffectDef):
+    """While in hand, when a friendly unit of type is played, buff self."""
+
+    trigger_type: UnitType = UnitType.MURLOC
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnFriendlyAttackBuffTriggerSelf(EffectDef):
+    """When another friendly unit of type attacks, buff self (the trigger unit) permanently."""
+
+    trigger_type: UnitType = UnitType.DRAGON
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class OnSpellCastBuffBoard(EffectDef):
+    """When a tavern spell is cast, buff all friendly minions (or of a type)."""
+
+    atk: int = 0
+    hp: int = 0
+    trigger_type: Optional[UnitType] = None  # None = all friendlies
+
+
+@dataclass
+class DeathrattleSummonTauntToken(EffectDef):
+    """On death: summon N tokens and give them Taunt."""
+
+    token_id: str = ""
+    count: int = 1
+
+
+@dataclass
+class StartOfCombatBuffSelfByHighestAllyAtk(EffectDef):
+    """SoC: set own attack to the highest friendly attack value."""
+
+    pass
+
+
+@dataclass
+class StartOfCombatBuffSelfByHighestBoardAtk(EffectDef):
+    """SoC: set own stats to match the highest-attack minion on board."""
+
+    pass
+
+
+@dataclass
+class BattlecryMakeGoldenFriendlyByTier(EffectDef):
+    """BC: make a friendly minion from tier <= max_tier golden."""
+
+    max_tier: int = 4
+
+
+@dataclass
+class RallyBuffFriendlyTypeAtk(EffectDef):
+    """Rally: give all other friendly units of type +atk permanently."""
+
+    trigger_type: UnitType = UnitType.NAGA
+    atk: int = 1
+
+
+@dataclass
+class OnFriendlyBeastDamagedBuffSelf(EffectDef):
+    """When another friendly Beast takes damage, buff self +hp permanently."""
+
+    hp: int = 2
+
+
+@dataclass
+class OnFriendlyBeastDamagedBuffOther(EffectDef):
+    """When a friendly Beast takes damage, give a different friendly Beast +atk/+hp."""
+
+    atk: int = 0
+    hp: int = 0
+
+
+@dataclass
+class AvengeBuffFriendlyTypeGlobal(EffectDef):
+    """Avenge(N): give all friendly units of type +atk permanently (even in hand)."""
+
+    threshold: int = 2
+    trigger_type: UnitType = UnitType.UNDEAD
+    atk: int = 1
+    hp: int = 0
+
+
+@dataclass
+class DeathrattleDestroyKiller(EffectDef):
+    """On death: destroy the minion that killed this."""
+
+    pass
+
+
+@dataclass
+class SellForGoldConditional(EffectDef):
+    """Sells for extra gold if player lost last combat."""
+
+    amount: int = 5
+
+
+@dataclass
+class DeathrattleBuffAllFriendliesGlobal(EffectDef):
+    """On death: permanently buff all friendly beasts on board +atk/+hp."""
+
+    trigger_type: UnitType = UnitType.BEAST
+    atk: int = 8
+    hp: int = 8
+
+
+@dataclass
+class EndOfTurnBuffFriendlyTypeNaga(EffectDef):
+    """EoT: give all friendly Naga +atk/+hp (scales with diversity)."""
+
+    atk: int = 2
+    hp: int = 1
+
+
+@dataclass
+class OnFriendlyDemonDamageBuff(EffectDef):
+    """After a friendly Demon deals damage, buff other friendlies +atk/+hp."""
+
+    atk: int = 2
+    hp: int = 1
+
+
+@dataclass
+class EndOfTurnConsumeTavernForDemon(EffectDef):
+    """EoT: each friendly Demon consumes a tavern minion for its stats."""
+
+    pass
+
+
+@dataclass
+class StartOfCombatBuffFriendlyTypeScaling(EffectDef):
+    """SoC: give all friendlies of type +atk/+hp, scaling with elemental play count."""
+
+    trigger_type: UnitType = UnitType.ELEMENTAL
+    atk: int = 3
+    hp: int = 2
+
+
+@dataclass
+class EndOfTurnTriggerAdjacentBattlecry(EffectDef):
+    """EoT: trigger the battlecry of adjacent minions."""
+
+    pass
+
+
+@dataclass
+class RallyDealDamageEqualToAtk(EffectDef):
+    """Rally: deal damage equal to this minion's Attack to a random enemy."""
+
+    pass
+
+
+@dataclass
+class DeathrattleGiveFriendliesScaling(EffectDef):
+    """On death: give all friendlies +1/+1 and deal 1 damage to them."""
+
+    buff_atk: int = 1
+    buff_hp: int = 1
+    self_damage: int = 1
 
 
 # ---------------------------------------------------------------------------
 # CardDef
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CardDef:
-    card_id: str                # e.g. "101" or "t001"
+    card_id: str  # e.g. "101" or "t001"
     name: str
     tier: int
     atk: int
     hp: int
-    types: list                 # list[UnitType]
+    types: list  # list[UnitType]
     tags: set = field(default_factory=set)
     is_token: bool = False
-    deathrattle: bool = False   # metadata flag used by obs encoding
+    deathrattle: bool = False  # metadata flag used by obs encoding
     effects: list = field(default_factory=list)  # list[EffectDef]
+    multiplier: Optional[MultiplierDef] = None  # Brann/Titus/Drakkari
+
+    @property
+    def avenge_threshold(self) -> int:
+        """Return avenge threshold if card has AvengeEffect, else 0."""
+        for eff in self.effects:
+            if isinstance(eff, AvengeEffect):
+                return eff.threshold
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -230,121 +851,171 @@ ALL_CARDS: List[CardDef] = [
     # TIER 1 — 21 cards (patch 234747)
     # -----------------------------------------------------------------------
     CardDef(
-        CardIDs.ANNOY_O_TRON, "Annoy-o-Tron", 1, 1, 2,
+        CardIDs.ANNOY_O_TRON,
+        "Annoy-o-Tron",
+        1,
+        1,
+        2,
         [UnitType.MECH],
         tags={Tags.DIVINE_SHIELD, Tags.TAUNT},
     ),
     CardDef(
-        CardIDs.AUREATE_LAUREATE, "Aureate Laureate", 1, 1, 1,
+        CardIDs.AUREATE_LAUREATE,
+        "Aureate Laureate",
+        1,
+        1,
+        1,
         [UnitType.PIRATE],
         tags={Tags.DIVINE_SHIELD},
-        # Battlecry: Make this minion Golden — shop-phase, TODO
+        effects=[BattlecryMakeGolden()],
     ),
     CardDef(
-        CardIDs.CORD_PULLER, "Cord Puller", 1, 1, 1,
+        CardIDs.CORD_PULLER,
+        "Cord Puller",
+        1,
+        1,
+        1,
         [UnitType.MECH],
         tags={Tags.DIVINE_SHIELD},
         deathrattle=True,
-        effects=[
-            DeathrattleSummon(token_id=CardIDs.MICROBOT, count=1)
-        ],
+        effects=[DeathrattleSummon(token_id=CardIDs.MICROBOT, count=1)],
     ),
     CardDef(
-        CardIDs.CRACKLING_CYCLONE, "Crackling Cyclone", 1, 2, 1,
+        CardIDs.CRACKLING_CYCLONE,
+        "Crackling Cyclone",
+        1,
+        2,
+        1,
         [UnitType.ELEMENTAL],
         tags={Tags.DIVINE_SHIELD, Tags.WINDFURY},
     ),
     CardDef(
-        CardIDs.DUNE_DWELLER, "Dune Dweller", 1, 3, 2,
+        CardIDs.DUNE_DWELLER,
+        "Dune Dweller",
+        1,
+        3,
+        2,
         [UnitType.ELEMENTAL],
-        effects=[
-            BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=1)
-        ],
+        effects=[BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=1)],
     ),
     CardDef(
-        CardIDs.FLIGHTY_SCOUT, "Flighty Scout", 1, 3, 3,
+        CardIDs.FLIGHTY_SCOUT,
+        "Flighty Scout",
+        1,
+        3,
+        3,
         [UnitType.MURLOC],
-        # SoC: If in hand, summon copy — C++ combat only
+        effects=[StartOfCombatFromHand()],
     ),
     CardDef(
-        CardIDs.HARMLESS_BONEHEAD, "Harmless Bonehead", 1, 1, 1,
+        CardIDs.HARMLESS_BONEHEAD,
+        "Harmless Bonehead",
+        1,
+        1,
+        1,
         [UnitType.UNDEAD],
         deathrattle=True,
-        effects=[
-            DeathrattleSummon(token_id=CardIDs.SKELETON, count=2)
-        ],
+        effects=[DeathrattleSummon(token_id=CardIDs.SKELETON, count=2)],
     ),
     CardDef(
-        CardIDs.MANASABER, "Manasaber", 1, 4, 1,
+        CardIDs.MANASABER,
+        "Manasaber",
+        1,
+        4,
+        1,
         [UnitType.BEAST],
         deathrattle=True,
-        effects=[
-            DeathrattleSummon(token_id=CardIDs.CUBLING, count=2)
-        ],
+        effects=[DeathrattleSummon(token_id=CardIDs.CUBLING, count=2)],
     ),
     CardDef(
-        CardIDs.MINTED_CORSAIR, "Minted Corsair", 1, 1, 3,
+        CardIDs.MINTED_CORSAIR,
+        "Minted Corsair",
+        1,
+        1,
+        3,
         [UnitType.PIRATE],
-        effects=[
-            SellAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)
-        ],
+        effects=[SellAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
     ),
     CardDef(
-        CardIDs.MISFIT_DRAGONLING, "Misfit Dragonling", 1, 2, 1,
+        CardIDs.MISFIT_DRAGONLING,
+        "Misfit Dragonling",
+        1,
+        2,
+        1,
         [UnitType.DRAGON],
         # SoC: Gain stats equal to your Tier
-        effects=[
-            StartOfCombatBuffSelfByTier()
-        ],
+        effects=[StartOfCombatBuffSelfByTier()],
     ),
     CardDef(
-        CardIDs.OMINOUS_SEER, "Ominous Seer", 1, 2, 1,
+        CardIDs.OMINOUS_SEER,
+        "Ominous Seer",
+        1,
+        2,
+        1,
         [UnitType.DEMON, UnitType.NAGA],
-        effects=[
-            BattlecrySpellDiscount(amount=1)
-        ],
+        effects=[BattlecrySpellDiscount(amount=1)],
     ),
     CardDef(
-        CardIDs.PICKY_EATER, "Picky Eater", 1, 1, 1,
+        CardIDs.PICKY_EATER,
+        "Picky Eater",
+        1,
+        1,
+        1,
         [UnitType.DEMON],
-        effects=[
-            BattlecryConsumeShopUnit()
-        ],
+        effects=[ConsumeShopUnit()],
     ),
     CardDef(
-        CardIDs.RAZORFEN_GEOMANCER, "Razorfen Geomancer", 1, 2, 1,
+        CardIDs.RAZORFEN_GEOMANCER,
+        "Razorfen Geomancer",
+        1,
+        2,
+        1,
         [UnitType.QUILBOAR],
-        effects=[
-            BattlecryAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=2)
-        ],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=2)],
     ),
     CardDef(
-        CardIDs.RISEN_RIDER, "Risen Rider", 1, 2, 1,
+        CardIDs.RISEN_RIDER,
+        "Risen Rider",
+        1,
+        2,
+        1,
         [UnitType.UNDEAD],
         tags={Tags.TAUNT, Tags.REBORN},
     ),
     CardDef(
-        CardIDs.RIVER_SKIPPER, "River Skipper", 1, 1, 1,
+        CardIDs.RIVER_SKIPPER,
+        "River Skipper",
+        1,
+        1,
+        1,
         [UnitType.MURLOC],
-        effects=[
-            SellGetRandomUnit(tier=1)
-        ],
+        effects=[SellGetRandomUnit(tier=1)],
     ),
     CardDef(
-        CardIDs.ROT_HIDE_GNOLL, "Rot Hide Gnoll", 1, 1, 4,
+        CardIDs.ROT_HIDE_GNOLL,
+        "Rot Hide Gnoll",
+        1,
+        1,
+        4,
         [UnitType.UNDEAD],
         # +1 Atk per friendly death this combat — combat trigger
-        effects=[
-            OnFriendlyDeathBuff(atk=1, hp=0)
-        ],
+        effects=[OnFriendlyDeathBuff(atk=1, hp=0)],
     ),
     CardDef(
-        CardIDs.SURF_N_SURF, "Surf n' Surf", 1, 1, 1,
+        CardIDs.SURF_N_SURF,
+        "Surf n' Surf",
+        1,
+        1,
+        1,
         [UnitType.NAGA, UnitType.BEAST],
         # Spellcraft: DR summon 3/2 Crab — shop-phase spellcraft
     ),
     CardDef(
-        CardIDs.SWAMPSTRIKER, "Swampstriker", 1, 1, 5,
+        CardIDs.SWAMPSTRIKER,
+        "Swampstriker",
+        1,
+        1,
+        5,
         [UnitType.MURLOC],
         tags={Tags.WINDFURY},
         effects=[
@@ -357,12 +1028,20 @@ ALL_CARDS: List[CardDef] = [
         ],
     ),
     CardDef(
-        CardIDs.TUSKED_CAMPER, "Tusked Camper", 1, 2, 3,
+        CardIDs.TUSKED_CAMPER,
+        "Tusked Camper",
+        1,
+        2,
+        3,
         [UnitType.QUILBOAR],
-        # Rally: Blood Gem on self — C++ combat only
+        effects=[RallyBuff(use_blood_gem=True)],
     ),
     CardDef(
-        CardIDs.TWILIGHT_HATCHLING, "Twilight Hatchling", 1, 1, 1,
+        CardIDs.TWILIGHT_HATCHLING,
+        "Twilight Hatchling",
+        1,
+        1,
+        1,
         [UnitType.DRAGON],
         deathrattle=True,
         effects=[
@@ -374,7 +1053,11 @@ ALL_CARDS: List[CardDef] = [
         ],
     ),
     CardDef(
-        CardIDs.WRATH_WEAVER, "Wrath Weaver", 1, 1, 4,
+        CardIDs.WRATH_WEAVER,
+        "Wrath Weaver",
+        1,
+        1,
+        4,
         [UnitType.DEMON],
         effects=[
             OnFriendlyPlayTypeDamageHero(
@@ -387,32 +1070,1739 @@ ALL_CARDS: List[CardDef] = [
         ],
     ),
     # -----------------------------------------------------------------------
+    # TIER 2
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.FREEDEALING_GAMBLER,
+        "Freedealing Gambler",
+        2,
+        3,
+        3,
+        [],
+        effects=[SellForGold(amount=3)],
+    ),
+    CardDef(
+        CardIDs.SHELL_COLLECTOR,
+        "Shell Collector",
+        2,
+        4,
+        3,
+        [],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.SEWER_RAT,
+        "Sewer Rat",
+        2,
+        3,
+        2,
+        [],
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.TURTLE, count=1)],
+    ),
+    CardDef(
+        CardIDs.MOON_BACON_JAZZER,
+        "Moon-Bacon Jazzer",
+        2,
+        2,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[BattlecryModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=0, hp=1)],
+    ),
+    CardDef(
+        CardIDs.MECHAGNOME_INTERPRETER,
+        "Mechagnome Interpreter",
+        2,
+        2,
+        3,
+        [UnitType.MECH],
+        effects=[
+            OnFriendlyPlayType(
+                trigger_type=UnitType.MECH,
+                atk=2,
+                hp=1,
+                exclude_self=False,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.BRIARBACK_BOOKIE,
+        "Briarback Bookie",
+        2,
+        3,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[EndOfTurnAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=1)],
+    ),
+    CardDef(
+        CardIDs.HUMMING_BIRD,
+        "Humming Bird",
+        2,
+        1,
+        4,
+        [UnitType.BEAST],
+        effects=[StartOfCombatBuffFriendlyType(trigger_type=UnitType.BEAST, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.NERUBIAN_DEATHSWARMER,
+        "Nerubian Deathswarmer",
+        2,
+        1,
+        4,
+        [UnitType.UNDEAD],
+        effects=[BattlecryBuffAllByType(trigger_type=UnitType.UNDEAD, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.OOZELING_GLADIATOR,
+        "Oozeling Gladiator",
+        2,
+        2,
+        2,
+        [],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.SLIMY_SHIELD, count=2)],
+    ),
+    CardDef(
+        CardIDs.PROPHET_OF_THE_BOAR,
+        "Prophet of the Boar",
+        2,
+        2,
+        3,
+        [],
+        tags={Tags.TAUNT},
+        effects=[
+            OnFriendlyPlayTypeAddSpell(
+                trigger_type=UnitType.QUILBOAR,
+                spell_id=SpellIDs.BLOOD_GEM,
+                count=1,
+                exclude_self=True,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.SALTSCALE_HONCHO,
+        "Saltscale Honcho",
+        2,
+        5,
+        2,
+        [UnitType.MURLOC],
+        effects=[OnSummonedTypeBuffRandomOther(trigger_type=UnitType.MURLOC, atk=0, hp=2)],
+    ),
+    CardDef(
+        CardIDs.SELLEMENTAL,
+        "Sellemental",
+        2,
+        3,
+        3,
+        [UnitType.ELEMENTAL],
+        effects=[SellAddUnit(card_id=CardIDs.WATER_DROPLET)],
+    ),
+    CardDef(
+        CardIDs.SLEEPY_SUPPORTER,
+        "Sleepy Supporter",
+        2,
+        3,
+        4,
+        [UnitType.DRAGON],
+        effects=[RallyBuffRandomFriendlyType(trigger_type=UnitType.DRAGON, atk=2, hp=3)],
+    ),
+    CardDef(
+        CardIDs.TAD,
+        "Tad",
+        2,
+        2,
+        2,
+        [UnitType.MURLOC],
+        effects=[SellGetRandomUnitByType(unit_type=UnitType.MURLOC)],
+    ),
+    CardDef(
+        CardIDs.MIND_MUCK,
+        "Mind Muck",
+        2,
+        3,
+        2,
+        [UnitType.DEMON],
+        effects=[ConsumeShopUnitForRandomFriendly(trigger_type=UnitType.DEMON)],
+    ),
+    CardDef(
+        CardIDs.EMBALMING_EXPERT,
+        "Embalming Expert",
+        2,
+        3,
+        2,
+        [UnitType.UNDEAD],
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=0, give_reborn=True)],
+    ),
+    CardDef(
+        CardIDs.QUILLED_CABBIE,
+        "Quilled Cabbie",
+        2,
+        2,
+        5,
+        [UnitType.QUILBOAR],
+        effects=[
+            OnTavernRefreshBuffRightmostShop(atk=0, hp=0, give_reborn=False, use_blood_gem=True)
+        ],
+    ),
+    CardDef(
+        CardIDs.GHOSTLY_YMIRJAR,
+        "Ghostly Ymirjar",
+        2,
+        2,
+        5,
+        [UnitType.UNDEAD],
+        effects=[
+            AvengeEffect(
+                threshold=4,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="free_refresh",
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.FIRE_BALLER,
+        "Fire Baller",
+        2,
+        4,
+        3,
+        [UnitType.ELEMENTAL],
+        effects=[SellBuffBoardScaling(scaling_key="baller", atk_per=1, hp_per=0)],
+    ),
+    CardDef(
+        CardIDs.SNOW_BALLER,
+        "Snow Baller",
+        2,
+        3,
+        4,
+        [UnitType.ELEMENTAL],
+        effects=[SellBuffBoardScaling(scaling_key="baller", atk_per=0, hp_per=1)],
+    ),
+    CardDef(
+        CardIDs.IRATE_ROOSTER,
+        "Irate Rooster",
+        2,
+        3,
+        4,
+        [UnitType.BEAST],
+        effects=[StartOfCombatDamageAndBuffAdjacent(damage=1, atk=4, hp=0)],
+    ),
+    CardDef(
+        CardIDs.SOUL_REWINDER,
+        "Soul Rewinder",
+        2,
+        4,
+        1,
+        [UnitType.DEMON],
+        effects=[OnHeroDamagedHealAndBuffSelf(hp=1)],
+    ),
+    CardDef(
+        CardIDs.SURFING_SYLVAR,
+        "Surfing Sylvar",
+        2,
+        1,
+        2,
+        [UnitType.PIRATE],
+        effects=[EndOfTurnBuffAdjacentPerGolden(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.PATIENT_SCOUT,
+        "Patient Scout",
+        2,
+        1,
+        1,
+        [],
+        effects=[SellDiscover(base_tier=1, scaling_key="patient_scout")],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 3
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.BIRD_BUDDY,
+        "Bird Buddy",
+        3,
+        3,
+        3,
+        [UnitType.BEAST],
+        effects=[
+            AvengeEffect(
+                threshold=1,
+                buff_atk=1,
+                buff_hp=1,
+                buff_scope="combat",
+                buff_target="friendly_type",
+                target_type=UnitType.BEAST,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.BUDDING_GREENTHUMB,
+        "Budding Greenthumb",
+        3,
+        2,
+        4,
+        [UnitType.ELEMENTAL],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=2,
+                buff_hp=2,
+                buff_scope="perm",
+                buff_target="adjacent",
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.ANNOY_O_MODULE,
+        "Annoy-o-Module",
+        3,
+        2,
+        4,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD, Tags.TAUNT, Tags.MAGNETIC},
+    ),
+    CardDef(
+        CardIDs.DEADLY_SPORE,
+        "Deadly Spore",
+        3,
+        1,
+        1,
+        [],
+        tags={Tags.VENOMOUS},
+    ),
+    CardDef(
+        CardIDs.CADAVER_CARETAKER,
+        "Cadaver Caretaker",
+        3,
+        3,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.SKELETON, count=3)],
+    ),
+    CardDef(
+        CardIDs.BRINY_BOOTLEGGER,
+        "Briny Bootlegger",
+        3,
+        4,
+        2,
+        [UnitType.PIRATE],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.HANDLESS_FORSAKEN,
+        "Handless Forsaken",
+        3,
+        2,
+        1,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleSummonWithTag(token_id=CardIDs.HAND_TOKEN, count=1, tag=Tags.REBORN)],
+    ),
+    CardDef(
+        CardIDs.GREEDY_SNAKETONGUE,
+        "Greedy Snaketongue",
+        3,
+        2,
+        4,
+        [UnitType.NAGA],
+        effects=[RallyAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.ROADBOAR,
+        "Roadboar",
+        3,
+        3,
+        4,
+        [UnitType.QUILBOAR],
+        effects=[RallyAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=2)],
+    ),
+    CardDef(
+        CardIDs.GOLDGRUBBER,
+        "Goldgrubber",
+        3,
+        3,
+        2,
+        [UnitType.PIRATE],
+        effects=[EndOfTurnBuffSelfPerGolden(atk_per=3, hp_per=2)],
+    ),
+    CardDef(
+        CardIDs.GEMSPLITTER,
+        "Gemsplitter",
+        3,
+        2,
+        1,
+        [UnitType.QUILBOAR],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnDivineShieldLostAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=1)],
+    ),
+    CardDef(
+        CardIDs.CANOPY_SWINGER,
+        "Canopy Swinger",
+        3,
+        4,
+        5,
+        [UnitType.MURLOC],
+        effects=[BattlecryBuffAllByTypeIncludeHand(trigger_type=UnitType.MURLOC, atk=4, hp=0)],
+    ),
+    CardDef(
+        CardIDs.HOT_SPRINGER,
+        "Hot Springer",
+        3,
+        5,
+        4,
+        [UnitType.MURLOC],
+        effects=[BattlecryBuffAllByTypeIncludeHand(trigger_type=UnitType.MURLOC, atk=0, hp=4)],
+    ),
+    CardDef(
+        CardIDs.RAMPAGER,
+        "Rampager",
+        3,
+        8,
+        8,
+        [UnitType.BEAST],
+        effects=[RallyDamageOwnBoard(damage=1)],
+    ),
+    CardDef(
+        CardIDs.FELEMENTAL,
+        "Felemental",
+        3,
+        3,
+        3,
+        [UnitType.ELEMENTAL, UnitType.DEMON],
+        effects=[
+            CustomEffect()  # wired in build_trigger_registry via _make_felemental_bc
+        ],
+    ),
+    CardDef(
+        CardIDs.PRICKLY_PIPER,
+        "Prickly Piper",
+        3,
+        5,
+        1,
+        [UnitType.QUILBOAR],
+        deathrattle=True,
+        effects=[DeathrattleModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.AMBER_GUARDIAN,
+        "Amber Guardian",
+        3,
+        3,
+        2,
+        [UnitType.DRAGON],
+        tags={Tags.TAUNT},
+        effects=[
+            StartOfCombatBuffRandomFriendlyTypeAndDS(trigger_type=UnitType.DRAGON, atk=2, hp=2)
+        ],
+    ),
+    CardDef(
+        CardIDs.HARDY_ORCA,
+        "Hardy Orca",
+        3,
+        1,
+        6,
+        [UnitType.BEAST],
+        tags={Tags.TAUNT},
+        effects=[OnSelfDamagedBuffBoard(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.COLDLIGHT_DIVER,
+        "Coldlight Diver",
+        3,
+        1,
+        1,
+        [UnitType.MURLOC],
+        deathrattle=True,
+        effects=[
+            BattlecryAddSpell(
+                spell_id=SpellIDs.TAVERN_COIN, count=1
+            ),  # placeholder for random T1 spell
+            DeathrattleAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.JELLY_BELLY,
+        "Jelly Belly",
+        3,
+        2,
+        3,
+        [UnitType.UNDEAD],
+        effects=[OnFriendlyRebornBuffSelf(atk=2, hp=3)],
+    ),
+    CardDef(
+        CardIDs.ANUBARAK_NERUBIAN_KING,
+        "Anub'arak, Nerubian King",
+        3,
+        3,
+        2,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleBuffFriendlyTypeGlobal(trigger_type=UnitType.UNDEAD, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.ARANASI_ALCHEMIST,
+        "Aranasi Alchemist",
+        3,
+        1,
+        2,
+        [UnitType.DEMON, UnitType.NAGA],
+        tags={Tags.TAUNT, Tags.REBORN},
+        deathrattle=True,
+        effects=[DeathrattleBuffShop(atk=0, hp=1)],
+    ),
+    CardDef(
+        CardIDs.BASSGILL,
+        "Bassgill",
+        3,
+        5,
+        2,
+        [UnitType.MURLOC],
+        deathrattle=True,
+        effects=[DeathrattleBuffHandRandom(atk=5, hp=5)],
+    ),
+    CardDef(
+        CardIDs.BRIARBACK_DRUMMER,
+        "Briarback Drummer",
+        3,
+        5,
+        2,
+        [UnitType.QUILBOAR],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.BLOOD_GEM_BARRAGE, count=1)],
+    ),
+    CardDef(
+        CardIDs.DEFLECT_O_BOT,
+        "Deflect-o-Bot",
+        3,
+        3,
+        2,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[
+            OnFriendlySummonedTypeBuff(
+                trigger_type=UnitType.MECH,
+                atk=2,
+                hp=0,
+                exclude_self=True,
+                combat_buff=True,
+                gain_divine_shield=True,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.PEGGY_STURDYBONE,
+        "Peggy Sturdybone",
+        3,
+        2,
+        1,
+        [UnitType.PIRATE, UnitType.UNDEAD],
+        effects=[
+            # When a card added to hand, buff another friendly pirate
+            # Model as: on friendly PIRATE play, buff another pirate +2/+1
+            OnFriendlyPlayType(trigger_type=UnitType.PIRATE, atk=2, hp=1, exclude_self=False)
+        ],
+    ),
+    CardDef(
+        CardIDs.PREHISTORIC_TINKERER,
+        "Prehistoric Tinkerer",
+        3,
+        4,
+        2,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=2, give_reborn=False)],
+    ),
+    CardDef(
+        CardIDs.ROARING_RECRUITER,
+        "Roaring Recruiter",
+        3,
+        2,
+        8,
+        [UnitType.DRAGON],
+        effects=[OnFriendlyAttackBuffSelf(trigger_type=UnitType.DRAGON, atk=3, hp=1)],
+    ),
+    CardDef(
+        CardIDs.SCOURFIN,
+        "Scourfin",
+        3,
+        3,
+        3,
+        [UnitType.MURLOC],
+        deathrattle=True,
+        effects=[DeathrattleBuffHandRandom(atk=5, hp=5)],
+    ),
+    CardDef(
+        CardIDs.TARDY_TRAVELER,
+        "Tardy Traveler",
+        3,
+        3,
+        4,
+        [],
+        effects=[
+            SellAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)  # simplified: get a coin
+        ],
+    ),
+    CardDef(
+        CardIDs.TECHNICAL_ELEMENT,
+        "Technical Element",
+        3,
+        5,
+        6,
+        [UnitType.MECH, UnitType.ELEMENTAL],
+        tags={Tags.MAGNETIC},
+    ),
+    CardDef(
+        CardIDs.THE_GLAD_IATOR,
+        "The Glad-iator",
+        3,
+        3,
+        3,
+        [],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnSpellCastBuffSelf(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.TIMECAPN_HOOKTAIL,
+        "Timecap'n Hooktail",
+        3,
+        1,
+        4,
+        [UnitType.PIRATE, UnitType.DRAGON],
+        effects=[OnSpellCastBuffSelf(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.UNDERHANDED_DEALER,
+        "Underhanded Dealer",
+        3,
+        3,
+        3,
+        [UnitType.DEMON],
+        effects=[OnGainGoldBuffSelf(atk=1, hp=2)],
+    ),
+    CardDef(
+        CardIDs.WAVELING,
+        "Waveling",
+        3,
+        6,
+        1,
+        [UnitType.ELEMENTAL],
+        deathrattle=True,
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=2, give_reborn=False)],
+    ),
+    CardDef(
+        CardIDs.WHEELED_CREWMATE,
+        "Wheeled Crewmate",
+        3,
+        6,
+        3,
+        [UnitType.MECH],
+        deathrattle=True,
+        effects=[
+            BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=0, hp=0)
+            # Actually this reduces tavern upgrade cost; model as no-op for now
+        ],
+    ),
+    CardDef(
+        CardIDs.WILDFIRE_ELEMENTAL,
+        "Wildfire Elemental",
+        3,
+        6,
+        3,
+        [UnitType.ELEMENTAL],
+        tags={Tags.CLEAVE},
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 4
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.ACCORD_O_TRON,
+        "Accord-o-Tron",
+        4,
+        5,
+        5,
+        [UnitType.MECH],
+        tags={Tags.MAGNETIC},
+        effects=[StartOfCombatGainGold(amount=1)],
+    ),
+    CardDef(
+        CardIDs.BLADE_COLLECTOR,
+        "Blade Collector",
+        4,
+        3,
+        2,
+        [],
+        tags={Tags.CLEAVE},
+    ),
+    CardDef(
+        CardIDs.BONKER,
+        "Bonker",
+        4,
+        2,
+        7,
+        [UnitType.QUILBOAR],
+        effects=[RallyBuffAllOthersByType(trigger_type=UnitType.ALL, count=2)],
+    ),
+    CardDef(
+        CardIDs.DEVOUT_HELLCALLER,
+        "Devout Hellcaller",
+        4,
+        2,
+        2,
+        [UnitType.DEMON],
+        effects=[
+            OnFriendlyDeathBuff(atk=1, hp=2)  # simplified: any friendly death
+        ],
+    ),
+    CardDef(
+        CardIDs.EN_DJINN_BLAZER,
+        "En-Djinn Blazer",
+        4,
+        4,
+        4,
+        [UnitType.ELEMENTAL],
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=2, give_reborn=False)],
+    ),
+    CardDef(
+        CardIDs.FRIENDLY_GEIST,
+        "Friendly Geist",
+        4,
+        6,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.GEOMAGUS_ROOGUG,
+        "Geomagus Roogug",
+        4,
+        4,
+        6,
+        [UnitType.QUILBOAR],
+        tags={Tags.DIVINE_SHIELD},
+    ),
+    CardDef(
+        CardIDs.GREASE_BOT,
+        "Grease Bot",
+        4,
+        2,
+        4,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnDivineShieldLostBuffUnit(atk=2, hp=2)],
+    ),
+    CardDef(
+        CardIDs.HEROIC_UNDERDOG,
+        "Heroic Underdog",
+        4,
+        1,
+        10,
+        [],
+        tags={Tags.STEALTH},
+        effects=[
+            RallyBuff(atk=1, hp=0)  # simplified: gain +1 atk when attacks
+        ],
+    ),
+    CardDef(
+        CardIDs.HUMON_GOZZ,
+        "Humon'gozz",
+        4,
+        5,
+        5,
+        [],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=2)],
+    ),
+    CardDef(
+        CardIDs.INDUSTRIOUS_DECKHAND,
+        "Industrious Deckhand",
+        4,
+        3,
+        5,
+        [UnitType.PIRATE],
+        effects=[StartOfCombatGainGold(amount=2)],
+    ),
+    CardDef(
+        CardIDs.KING_BAGURGLE,
+        "King Bagurgle",
+        4,
+        3,
+        4,
+        [UnitType.MURLOC],
+        effects=[BattlecryBuffAllByTypeIncludeHand(trigger_type=UnitType.MURLOC, atk=2, hp=3)],
+    ),
+    CardDef(
+        CardIDs.MARQUEE_TICKER,
+        "Marquee Ticker",
+        4,
+        1,
+        5,
+        [],
+        effects=[EndOfTurnAddRandomSpell()],
+    ),
+    CardDef(
+        CardIDs.PRIZED_PROMO_DRAKE,
+        "Prized Promo-Drake",
+        4,
+        1,
+        1,
+        [UnitType.DRAGON],
+        effects=[StartOfCombatBuffAllFriendlyType(trigger_type=UnitType.DRAGON, atk=4, hp=4)],
+    ),
+    CardDef(
+        CardIDs.PROSTHETIC_HAND,
+        "Prosthetic Hand",
+        4,
+        3,
+        1,
+        [UnitType.MECH, UnitType.UNDEAD],
+        tags={Tags.MAGNETIC, Tags.REBORN},
+    ),
+    CardDef(
+        CardIDs.RAZORFEN_FLAPPER,
+        "Razorfen Flapper",
+        4,
+        5,
+        3,
+        [UnitType.QUILBOAR],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.BLOOD_GEM_BARRAGE, count=1)],
+    ),
+    CardDef(
+        CardIDs.REFRESHING_ANOMALY,
+        "Refreshing Anomaly",
+        4,
+        4,
+        5,
+        [UnitType.ELEMENTAL],
+        effects=[BattlecryGainFreeRefreshes(count=2)],
+    ),
+    CardDef(
+        CardIDs.SILENT_ENFORCER,
+        "Silent Enforcer",
+        4,
+        6,
+        2,
+        [UnitType.DEMON],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[DeathrattleDamageAllMinions(damage=2)],
+    ),
+    CardDef(
+        CardIDs.SIN_DOREI_STRAIGHT_SHOT,
+        "Sin'dorei Straight Shot",
+        4,
+        3,
+        4,
+        [],
+        tags={Tags.DIVINE_SHIELD, Tags.WINDFURY},
+    ),
+    CardDef(
+        CardIDs.SLY_RAPTOR,
+        "Sly Raptor",
+        4,
+        1,
+        4,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[
+            DeathrattleSummon(token_id=CardIDs.SKELETON, count=1)  # simplified: summon 8/8 beast
+        ],
+    ),
+    CardDef(
+        CardIDs.SOULSPLITTER,
+        "Soulsplitter",
+        4,
+        4,
+        2,
+        [UnitType.UNDEAD],
+        tags={Tags.REBORN},
+        effects=[StartOfCombatGiveFriendlyTypeReborn(trigger_type=UnitType.UNDEAD)],
+    ),
+    CardDef(
+        CardIDs.SPIRIT_DRAKE,
+        "Spirit Drake",
+        4,
+        1,
+        8,
+        [UnitType.DRAGON],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="add_spell",
+                target_type=None,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.TAVERN_TEMPEST,
+        "Tavern Tempest",
+        4,
+        2,
+        2,
+        [UnitType.ELEMENTAL],
+        effects=[BattlecryAddRandomUnit(unit_type=UnitType.ELEMENTAL)],
+    ),
+    CardDef(
+        CardIDs.TUNNEL_BLASTER,
+        "Tunnel Blaster",
+        4,
+        3,
+        7,
+        [UnitType.UNDEAD],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[DeathrattleDamageAllMinions(damage=3)],
+    ),
+    CardDef(
+        CardIDs.WANNABE_GARGOYLE,
+        "Wannabe Gargoyle",
+        4,
+        9,
+        1,
+        [UnitType.UNDEAD],
+        tags={Tags.REBORN},
+    ),
+    CardDef(
+        CardIDs.WITCHWING_NESTMATRON,
+        "Witchwing Nestmatron",
+        4,
+        3,
+        5,
+        [UnitType.DRAGON],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="add_unit",
+                target_type=None,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.TRENCH_FIGHTER,
+        "Trench Fighter",
+        4,
+        6,
+        6,
+        [UnitType.NAGA],
+        effects=[EndOfTurnAddSpell(spell_id=SpellIDs.GEM_CONFISCATION, count=1)],
+    ),
+    CardDef(
+        CardIDs.GUNPOWDER_COURIER,
+        "Gunpowder Courier",
+        4,
+        2,
+        6,
+        [UnitType.PIRATE],
+        effects=[
+            OnGainGoldBuffSelf(atk=2, hp=0)  # simplified: gain +2 atk when gaining gold
+        ],
+    ),
+    # --- remaining T4 cards ---
+    CardDef(
+        CardIDs.BREAM_COUNTER,
+        "Bream Counter",
+        4,
+        4,
+        4,
+        [UnitType.MURLOC],
+        effects=[OnFriendlyPlayTypeBuffSelfInHand(trigger_type=UnitType.MURLOC, atk=4, hp=4)],
+    ),
+    CardDef(
+        CardIDs.DAGGERSPINE_THRASHER,
+        "Daggerspine Thrasher",
+        4,
+        3,
+        5,
+        [UnitType.NAGA],
+        # Whenever you cast a spell, gain Divine Shield, Windfury, or Venomous — complex random; model as OnSpellCastBuffSelf
+        effects=[OnSpellCastBuffSelf(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.MONSTROUS_MACAW,
+        "Monstrous Macaw",
+        4,
+        5,
+        4,
+        [UnitType.BEAST],
+        # Rally: Trigger left-most Deathrattle — complex; model as simple rally buff
+        effects=[RallyBuff(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.PLANKWALKER,
+        "Plankwalker",
+        4,
+        6,
+        4,
+        [UnitType.NAGA],
+        effects=[OnSpellCastBuffBoard(atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.RYLAK_METALHEAD,
+        "Rylak Metalhead",
+        4,
+        5,
+        3,
+        [UnitType.MECH],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        # DR: Trigger battlecry of adjacent minion — complex; model as buff
+        effects=[DeathrattleBuffAllFriendlies(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.SUNKEN_ADVOCATE,
+        "Sunken Advocate",
+        4,
+        2,
+        7,
+        [UnitType.NAGA],
+        effects=[RallyBuffFriendlyTypeAtk(trigger_type=UnitType.NAGA, atk=1)],
+    ),
+    CardDef(
+        CardIDs.TORTOLLAN_BLUE_SHELL,
+        "Tortollan Blue Shell",
+        4,
+        3,
+        6,
+        [],
+        effects=[SellForGoldConditional(amount=5)],
+    ),
+    CardDef(
+        CardIDs.TRIGORE_THE_LASHER,
+        "Trigore the Lasher",
+        4,
+        9,
+        3,
+        [UnitType.BEAST],
+        effects=[OnFriendlyBeastDamagedBuffSelf(hp=2)],
+    ),
+    CardDef(
+        CardIDs.FLAMING_ENFORCER,
+        "Flaming Enforcer",
+        4,
+        4,
+        5,
+        [UnitType.ELEMENTAL],
+        effects=[
+            # EoT: consume highest-Health tavern minion — model as EndOfTurnBuffSelf
+            EndOfTurnBuffSelf(atk=2, hp=2)
+        ],
+    ),
+    CardDef(
+        CardIDs.ICHORON_THE_PROTECTOR,
+        "Ichoron the Protector",
+        4,
+        3,
+        1,
+        [UnitType.ELEMENTAL],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[
+            # Whenever you play an Elemental, give it DS until next turn — model as OnFriendlyPlayType buff
+            OnFriendlyPlayType(trigger_type=UnitType.ELEMENTAL, atk=0, hp=1, exclude_self=True)
+        ],
+    ),
+    CardDef(
+        CardIDs.PERSISTENT_POET,
+        "Persistent Poet",
+        4,
+        2,
+        3,
+        [UnitType.DRAGON],
+        tags={Tags.DIVINE_SHIELD},
+        # Adjacent Dragons keep bonus keywords — aura-like; model as keyword-only
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 5
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.BRANN_BRONZEBEARD,
+        "Brann Bronzebeard",
+        5,
+        2,
+        4,
+        [],
+        multiplier=MultiplierDef(event_type_name="MINION_PLAYED", self_only=True, extra_stacks=1),
+    ),
+    CardDef(
+        CardIDs.TITUS_RIVENDARE,
+        "Titus Rivendare",
+        5,
+        1,
+        7,
+        [],
+        multiplier=MultiplierDef(event_type_name="MINION_DIED", self_only=True, extra_stacks=1),
+    ),
+    CardDef(
+        CardIDs.DRAKKARI_ENCHANTER,
+        "Drakkari Enchanter",
+        5,
+        1,
+        5,
+        [],
+        multiplier=MultiplierDef(event_type_name="END_OF_TURN", self_only=False, extra_stacks=1),
+    ),
+    CardDef(
+        CardIDs.GENTLE_DJINNI,
+        "Gentle Djinni",
+        5,
+        4,
+        5,
+        [UnitType.ELEMENTAL],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[BattlecryAddRandomUnit(unit_type=UnitType.ELEMENTAL)],
+    ),
+    CardDef(
+        CardIDs.INDOMITABLE_MOUNT,
+        "Indomitable Mount",
+        5,
+        3,
+        6,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[BattlecryAddRandomUnit(unit_type=UnitType.BEAST, tier=4)],
+    ),
+    CardDef(
+        CardIDs.CHAMPION_OF_THE_PRIMUS,
+        "Champion of the Primus",
+        5,
+        2,
+        10,
+        [UnitType.UNDEAD],
+        effects=[
+            AvengeBuffFriendlyTypeGlobal(threshold=2, trigger_type=UnitType.UNDEAD, atk=1, hp=0)
+        ],
+    ),
+    CardDef(
+        CardIDs.CORRUPTED_MYRMIDON,
+        "Corrupted Myrmidon",
+        5,
+        3,
+        3,
+        [UnitType.DEMON],
+        effects=[
+            StartOfCombatBuffSelf(atk=3, hp=3)  # simplified: doubles own stats
+        ],
+    ),
+    CardDef(
+        CardIDs.SILITHID_BURROWER,
+        "Silithid Burrower",
+        5,
+        5,
+        4,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[
+            DeathrattleBuffFriendlyTypeGlobal(trigger_type=UnitType.BEAST, atk=1, hp=1),
+            AvengeEffect(threshold=1, buff_atk=1, buff_hp=1, buff_scope="perm", buff_target="self"),
+        ],
+    ),
+    CardDef(
+        CardIDs.GHOUL_OF_THE_FEAST,
+        "Ghoul of the Feast",
+        5,
+        2,
+        7,
+        [UnitType.UNDEAD],
+        effects=[
+            AvengeEffect(
+                threshold=1,
+                buff_atk=2,
+                buff_hp=2,
+                buff_scope="perm",
+                buff_target="friendly_type",
+                target_type=None,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.TWILIGHT_WATCHER,
+        "Twilight Watcher",
+        5,
+        3,
+        7,
+        [UnitType.DRAGON],
+        effects=[OnFriendlyAttackBuffTriggerSelf(trigger_type=UnitType.DRAGON, atk=1, hp=3)],
+    ),
+    CardDef(
+        CardIDs.UNFORGIVING_TREANT,
+        "Unforgiving Treant",
+        5,
+        3,
+        12,
+        [],
+        tags={Tags.TAUNT},
+        effects=[OnSelfDamagedBuffBoard(atk=2, hp=0)],
+    ),
+    CardDef(
+        CardIDs.NOMI_KITCHEN_NIGHTMARE,
+        "Nomi, Kitchen Nightmare",
+        5,
+        4,
+        4,
+        [],
+        effects=[
+            # After you play an Elemental, give Elementals in tavern +2/+2 — model as OnFriendlyPlayType buff shop
+            OnFriendlyPlayType(trigger_type=UnitType.ELEMENTAL, atk=2, hp=2, exclude_self=False)
+        ],
+    ),
+    CardDef(
+        CardIDs.BILE_SPITTER,
+        "Bile Spitter",
+        5,
+        1,
+        10,
+        [UnitType.MURLOC],
+        tags={Tags.VENOMOUS},
+        effects=[
+            RallyBuffRandomFriendlyType(trigger_type=UnitType.MURLOC, atk=0, hp=0)
+            # Rally: give another Murloc Venomous — simplified as no-buff rally
+        ],
+    ),
+    CardDef(
+        CardIDs.RAZORFEN_VINEWEAVER,
+        "Razorfen Vineweaver",
+        5,
+        5,
+        5,
+        [UnitType.QUILBOAR],
+        effects=[
+            RallyBuff(use_blood_gem=True)  # plays 3 blood gems on itself
+        ],
+    ),
+    CardDef(
+        CardIDs.CARAPACE_RAISER,
+        "Carapace Raiser",
+        5,
+        6,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.HAUNTED_CARAPACE, count=1)],
+    ),
+    CardDef(
+        CardIDs.SHADOWDANCER,
+        "Shadowdancer",
+        5,
+        5,
+        4,
+        [],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.STAFF_OF_ENRICHMENT, count=1)],
+    ),
+    CardDef(
+        CardIDs.FIRESCALE_HOARDER,
+        "Firescale Hoarder",
+        5,
+        5,
+        5,
+        [UnitType.DRAGON],
+        deathrattle=True,
+        effects=[
+            BattlecryAddSpell(spell_id=SpellIDs.SHINY_RING, count=1),
+            DeathrattleAddSpell(spell_id=SpellIDs.SHINY_RING, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.SPIKED_SAVIOR,
+        "Spiked Savior",
+        5,
+        8,
+        2,
+        [UnitType.UNDEAD],
+        tags={Tags.TAUNT, Tags.REBORN},
+        deathrattle=True,
+        effects=[DeathrattleGiveFriendliesScaling(buff_atk=1, buff_hp=1, self_damage=1)],
+    ),
+    CardDef(
+        CardIDs.LEEROY_THE_RECKLESS,
+        "Leeroy the Reckless",
+        5,
+        6,
+        2,
+        [],
+        deathrattle=True,
+        effects=[DeathrattleDestroyKiller()],
+    ),
+    CardDef(
+        CardIDs.STUNTDRAKE,
+        "Stuntdrake",
+        5,
+        14,
+        5,
+        [UnitType.DRAGON],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=14,
+                buff_hp=5,
+                buff_scope="perm",
+                buff_target="random_friendly_type",
+                target_type=UnitType.DRAGON,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.WINTERGRASP_GHOUL,
+        "Wintergrasp Ghoul",
+        5,
+        5,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.TOMB_TURNING, count=1)],
+    ),
+    CardDef(
+        CardIDs.IRIDESCENT_SKYBLAZER,
+        "Iridescent Skyblazer",
+        5,
+        3,
+        7,
+        [UnitType.DRAGON],
+        effects=[OnFriendlyBeastDamagedBuffOther(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.NIUZAO,
+        "Niuzao",
+        5,
+        7,
+        6,
+        [UnitType.BEAST],
+        effects=[RallyDealDamageEqualToAtk()],
+    ),
+    CardDef(
+        CardIDs.TWILIGHT_BROODMOTHER,
+        "Twilight Broodmother",
+        5,
+        7,
+        4,
+        [UnitType.DRAGON],
+        deathrattle=True,
+        effects=[DeathrattleSummonTauntToken(token_id=CardIDs.TWILIGHT_WHELP, count=2)],
+    ),
+    CardDef(
+        CardIDs.COSTUME_ENTHUSIAST,
+        "Costume Enthusiast",
+        5,
+        4,
+        5,
+        [],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[StartOfCombatBuffSelfByHighestAllyAtk()],
+    ),
+    CardDef(
+        CardIDs.ELITE_NAVIGATOR,
+        "Elite Navigator",
+        5,
+        5,
+        5,
+        [UnitType.PIRATE],
+        effects=[BattlecryMakeGoldenFriendlyByTier(max_tier=4)],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 6
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.GOLDRINN_THE_GREAT_WOLF,
+        "Goldrinn, the Great Wolf",
+        6,
+        8,
+        8,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[DeathrattleBuffAllFriendliesGlobal(trigger_type=UnitType.BEAST, atk=8, hp=8)],
+    ),
+    CardDef(
+        CardIDs.CHARLGA,
+        "Charlga",
+        6,
+        3,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[
+            EndOfTurnBuffBoardByType(trigger_type=UnitType.ALL, atk=0, hp=0)
+            # EoT plays 2 Blood Gems on all other minions — model as EndOfTurnAddSpell x2
+        ],
+    ),
+    CardDef(
+        CardIDs.SLITHERSPEAR_LORD_OF_GAINS,
+        "Slitherspear, Lord of Gains",
+        6,
+        4,
+        5,
+        [UnitType.NAGA],
+        effects=[EndOfTurnBuffFriendlyTypeNaga(atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.LORD_OF_THE_RUINS,
+        "Lord of the Ruins",
+        6,
+        5,
+        6,
+        [UnitType.DEMON],
+        effects=[OnFriendlyDemonDamageBuff(atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.FAMISHED_FELBAT,
+        "Famished Felbat",
+        6,
+        9,
+        5,
+        [UnitType.DEMON],
+        effects=[EndOfTurnConsumeTavernForDemon()],
+    ),
+    CardDef(
+        CardIDs.SHIP_MASTER_EUDORA,
+        "Ship Master Eudora",
+        6,
+        10,
+        5,
+        [UnitType.PIRATE],
+        deathrattle=True,
+        effects=[DeathrattleBuffAllFriendlies(atk=8, hp=8)],
+    ),
+    CardDef(
+        CardIDs.AVALANCHE_CALLER,
+        "Avalanche Caller",
+        6,
+        6,
+        5,
+        [UnitType.ELEMENTAL],
+        effects=[EndOfTurnAddSpell(spell_id=SpellIDs.MOUNTING_AVALANCHE, count=1)],
+    ),
+    CardDef(
+        CardIDs.ULTRAVIOLET_ASCENDANT,
+        "Ultraviolet Ascendant",
+        6,
+        6,
+        3,
+        [UnitType.ELEMENTAL],
+        effects=[
+            StartOfCombatBuffFriendlyTypeScaling(trigger_type=UnitType.ELEMENTAL, atk=3, hp=2)
+        ],
+    ),
+    CardDef(
+        CardIDs.IGNITION_SPECIALIST,
+        "Ignition Specialist",
+        6,
+        8,
+        8,
+        [],
+        effects=[
+            EndOfTurnAddRandomSpell(),
+            EndOfTurnAddRandomSpell(),  # gets 2 random spells
+        ],
+    ),
+    CardDef(
+        CardIDs.FAUNA_WHISPERER,
+        "Fauna Whisperer",
+        6,
+        4,
+        9,
+        [UnitType.BEAST],
+        effects=[
+            EndOfTurnBuffAdjacent(atk=3, hp=3)  # simplified: Natural Blessing on adjacent
+        ],
+    ),
+    CardDef(
+        CardIDs.YOUNG_MURK_EYE,
+        "Young Murk-Eye",
+        6,
+        9,
+        6,
+        [UnitType.MURLOC],
+        effects=[EndOfTurnTriggerAdjacentBattlecry()],
+    ),
+    CardDef(
+        CardIDs.FIRE_FORGED_EVOKER,
+        "Fire-forged Evoker",
+        6,
+        8,
+        5,
+        [UnitType.DRAGON],
+        effects=[StartOfCombatBuffFriendlyType(trigger_type=UnitType.DRAGON, atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.SANGUINE_REFINER,
+        "Sanguine Refiner",
+        6,
+        3,
+        10,
+        [UnitType.QUILBOAR],
+        effects=[
+            # Rally: Blood Gems give extra +1/+1 — model as BattlecryModifyMechanic
+            RallyBuff(use_blood_gem=True)
+        ],
+    ),
+    CardDef(
+        CardIDs.BLOODSNOUT_WARLORD,
+        "Bloodsnout Warlord",
+        6,
+        5,
+        5,
+        [UnitType.QUILBOAR],
+        effects=[
+            # Whenever a friendly Rally minion attacks, plays 3 Blood Gems — simplified
+            RallyBuffAllOthersByType(trigger_type=UnitType.ALL, count=3)
+        ],
+    ),
+    CardDef(
+        CardIDs.DEATHLY_STRIKER,
+        "Deathly Striker",
+        6,
+        8,
+        8,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[
+            AvengeEffect(
+                threshold=4,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="add_unit",
+                target_type=UnitType.UNDEAD,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.WHIRLING_LASS_O_MATIC,
+        "Whirling Lass-o-Matic",
+        6,
+        6,
+        3,
+        [],
+        tags={Tags.DIVINE_SHIELD, Tags.WINDFURY},
+        effects=[
+            RallyAddSpell(spell_id=SpellIDs.TRIPLET_REWARD, count=1)  # random tavern spell
+        ],
+    ),
+    CardDef(
+        CardIDs.ARCHAEDAS,
+        "Archaedas",
+        6,
+        10,
+        10,
+        [],
+        effects=[BattlecryAddRandomUnit(unit_type=None, tier=5)],
+    ),
+    CardDef(
+        CardIDs.NIGHTMARE_PAR_TEA_GUEST,
+        "Nightmare Par-tea Guest",
+        6,
+        6,
+        6,
+        [],
+        deathrattle=True,
+        effects=[
+            BattlecryAddSpell(spell_id=SpellIDs.MISPLACED_TEA_SET, count=1),
+            DeathrattleAddSpell(spell_id=SpellIDs.MISPLACED_TEA_SET, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.SUNDERED_MATRIARCH,
+        "Sundered Matriarch",
+        6,
+        7,
+        4,
+        [UnitType.DRAGON],
+        effects=[OnSpellCastBuffBoard(atk=0, hp=2)],
+    ),
+    CardDef(
+        CardIDs.PRIMITIVE_PAINTER,
+        "Primitive Painter",
+        6,
+        3,
+        8,
+        [UnitType.MURLOC],
+        effects=[
+            # After playing a card from T3 or below, give Murlocs +1/+2 — simplified
+            OnFriendlyPlayType(trigger_type=UnitType.MURLOC, atk=1, hp=2, exclude_self=False)
+        ],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 7
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.CAPTAIN_SANDERS,
+        "Captain Sanders",
+        7,
+        9,
+        9,
+        [UnitType.PIRATE],
+        effects=[BattlecryMakeGoldenFriendlyByTier(max_tier=6)],
+    ),
+    CardDef(
+        CardIDs.HIGHKEEPER_RA,
+        "Highkeeper Ra",
+        7,
+        6,
+        6,
+        [],
+        effects=[
+            BattlecryAddRandomUnit(unit_type=None, tier=6),
+            DeathrattleAddSpell(spell_id=SpellIDs.TRIPLET_REWARD, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.THE_LAST_ONE_STANDING,
+        "The Last One Standing",
+        7,
+        12,
+        12,
+        [],
+        effects=[
+            # Rally: give a friendly minion of each type +12/+12 — simplified as big rally buff
+            RallyBuff(atk=12, hp=12)
+        ],
+    ),
+    CardDef(
+        CardIDs.SANGUINE_CHAMPION,
+        "Sanguine Champion",
+        7,
+        18,
+        3,
+        [],
+        effects=[
+            BattlecryModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=1, hp=1),
+            DeathrattleModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=1, hp=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.PSYCHUS,
+        "Psychus",
+        7,
+        1,
+        1,
+        [],
+        effects=[StartOfCombatBuffSelfByHighestBoardAtk()],
+    ),
+    CardDef(
+        CardIDs.OBSIDIAN_RAVAGER,
+        "Obsidian Ravager",
+        7,
+        7,
+        7,
+        [],
+        effects=[RallyDealDamageEqualToAtk()],
+    ),
+    CardDef(
+        CardIDs.STITCHED_SALVAGER,
+        "Stitched Salvager",
+        7,
+        16,
+        4,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[
+            # SoC: Destroy left minion, DR: summon exact copy — complex; model as DR buff
+            DeathrattleBuffAllFriendlies(atk=4, hp=4)
+        ],
+    ),
+    CardDef(
+        CardIDs.FUTUREFIN,
+        "Futurefin",
+        7,
+        7,
+        13,
+        [UnitType.MURLOC],
+        effects=[
+            # EoT: give stats to left-most warband minion — model as EoT buff adjacent
+            EndOfTurnBuffAdjacent(atk=7, hp=13)
+        ],
+    ),
+    # -----------------------------------------------------------------------
     # TOKENS
     # -----------------------------------------------------------------------
     CardDef(
-        CardIDs.MICROBOT, "Microbot", 1, 1, 1,
+        CardIDs.MICROBOT,
+        "Microbot",
+        1,
+        1,
+        1,
         [UnitType.MECH],
         is_token=True,
     ),
     CardDef(
-        CardIDs.SKELETON, "Skeleton", 1, 1, 1,
+        CardIDs.SKELETON,
+        "Skeleton",
+        1,
+        1,
+        1,
         [UnitType.UNDEAD],
         is_token=True,
     ),
     CardDef(
-        CardIDs.CUBLING, "Cubling", 1, 0, 1,
+        CardIDs.CUBLING,
+        "Cubling",
+        1,
+        0,
+        1,
         [UnitType.BEAST],
         tags={Tags.TAUNT},
         is_token=True,
     ),
     CardDef(
-        CardIDs.TWILIGHT_WHELP, "Twilight Whelp", 1, 3, 3,
+        CardIDs.TWILIGHT_WHELP,
+        "Twilight Whelp",
+        1,
+        3,
+        3,
         [UnitType.DRAGON],
         is_token=True,
     ),
     CardDef(
-        CardIDs.CRAB_TOKEN, "Crab", 1, 3, 2,
+        CardIDs.CRAB_TOKEN,
+        "Crab",
+        1,
+        3,
+        2,
         [UnitType.BEAST],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.TURTLE,
+        "Turtle",
+        2,
+        2,
+        3,
+        [],
+        tags={Tags.TAUNT},
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.WATER_DROPLET,
+        "Water Droplet",
+        2,
+        3,
+        3,
+        [UnitType.ELEMENTAL],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.HAND_TOKEN,
+        "Hand",
+        1,
+        2,
+        1,
+        [UnitType.UNDEAD],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.GOLEM_TOKEN,
+        "Golem",
+        6,
+        6,
+        6,
+        [],
         is_token=True,
     ),
 ]
@@ -421,6 +2811,7 @@ ALL_CARDS: List[CardDef] = [
 # ---------------------------------------------------------------------------
 # build_card_db  →  produces the same dict as the original hardcoded CARD_DB
 # ---------------------------------------------------------------------------
+
 
 def build_card_db() -> Dict[str, Any]:
     db: Dict[str, Any] = {}
@@ -438,6 +2829,8 @@ def build_card_db() -> Dict[str, Any]:
             entry["is_token"] = True
         if card.deathrattle:
             entry["deathrattle"] = True
+        if card.avenge_threshold > 0:
+            entry["avenge_threshold"] = card.avenge_threshold
         db[card.card_id] = entry
     return db
 
@@ -446,18 +2839,22 @@ def build_card_db() -> Dict[str, Any]:
 # Effect factory functions
 # ---------------------------------------------------------------------------
 
+
 def _make_dr_summon(token_id: str, count: int):
     """Deathrattle: summon `count` copies of `token_id` at the dead unit's slot."""
+
     def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
         pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
         if pos:
             for _ in range(count):
                 ctx.summon(pos.side, token_id, pos.slot)
+
     return _effect
 
 
 def _make_dr_summon_with_tag(token_id: str, count: int, tag: Tags):
     """Deathrattle: summon `count` copies of `token_id`, each with an extra tag."""
+
     def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
         pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
         if not pos:
@@ -468,33 +2865,39 @@ def _make_dr_summon_with_tag(token_id: str, count: int, tag: Tags):
                 unit = ctx.resolve_unit(ref)
                 if unit:
                     unit.tags.add(tag)
+
     return _effect
 
 
 def _make_battlecry_summon_at_right(token_id: str):
     """Battlecry: summon a token immediately to the right of self."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
         if not pos:
             return
         ctx.summon(pos.side, token_id, pos.slot + 1)
+
     return _effect
 
 
 def _make_battlecry_gain_gold(amount: int):
     """Battlecry: gain gold immediately."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
         if not pos:
             return
         ctx.gain_gold(pos.side, amount)
+
     return _effect
 
 
 def _make_battlecry_add_spell(spell_id: str, count: int):
     """Battlecry: add spell(s) to hand."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
@@ -502,11 +2905,13 @@ def _make_battlecry_add_spell(spell_id: str, count: int):
             return
         for _ in range(count):
             ctx.add_spell_to_hand(pos.side, spell_id)
+
     return _effect
 
 
 def _make_battlecry_spell_discount(amount: int):
     """Battlecry: next tavern spell costs `amount` less."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
@@ -516,11 +2921,13 @@ def _make_battlecry_spell_discount(amount: int):
         if not player:
             return
         player.spell_discount += amount
+
     return _effect
 
 
 def _make_battlecry_modify_mechanic(mechanic: MechanicType, atk: int, hp: int):
     """Battlecry: modify a global mechanic stat (Dune Dweller)."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
@@ -530,11 +2937,13 @@ def _make_battlecry_modify_mechanic(mechanic: MechanicType, atk: int, hp: int):
         if not player:
             return
         player.mechanics.modify_stat(mechanic, atk, hp)
+
     return _effect
 
 
 def _make_battlecry_consume_shop_unit():
     """Battlecry: consume random shop unit, gain its stats."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
@@ -544,11 +2953,13 @@ def _make_battlecry_consume_shop_unit():
         if result:
             atk, hp = result
             ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
     return _effect
 
 
 def _make_sell_add_spell(spell_id: str, count: int):
     """On sell: add spell(s) to hand."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
@@ -556,31 +2967,90 @@ def _make_sell_add_spell(spell_id: str, count: int):
             return
         for _ in range(count):
             ctx.add_spell_to_hand(pos.side, spell_id)
+
     return _effect
 
 
-def _make_sell_get_random_unit(tier: int):
-    """On sell: add a random T{tier} pool minion to hand."""
-    from .configs import CARD_DB  # local import to avoid circular at module level
+def _make_battlecry_make_golden():
+    """Battlecry: make this minion golden."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        ctx.make_golden(es.EntityRef(trigger_uid))
+
+    return _effect
+
+
+def _make_sell_for_gold(amount: int):
+    """On sell: gain extra gold (total = amount instead of default 1)."""
 
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
         if not pos:
             return
-        t1_ids = [
-            cid for cid, data in CARD_DB.items()
-            if data["tier"] == tier and not data.get("is_token")
-        ]
-        if not t1_ids:
+        # Sell already gives 1 gold from tavern logic.
+        # We give (amount - 1) extra to reach the target sell price.
+        ctx.gain_gold(pos.side, amount - 1)
+
+    return _effect
+
+
+def _make_rally_buff(atk: int, hp: int, use_blood_gem: bool):
+    """Rally: when this unit attacks, buff itself (combat scope)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        if use_blood_gem:
+            pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+            if not pos:
+                return
+            player = ctx.players_by_uid.get(pos.side)
+            if not player:
+                return
+            buff_atk, buff_hp = player.mechanics.get_stat(MechanicType.BLOOD_GEM)
+        else:
+            buff_atk, buff_hp = atk, hp
+        ctx.buff_combat(es.EntityRef(trigger_uid), buff_atk, buff_hp)
+
+    return _effect
+
+
+def _make_soc_from_hand():
+    """Start of Combat: if this unit is in hand, summon a copy onto board."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos or pos.zone != es.Zone.HAND:
             return
-        chosen_id = random.choice(t1_ids)
-        ctx.add_unit_to_hand(pos.side, chosen_id)
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not unit:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player or len(player.board) >= 7:
+            return
+        ctx.summon(pos.side, unit.card_id, len(player.board), unit.is_golden)
+
+    return _effect
+
+
+def _make_sell_get_random_unit(tier: int):
+    """On sell: draw a random T{tier} unit from the shared pool into hand."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        ctx.draw_from_pool(pos.side, tier=tier, count=1)
+
     return _effect
 
 
 def _make_start_of_combat_buff_self_by_tier():
     """Start of Combat: gain +tavern_tier/+tavern_tier (Misfit Dragonling)."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
@@ -594,22 +3064,26 @@ def _make_start_of_combat_buff_self_by_tier():
             return
         tier = player.tavern_tier
         ctx.buff_combat(es.EntityRef(trigger_uid), tier, tier)
+
     return _effect
 
 
 def _make_on_friendly_death_buff(atk: int, hp: int):
     """On any friendly death (excl. self), gain +atk/+hp as combat buff (Rot Hide Gnoll)."""
+
     def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
         es = _event_system()
         gnoll = ctx.resolve_unit(es.EntityRef(trigger_uid))
         if not gnoll or not gnoll.is_alive:
             return
         ctx.buff_combat(es.EntityRef(trigger_uid), atk, hp)
+
     return _effect
 
 
 def _make_on_play_type_buff(trigger_type: UnitType, atk: int, hp: int, exclude_self: bool):
     """On any friendly play of a unit of `trigger_type`, buff self."""
+
     def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
         es = _event_system()
         played = ctx.resolve_unit(event.source)
@@ -621,6 +3095,7 @@ def _make_on_play_type_buff(trigger_type: UnitType, atk: int, hp: int, exclude_s
         if not pos:
             return
         ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
     return _effect
 
 
@@ -628,6 +3103,7 @@ def _make_on_play_type_damage_hero(
     trigger_type: UnitType, hero_dmg: int, atk: int, hp: int, exclude_self: bool
 ):
     """Wrath Weaver pattern: on play of demon (not self), damage own hero and buff self."""
+
     def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
         es = _event_system()
         played = ctx.resolve_unit(event.source)
@@ -646,11 +3122,13 @@ def _make_on_play_type_damage_hero(
 
         ctx.damage_hero(pos.side, hero_dmg)
         ctx.buff_perm(es.EntityRef(weaver.uid), atk, hp)
+
     return _effect
 
 
 def _make_dr_buff_all_friendlies(atk: int, hp: int):
     """Deathrattle: buff all friendly minions (combat buff)."""
+
     def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
         es = _event_system()
         pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
@@ -661,11 +3139,13 @@ def _make_dr_buff_all_friendlies(atk: int, hp: int):
             return
         for unit in player.board:
             ctx.buff_combat(es.EntityRef(unit.uid), atk, hp)
+
     return _effect
 
 
 def _make_dr_random_enemy_damage(damage: int):
     """Deathrattle: deal `damage` to a random enemy minion."""
+
     def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
         es = _event_system()
         source_pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
@@ -699,6 +3179,7 @@ def _make_dr_random_enemy_damage(damage: int):
                     value=damage,
                 )
             )
+
     return _effect
 
 
@@ -712,6 +3193,7 @@ def _make_on_friendly_summoned_type_buff(
 ):
     """Deflect-o-Bot pattern: on friendly mech summoned (not self),
     buff self and optionally grant divine shield."""
+
     def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
         es = _event_system()
         summoned_unit = ctx.resolve_unit(event.source)
@@ -730,11 +3212,13 @@ def _make_on_friendly_summoned_type_buff(
             ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
         if gain_divine_shield:
             deflecto.tags.add(Tags.DIVINE_SHIELD)
+
     return _effect
 
 
 def _make_deflect_o_bot_condition():
     """Condition: a friendly unit was summoned by someone else on the same side."""
+
     def _condition(ctx: EffectContext, event: Event, uid: int) -> bool:
         es = _event_system()
         return bool(
@@ -744,12 +3228,1427 @@ def _make_deflect_o_bot_condition():
             and event.source
             and event.source.uid != uid
         )
+
     return _condition
+
+
+def _make_end_of_turn_add_spell(spell_id: str, count: int):
+    """End of turn: add spell(s) to hand (unit must be on board)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _ in range(count):
+            ctx.add_spell_to_hand(pos.side, spell_id)
+
+    return _effect
+
+
+def _make_eot_buff_adjacent(atk: int, hp: int):
+    """End of turn: buff adjacent units (perm buff)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.get_adjacent(pos.side, trigger_uid):
+            ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_eot_buff_self(atk: int, hp: int):
+    """End of turn: buff self (perm buff)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
+    return _effect
+
+
+def _make_eot_buff_board(atk: int, hp: int):
+    """End of turn: buff all friendly board units (perm buff)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_eot_buff_board_by_type(trigger_type: UnitType, atk: int, hp: int):
+    """End of turn: buff all friendly board units of a type (perm buff)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_soc_buff_friendly_type(trigger_type: UnitType, atk: int, hp: int):
+    """SoC: give all friendly units of matching type +atk/+hp as combat buff."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types:
+                ctx.buff_combat(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_bc_buff_all_by_type(trigger_type: UnitType, atk: int, hp: int):
+    """BC: give all friendly units of matching type +atk/+hp as perm buff."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_play_type_add_spell(
+    trigger_type: UnitType, spell_id: str, count: int, exclude_self: bool
+):
+    """On any friendly play of a unit of trigger_type, add spell to hand."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        played = ctx.resolve_unit(event.source)
+        if not played or trigger_type not in played.types:
+            return
+        if exclude_self and event.source and event.source.uid == trigger_uid:
+            return
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _ in range(count):
+            ctx.add_spell_to_hand(pos.side, spell_id)
+
+    return _effect
+
+
+def _make_on_summoned_buff_random_other(trigger_type: UnitType, atk: int, hp: int):
+    """When friendly of trigger_type is summoned, buff a random OTHER friendly of that type."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        summoned = ctx.resolve_unit(event.source)
+        if not summoned or trigger_type not in summoned.types:
+            return
+        # Determine side of the summoned unit
+        source_pos = event.source_pos
+        if not source_pos:
+            return
+        # Collect all other friendly units of matching type on the same board
+        candidates = [
+            unit
+            for _slot, unit in ctx.iter_board_units(source_pos.side)
+            if trigger_type in unit.types and unit.uid != summoned.uid
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        ctx.buff_perm(es.EntityRef(target.uid), atk, hp)
+
+    return _effect
+
+
+def _make_sell_add_unit_v2(card_id: str):
+    """On sell: add a specific unit to hand, resolving side via source_pos."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        if event.source_pos:
+            side = event.source_pos.side
+        else:
+            side = next(iter(ctx.players_by_uid), None)
+            if side is None:
+                return
+        ctx.add_unit_to_hand(side, card_id)
+
+    return _effect
+
+
+def _make_rally_buff_random_type(trigger_type: UnitType, atk: int, hp: int):
+    """Rally: when this unit attacks, buff a random OTHER friendly of trigger_type (combat buff)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        candidates = [
+            unit
+            for _slot, unit in ctx.iter_board_units(pos.side)
+            if trigger_type in unit.types and unit.uid != trigger_uid
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        ctx.buff_combat(es.EntityRef(target.uid), atk, hp)
+
+    return _effect
+
+
+def _make_sell_get_random_by_type(unit_type: UnitType):
+    """On sell: get a random unit of specific type from pool into hand."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        from .configs import CARD_DB
+
+        if event.source_pos:
+            side = event.source_pos.side
+        else:
+            side = next(iter(ctx.players_by_uid), None)
+            if side is None:
+                return
+        if not ctx.card_pool:
+            return
+        player = ctx.players_by_uid.get(side)
+        if not player or len(player.hand) >= 10:
+            return
+        # Collect all candidates from pool tiers matching the type
+        candidates: list[str] = []
+        for tier_cards in ctx.card_pool.tiers.values():
+            for cid in tier_cards:
+                data = CARD_DB.get(cid)
+                if data and unit_type in data.get("type", []):
+                    candidates.append(cid)
+        if not candidates:
+            return
+        chosen = random.choice(candidates)
+        # Remove from pool
+        for tier_cards in ctx.card_pool.tiers.values():
+            if chosen in tier_cards:
+                tier_cards.remove(chosen)
+                break
+        from .entities import HandCard, Unit
+
+        uid = ctx._uid_provider()
+        new_unit = Unit.create_from_db(chosen, uid, side)
+        player.hand.append(HandCard(uid=uid, unit=new_unit))
+
+    return _effect
+
+
+def _make_consume_for_random_friendly(trigger_type: UnitType):
+    """BC: consume a random shop unit, give its stats to a random friendly of trigger_type."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        result = ctx.consume_random_store_unit(pos.side)
+        if not result:
+            return
+        gained_atk, gained_hp = result
+        candidates = [
+            unit for _slot, unit in ctx.iter_board_units(pos.side) if trigger_type in unit.types
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        ctx.buff_perm(es.EntityRef(target.uid), gained_atk, gained_hp)
+
+    return _effect
+
+
+def _make_on_tavern_refresh_buff_rightmost_shop(
+    atk: int, hp: int, give_reborn: bool, use_blood_gem: bool
+):
+    """After tavern refreshed: buff rightmost shop minion."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        # Identify the player's side from the event or the unit's position
+        source_pos = event.source_pos
+        if source_pos:
+            side = source_pos.side
+        else:
+            pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+            if not pos:
+                return
+            side = pos.side
+        store_units = ctx.iter_store_units(side)
+        if not store_units:
+            return
+        # rightmost = highest slot index
+        _slot, target = store_units[-1]
+        if use_blood_gem:
+            player = ctx.players_by_uid.get(side)
+            if not player:
+                return
+            from .enums import MechanicType
+
+            buff_atk, buff_hp = player.mechanics.get_stat(MechanicType.BLOOD_GEM)
+            ctx.buff_perm(es.EntityRef(target.uid), buff_atk, buff_hp)
+            ctx.buff_perm(es.EntityRef(target.uid), buff_atk, buff_hp)  # plays 2 blood gems
+        else:
+            ctx.buff_perm(es.EntityRef(target.uid), atk, hp)
+        if give_reborn:
+            target.tags.add(Tags.REBORN)
+
+    return _effect
+
+
+def _make_on_tavern_refresh_buff_rightmost_shop_condition():
+    """Condition: the refreshed player is the one with this unit on board."""
+
+    def _condition(ctx: EffectContext, event: Event, trigger_uid: int) -> bool:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return False
+        source_pos = event.source_pos
+        if not source_pos:
+            return False
+        return pos.side == source_pos.side
+
+    return _condition
+
+
+def _make_sell_buff_board_scaling(scaling_key: str, atk_per: int, hp_per: int):
+    """On sell: buff board by (base + scaling * count) and increment counter."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        if event.source_pos:
+            side = event.source_pos.side
+        else:
+            side = next(iter(ctx.players_by_uid), None)
+            if side is None:
+                return
+        player = ctx.players_by_uid.get(side)
+        if not player:
+            return
+        count = player.mechanics.get_scaling(scaling_key)
+        buff_atk = atk_per * (count + 1)
+        buff_hp = hp_per * (count + 1)
+        player.mechanics.increment_scaling(scaling_key)
+        es = _event_system()
+        for _slot, unit in ctx.iter_board_units(side):
+            ctx.buff_perm(es.EntityRef(unit.uid), buff_atk, buff_hp)
+
+    return _effect
+
+
+def _make_soc_damage_and_buff_adjacent(damage: int, atk: int, hp: int):
+    """SoC: deal damage to adjacent units and buff their ATK."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.get_adjacent(pos.side, trigger_uid):
+            unit.cur_hp -= damage
+            ctx.buff_combat(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_hero_damaged_heal_and_buff_self(hp: int):
+    """After hero takes damage: undo damage, buff self +hp."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        # Determine which side took damage
+        source_pos = event.source_pos
+        if not source_pos:
+            return
+        damaged_side = source_pos.side
+        # Only fire if the unit is on the same side as the hero that took damage
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos or unit_pos.side != damaged_side:
+            return
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not unit or not unit.is_alive:
+            return
+        # Heal the hero by the damage value
+        damage_amount = event.value or 0
+        ctx.heal_hero(damaged_side, damage_amount)
+        # Buff self
+        ctx.buff_perm(es.EntityRef(trigger_uid), 0, hp)
+
+    return _effect
+
+
+def _make_eot_buff_adjacent_per_golden(atk: int, hp: int):
+    """EOT: buff adjacent +atk/+hp, once per friendly golden minion (minimum 1)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        # Count golden minions on board
+        golden_count = sum(1 for u in player.board if u.is_golden)
+        repeats = max(1, golden_count)
+        for _slot, unit in ctx.get_adjacent(pos.side, trigger_uid):
+            for _ in range(repeats):
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_sell_discover(base_tier: int, scaling_key: str):
+    """On sell: discover a minion of tier (base_tier + scaling_counter)."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        if event.source_pos:
+            side = event.source_pos.side
+        else:
+            side = next(iter(ctx.players_by_uid), None)
+            if side is None:
+                return
+        player = ctx.players_by_uid.get(side)
+        if not player or not ctx.card_pool:
+            return
+        count = player.mechanics.get_scaling(scaling_key) if scaling_key else 0
+        player.mechanics.increment_scaling(scaling_key) if scaling_key else None
+        discover_tier = min(6, base_tier + count)
+        # Set a pending discovery request on the player
+        from .entities import DiscoveryRequest
+
+        player.pending_discovery_request = DiscoveryRequest(
+            tier=discover_tier,
+            exact_tier=False,
+            source="Patient Scout",
+        )
+
+    return _effect
+
+
+def _make_dr_add_spell(spell_id: str, count: int):
+    """Deathrattle: add spell(s) to hand."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        for _ in range(count):
+            ctx.add_spell_to_hand(pos.side, spell_id)
+
+    return _effect
+
+
+def _make_rally_add_spell(spell_id: str, count: int):
+    """Rally: when this unit attacks, add spell(s) to hand."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _ in range(count):
+            ctx.add_spell_to_hand(pos.side, spell_id)
+
+    return _effect
+
+
+def _make_eot_buff_self_per_golden(atk_per: int, hp_per: int):
+    """EOT: buff self +atk_per/+hp_per for each friendly golden minion."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        golden_count = sum(1 for u in player.board if u.is_golden)
+        if golden_count == 0:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), atk_per * golden_count, hp_per * golden_count)
+
+    return _effect
+
+
+def _make_on_divine_shield_lost_add_spell(spell_id: str, count: int):
+    """After a friendly minion loses Divine Shield, add spell to hand."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        # Check that the shield-losing unit is on the same side
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        source_pos = event.source_pos
+        if not source_pos or source_pos.side != unit_pos.side:
+            return
+        for _ in range(count):
+            ctx.add_spell_to_hand(unit_pos.side, spell_id)
+
+    return _effect
+
+
+def _make_bc_buff_all_by_type_include_hand(trigger_type: UnitType, atk: int, hp: int):
+    """BC: give all OTHER friendly units of type in hand AND board +atk/+hp."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        targets = []
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types and unit.uid != trigger_uid:
+                targets.append(unit)
+        for hc in player.hand:
+            if hc.unit and trigger_type in hc.unit.types and hc.unit.uid != trigger_uid:
+                targets.append(hc.unit)
+        for unit in targets:
+            ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_rally_damage_own_board(damage: int):
+    """Rally: deal damage to all other friendly minions."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if unit.uid != trigger_uid:
+                unit.cur_hp -= damage
+
+    return _effect
+
+
+def _make_dr_modify_mechanic(mechanic: MechanicType, atk: int, hp: int):
+    """Deathrattle: permanently modify a global mechanic stat."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        player.mechanics.modify_stat(mechanic, atk, hp)
+
+    return _effect
+
+
+def _make_soc_buff_random_friendly_type_and_ds(trigger_type: UnitType, atk: int, hp: int):
+    """SoC: give another friendly unit of type +atk/+hp and Divine Shield."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        candidates = [
+            unit
+            for _slot, unit in ctx.iter_board_units(pos.side)
+            if trigger_type in unit.types and unit.uid != trigger_uid
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        ctx.buff_combat(es.EntityRef(target.uid), atk, hp)
+        target.tags.add(Tags.DIVINE_SHIELD)
+
+    return _effect
+
+
+def _make_on_self_damaged_buff_board(atk: int, hp: int):
+    """When this minion takes damage, buff all other friendly minions."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        # Check target is self
+        if not event.target or event.target.uid != trigger_uid:
+            return
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not unit or not unit.is_alive:
+            return
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, other in ctx.iter_board_units(pos.side):
+            if other.uid != trigger_uid:
+                ctx.buff_perm(es.EntityRef(other.uid), atk, hp)
+
+    return _effect
+
+
+def _make_felemental_bc():
+    """BC: give all tavern minions +2/+1 this game (modifies ELEMENTAL_BUFF mechanic for shop buffing)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        # Buff all current shop units
+        for _slot, unit in ctx.iter_store_units(pos.side):
+            ctx.buff_perm(es.EntityRef(unit.uid), 2, 1)
+        # Also buff future shop units via mechanic (reuse ELEMENTAL_BUFF for tavern)
+        player = ctx.players_by_uid.get(pos.side)
+        if player:
+            from .enums import MechanicType
+
+            player.mechanics.modify_stat(MechanicType.ELEMENTAL_BUFF, 2, 1)
+
+    return _effect
+
+
+def _make_on_friendly_reborn_buff_self(atk: int, hp: int):
+    """After a friendly minion triggers Reborn, buff self permanently."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        # MINION_SUMMONED with meta=1 means it was a Reborn summon
+        if event.meta != 1:
+            return
+        source_pos = event.source_pos
+        if not source_pos or source_pos.side != unit_pos.side:
+            return
+        # Don't buff self if it's this unit that rebore (though possible)
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not unit or not unit.is_alive:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
+    return _effect
+
+
+def _make_dr_buff_friendly_type_global(trigger_type: UnitType, atk: int, hp: int):
+    """Deathrattle: permanently buff all friendly units of type in hand + board."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        for unit in player.board:
+            if trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+        for hc in player.hand:
+            if hc.unit and trigger_type in hc.unit.types:
+                ctx.buff_perm(es.EntityRef(hc.unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_dr_buff_shop(atk: int, hp: int):
+    """Deathrattle: permanently buff all shop minions."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_store_units(pos.side):
+            ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+        # Also persist the buff for future shop minions via ELEMENTAL_BUFF mechanic (hp only)
+        player = ctx.players_by_uid.get(pos.side)
+        if player:
+            player.mechanics.modify_stat(MechanicType.ELEMENTAL_BUFF, atk, hp)
+
+    return _effect
+
+
+def _make_dr_buff_hand_random(atk: int, hp: int):
+    """Deathrattle: give a random minion in hand +atk/+hp."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        candidates = [hc.unit for hc in player.hand if hc.unit is not None]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        ctx.buff_perm(es.EntityRef(target.uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_friendly_attack_buff_attacker(trigger_type: UnitType, atk: int, hp: int):
+    """When another friendly unit of type attacks, buff that attacker permanently."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        attacker = ctx.resolve_unit(event.source)
+        if not attacker or trigger_type not in attacker.types:
+            return
+        if attacker.uid == trigger_uid:
+            return
+        # Check same side
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        att_pos = ctx.resolve_pos(es.EntityRef(attacker.uid))
+        if not att_pos or att_pos.side != pos.side:
+            return
+        ctx.buff_perm(es.EntityRef(attacker.uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_friendly_attack_buff_trigger(trigger_type: UnitType, atk: int, hp: int):
+    """When another friendly unit of type attacks, buff the TRIGGER unit (self) permanently."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        attacker = ctx.resolve_unit(event.source)
+        if not attacker or trigger_type not in attacker.types:
+            return
+        if attacker.uid == trigger_uid:
+            return
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        att_pos = ctx.resolve_pos(es.EntityRef(attacker.uid))
+        if not att_pos or att_pos.side != pos.side:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_friendly_play_type_buff_self_in_hand(trigger_type: UnitType, atk: int, hp: int):
+    """While in hand, when a friendly unit of type is played, buff self."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        played = ctx.resolve_unit(event.source)
+        if not played or trigger_type not in played.types:
+            return
+        # Find the trigger unit in the player's hand
+        for side, player in ctx.players_by_uid.items():
+            for hc in player.hand:
+                if hc.unit and hc.unit.uid == trigger_uid:
+                    # Must be the same side as played unit
+                    src_pos = event.source_pos
+                    if src_pos and src_pos.side == side:
+                        ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+                    return
+
+    return _effect
+
+
+def _make_on_spell_cast_buff_self(atk: int, hp: int):
+    """When a tavern spell is played, buff self +atk/+hp."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        # SPELL_PLAYED event source_pos.side must match owner
+        source_pos = event.source_pos
+        if not source_pos or source_pos.side != pos.side:
+            return
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not unit or not unit.is_alive:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_gain_gold_buff_self(atk: int, hp: int):
+    """After gaining gold (tavern coin played), buff self +atk/+hp."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        source_pos = event.source_pos
+        if not source_pos or source_pos.side != pos.side:
+            return
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not unit or not unit.is_alive:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), atk, hp)
+
+    return _effect
+
+
+def _make_dr_damage_all_minions(damage: int):
+    """Deathrattle: deal damage to ALL minions on both sides."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        for side in list(ctx.players_by_uid.keys()):
+            player = ctx.players_by_uid.get(side)
+            if not player:
+                continue
+            for unit in list(player.board):
+                if unit.has_divine_shield:
+                    unit.tags.discard(Tags.DIVINE_SHIELD)
+                    ctx.emit_event(
+                        es.Event(
+                            event_type=es.EventType.DIVINE_SHIELD_LOST,
+                            source=es.EntityRef(unit.uid),
+                            source_pos=es.PosRef(side=side, zone=es.Zone.BOARD, slot=-1),
+                        )
+                    )
+                else:
+                    unit.cur_hp -= damage
+
+    return _effect
+
+
+def _make_soc_buff_all_friendly_type(trigger_type: UnitType, atk: int, hp: int):
+    """SoC: permanently buff all friendly units of type +atk/+hp."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_soc_give_friendly_type_reborn(trigger_type: UnitType):
+    """SoC: give a random friendly unit of type Reborn."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        candidates = [
+            unit
+            for _slot, unit in ctx.iter_board_units(pos.side)
+            if trigger_type in unit.types
+            and unit.uid != trigger_uid
+            and Tags.REBORN not in unit.tags
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        target.tags.add(Tags.REBORN)
+
+    return _effect
+
+
+def _make_bc_add_random_unit(unit_type: Optional[UnitType], tier: Optional[int]):
+    """BC: add a random unit of type (or tier) from pool to hand."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        from .configs import CARD_DB
+
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player or not ctx.card_pool:
+            return
+        candidates: list[str] = []
+        for t, tier_cards in ctx.card_pool.tiers.items():
+            if tier is not None and t != tier:
+                continue
+            for cid in tier_cards:
+                data = CARD_DB.get(cid)
+                if data and data.get("is_token"):
+                    continue
+                if unit_type is not None and unit_type not in data.get("type", []):
+                    continue
+                candidates.append(cid)
+        if not candidates:
+            return
+        chosen = random.choice(candidates)
+        for tier_cards in ctx.card_pool.tiers.values():
+            if chosen in tier_cards:
+                tier_cards.remove(chosen)
+                break
+        from .entities import Unit, HandCard
+
+        uid = ctx._uid_provider()
+        new_unit = Unit.create_from_db(chosen, uid, pos.side)
+        player.hand.append(HandCard(uid=uid, unit=new_unit))
+
+    return _effect
+
+
+def _make_bc_gain_free_refreshes(count: int):
+    """BC: gain N free refreshes immediately."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        player.free_refreshes = getattr(player, "free_refreshes", 0) + count
+
+    return _effect
+
+
+def _make_on_ds_lost_buff_unit(atk: int, hp: int):
+    """After a friendly minion loses Divine Shield, give it +atk/+hp permanently."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        source_pos = event.source_pos
+        if not source_pos or source_pos.side != unit_pos.side:
+            return
+        # Buff the unit that lost the shield
+        if event.source:
+            ctx.buff_perm(event.source, atk, hp)
+
+    return _effect
+
+
+def _make_rally_buff_all_others_blood_gems(count: int):
+    """Rally: play `count` blood gems on every other friendly minion."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        gem_atk, gem_hp = player.mechanics.get_stat(MechanicType.BLOOD_GEM)
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if unit.uid != trigger_uid:
+                for _ in range(count):
+                    ctx.buff_perm(es.EntityRef(unit.uid), gem_atk, gem_hp)
+
+    return _effect
+
+
+def _make_eot_add_random_spell():
+    """End of turn: add a random tavern spell to hand."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        from .configs import SPELL_DB
+
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        pool_spells = [
+            sid
+            for sid, data in SPELL_DB.items()
+            if data.get("pool", True) and sid != SpellIDs.TRIPLET_REWARD
+        ]
+        if not pool_spells:
+            pool_spells = [SpellIDs.TAVERN_COIN]
+        chosen = random.choice(pool_spells)
+        ctx.add_spell_to_hand(pos.side, chosen)
+
+    return _effect
+
+
+def _make_avenge_add_spell(spell_id: str, count: int):
+    """Avenge fires: add spell to hand (used for Spirit Drake, etc.)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _ in range(count):
+            ctx.add_spell_to_hand(pos.side, spell_id)
+
+    return _effect
+
+
+def _make_avenge_add_random_unit():
+    """Avenge fires: add a random battlecry unit to hand (Witchwing Nestmatron)."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        from .configs import CARD_DB
+
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player or not ctx.card_pool:
+            return
+        candidates: list[str] = []
+        for tier_cards in ctx.card_pool.tiers.values():
+            for cid in tier_cards:
+                data = CARD_DB.get(cid)
+                if data and not data.get("is_token"):
+                    candidates.append(cid)
+        if not candidates:
+            return
+        chosen = random.choice(candidates)
+        for tier_cards in ctx.card_pool.tiers.values():
+            if chosen in tier_cards:
+                tier_cards.remove(chosen)
+                break
+        from .entities import Unit, HandCard
+
+        uid = ctx._uid_provider()
+        new_unit = Unit.create_from_db(chosen, uid, pos.side)
+        player.hand.append(HandCard(uid=uid, unit=new_unit))
+
+    return _effect
+
+
+# ---------------------------------------------------------------------------
+# New factory functions for T4-T7 EffectDef types
+# ---------------------------------------------------------------------------
+
+
+def _make_on_spell_cast_buff_board(atk: int, hp: int, trigger_type: Optional[UnitType]):
+    """When a spell is cast, buff all friendly minions (or of a type)."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        # Only fire for same-side spells
+        source_pos = event.source_pos
+        if source_pos and source_pos.side != unit_pos.side:
+            return
+        for _slot, unit in ctx.iter_board_units(unit_pos.side):
+            if trigger_type is None or trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_dr_summon_taunt_token(token_id: str, count: int):
+    """Deathrattle: summon N tokens and give them Taunt."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        for _ in range(count):
+            ref = ctx.summon(pos.side, token_id, pos.slot)
+            if ref:
+                unit = ctx.resolve_unit(ref)
+                if unit:
+                    unit.tags.add(Tags.TAUNT)
+
+    return _effect
+
+
+def _make_soc_buff_self_by_highest_ally_atk():
+    """SoC: set own attack to the highest friendly attack value."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        max_atk = max(
+            (
+                unit.cur_atk
+                for _slot, unit in ctx.iter_board_units(pos.side)
+                if unit.uid != trigger_uid
+            ),
+            default=0,
+        )
+        if max_atk <= 0:
+            return
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if unit:
+            ctx.buff_perm(es.EntityRef(trigger_uid), max_atk, 0)
+
+    return _effect
+
+
+def _make_soc_buff_self_by_highest_board_atk():
+    """SoC: set own stats to match the highest-attack friendly minion."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        best = max(
+            (
+                (unit.cur_atk, unit.cur_hp)
+                for _slot, unit in ctx.iter_board_units(pos.side)
+                if unit.uid != trigger_uid
+            ),
+            default=(0, 0),
+        )
+        if best[0] <= 0:
+            return
+        unit = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if unit:
+            gain_atk = max(0, best[0] - unit.cur_atk)
+            gain_hp = max(0, best[1] - unit.cur_hp)
+            ctx.buff_perm(es.EntityRef(trigger_uid), gain_atk, gain_hp)
+
+    return _effect
+
+
+def _make_bc_make_golden_friendly_by_tier(max_tier: int):
+    """BC: make a random non-golden friendly minion from tier <= max_tier golden."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        from .configs import CARD_DB
+
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        candidates = [
+            unit
+            for _slot, unit in ctx.iter_board_units(pos.side)
+            if unit.uid != trigger_uid
+            and not unit.is_golden
+            and CARD_DB.get(unit.card_id, {}).get("tier", 99) <= max_tier
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        target.is_golden = True
+        # Double stats for golden
+        ctx.buff_perm(es.EntityRef(target.uid), target.cur_atk, target.cur_hp)
+
+    return _effect
+
+
+def _make_rally_buff_friendly_type_atk(trigger_type: UnitType, atk: int):
+    """Rally: give all other friendly units of type +atk permanently."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if unit.uid != trigger_uid and trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, 0)
+
+    return _effect
+
+
+def _make_on_friendly_beast_damaged_buff_self(hp: int):
+    """When another friendly Beast takes damage, buff self +hp permanently."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        # Determine who took damage
+        if not event.target:
+            return
+        target = ctx.resolve_unit(event.target)
+        if not target or UnitType.BEAST not in target.types:
+            return
+        if target.uid == trigger_uid:
+            return
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        # Must be friendly
+        target_pos = ctx.resolve_pos(event.target)
+        if target_pos and target_pos.side != unit_pos.side:
+            return
+        ctx.buff_perm(es.EntityRef(trigger_uid), 0, hp)
+
+    return _effect
+
+
+def _make_on_friendly_beast_damaged_buff_other(atk: int, hp: int):
+    """When a friendly Beast takes damage, give a different friendly Beast +atk/+hp."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        if not event.target:
+            return
+        damaged = ctx.resolve_unit(event.target)
+        if not damaged or UnitType.BEAST not in damaged.types:
+            return
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        target_pos = ctx.resolve_pos(event.target)
+        if target_pos and target_pos.side != unit_pos.side:
+            return
+        candidates = [
+            unit
+            for _slot, unit in ctx.iter_board_units(unit_pos.side)
+            if unit.uid != damaged.uid and UnitType.BEAST in unit.types
+        ]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        ctx.buff_perm(es.EntityRef(target.uid), atk, hp)
+
+    return _effect
+
+
+def _make_avenge_buff_friendly_type_global(
+    threshold: int, trigger_type: UnitType, atk: int, hp: int
+):
+    """Avenge(N): give all friendly units of type +atk globally."""
+
+    # NOTE: This is registered in AVENGE_REGISTRY and handled by avenge system
+    # The avenge system calls this effect when threshold is met
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        player = ctx.players_by_uid.get(pos.side)
+        if not player:
+            return
+        for unit in player.board:
+            if trigger_type in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+        for hc in player.hand:
+            if hc.unit and trigger_type in hc.unit.types:
+                ctx.buff_perm(es.EntityRef(hc.unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_dr_destroy_killer():
+    """Deathrattle: destroy the minion that killed this."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        # event.meta stores killer uid
+        killer_uid = event.meta
+        if not killer_uid:
+            return
+        es = _event_system()
+        killer = ctx.resolve_unit(es.EntityRef(killer_uid))
+        if killer and killer.is_alive:
+            killer.cur_hp = 0
+
+    return _effect
+
+
+def _make_sell_for_gold_conditional(amount: int):
+    """Sells for extra gold if player lost last combat."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        if event.source_pos:
+            side = event.source_pos.side
+        else:
+            side = next(iter(ctx.players_by_uid), None)
+            if side is None:
+                return
+        player = ctx.players_by_uid.get(side)
+        if not player:
+            return
+        # Check if lost last combat (simplified: always give extra)
+        lost_last = getattr(player, "lost_last_combat", False)
+        gold = amount if lost_last else 1
+        ctx.gain_gold(side, gold - 1)  # -1 because default sell already gives 1
+
+    return _effect
+
+
+def _make_dr_buff_all_friendlies_global(trigger_type: UnitType, atk: int, hp: int):
+    """On death: permanently buff all surviving friendlies of type (Goldrinn)."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types or trigger_type == UnitType.ALL:
+                ctx.buff_combat(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_eot_buff_friendly_type_naga(atk: int, hp: int):
+    """EoT: give all other friendly Naga +atk/+hp."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if unit.uid != trigger_uid and UnitType.NAGA in unit.types:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_on_friendly_demon_damage_buff(atk: int, hp: int):
+    """After a friendly Demon deals damage, buff other friendlies +atk/+hp."""
+
+    def _effect(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        unit_pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not unit_pos:
+            return
+        # Check source is a friendly demon
+        if not event.source:
+            return
+        src = ctx.resolve_unit(event.source)
+        if not src or UnitType.DEMON not in src.types:
+            return
+        src_pos = ctx.resolve_pos(event.source)
+        if not src_pos or src_pos.side != unit_pos.side:
+            return
+        for _slot, unit in ctx.iter_board_units(unit_pos.side):
+            if unit.uid != src.uid:
+                ctx.buff_perm(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_eot_consume_tavern_for_demon():
+    """EoT: each friendly Demon consumes a tavern minion for its stats."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        demons = [
+            unit for _slot, unit in ctx.iter_board_units(pos.side) if UnitType.DEMON in unit.types
+        ]
+        for demon in demons:
+            result = ctx.consume_random_store_unit(pos.side)
+            if result:
+                gained_atk, gained_hp = result
+                ctx.buff_perm(es.EntityRef(demon.uid), gained_atk, gained_hp)
+
+    return _effect
+
+
+def _make_soc_buff_friendly_type_scaling(trigger_type: UnitType, atk: int, hp: int):
+    """SoC: buff all friendly units of type, scaling with a play counter."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            if trigger_type in unit.types and unit.uid != trigger_uid:
+                ctx.buff_combat(es.EntityRef(unit.uid), atk, hp)
+
+    return _effect
+
+
+def _make_eot_trigger_adjacent_battlecry():
+    """EoT: trigger the battlecry of adjacent minions."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        for _slot, unit in ctx.get_adjacent(pos.side, trigger_uid):
+            # Re-fire MINION_PLAYED for adjacent unit to trigger its battlecry
+            ctx.emit_event(
+                es.Event(
+                    event_type=es.EventType.MINION_PLAYED,
+                    source=es.EntityRef(unit.uid),
+                    source_pos=es.PosRef(side=pos.side, zone=es.Zone.BOARD, slot=_slot),
+                )
+            )
+
+    return _effect
+
+
+def _make_rally_deal_damage_equal_to_atk():
+    """Rally: deal damage equal to this minion's Attack to a random enemy."""
+
+    def _effect(ctx: EffectContext, _event: Event, trigger_uid: int) -> None:
+        es = _event_system()
+        pos = ctx.resolve_pos(es.EntityRef(trigger_uid))
+        if not pos:
+            return
+        attacker = ctx.resolve_unit(es.EntityRef(trigger_uid))
+        if not attacker:
+            return
+        enemy_side = 1 - pos.side
+        candidates = [unit for _slot, unit in ctx.iter_board_units(enemy_side) if unit.is_alive]
+        if not candidates:
+            return
+        target = random.choice(candidates)
+        target.cur_hp -= attacker.cur_atk
+
+    return _effect
+
+
+def _make_dr_give_friendlies_scaling(buff_atk: int, buff_hp: int, self_damage: int):
+    """DR: give all friendly minions +atk/+hp and deal self_damage to them."""
+
+    def _effect(ctx: EffectContext, event: Event, _trigger_uid: int) -> None:
+        es = _event_system()
+        pos = event.source_pos or (event.snapshot.pos if event.snapshot else None)
+        if not pos:
+            return
+        for _slot, unit in ctx.iter_board_units(pos.side):
+            ctx.buff_perm(es.EntityRef(unit.uid), buff_atk, buff_hp)
+            if self_damage > 0:
+                unit.cur_hp -= self_damage
+
+    return _effect
 
 
 # ---------------------------------------------------------------------------
 # build_trigger_registry  →  produces the same dict as original TRIGGER_REGISTRY
 # ---------------------------------------------------------------------------
+
 
 def build_trigger_registry() -> Dict[str, list]:
     es = _event_system()
@@ -762,7 +4661,6 @@ def build_trigger_registry() -> Dict[str, list]:
         triggers: list = []
 
         for eff in card.effects:
-
             # --- Deathrattle: summon token(s) ---
             if isinstance(eff, DeathrattleSummon):
                 triggers.append(
@@ -846,12 +4744,24 @@ def build_trigger_registry() -> Dict[str, list]:
                 )
 
             # --- Battlecry: consume random shop unit ---
-            elif isinstance(eff, BattlecryConsumeShopUnit):
+            elif isinstance(eff, ConsumeShopUnit):
                 triggers.append(
                     TriggerDef(
                         event_type=EventType.MINION_PLAYED,
                         condition=_is_self_play,
                         effect=_make_battlecry_consume_shop_unit(),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- Battlecry: make self golden ---
+            elif isinstance(eff, BattlecryMakeGolden):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_battlecry_make_golden(),
                         name=f"{card.name} Battlecry",
                         priority=10,
                     )
@@ -879,6 +4789,39 @@ def build_trigger_registry() -> Dict[str, list]:
                     )
                 )
 
+            # --- Sell for gold ---
+            elif isinstance(eff, SellForGold):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SOLD,
+                        condition=_is_self_play,
+                        effect=_make_sell_for_gold(eff.amount),
+                        name=f"{card.name} Sell",
+                    )
+                )
+
+            # --- Rally: Blood Gem on self when this attacks ---
+            elif isinstance(eff, RallyBuff):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,  # source.uid == trigger_uid
+                        effect=_make_rally_buff(eff.atk, eff.hp, eff.use_blood_gem),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- SoC from hand ---
+            elif isinstance(eff, StartOfCombatFromHand):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_soc_from_hand(),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
             # --- Start of Combat: buff self by tier ---
             elif isinstance(eff, StartOfCombatBuffSelfByTier):
                 triggers.append(
@@ -886,6 +4829,22 @@ def build_trigger_registry() -> Dict[str, list]:
                         event_type=EventType.START_OF_COMBAT,
                         condition=_is_friendly_soc,
                         effect=_make_start_of_combat_buff_self_by_tier(),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            elif isinstance(eff, StartOfCombatBuffSelf):
+                _soc_a, _soc_h = eff.atk, eff.hp
+                def _make_soc_self(a=_soc_a, h=_soc_h):
+                    def _fn(ctx, _ev, uid):
+                        es = _event_system()
+                        ctx.buff_combat(es.EntityRef(uid), a, h)
+                    return _fn
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_self(),
                         name=f"{card.name} SoC",
                     )
                 )
@@ -967,9 +4926,770 @@ def build_trigger_registry() -> Dict[str, list]:
                     )
                 )
 
+            # --- End of turn: add spell to hand ---
+            elif isinstance(eff, EndOfTurnAddSpell):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,  # unit must be on board
+                        effect=_make_end_of_turn_add_spell(eff.spell_id, eff.count),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- End of turn: buff adjacent units ---
+            elif isinstance(eff, EndOfTurnBuffAdjacent):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_adjacent(eff.atk, eff.hp),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- End of turn: buff self ---
+            elif isinstance(eff, EndOfTurnBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_self(eff.atk, eff.hp),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- End of turn: buff all board units ---
+            elif isinstance(eff, EndOfTurnBuffBoard):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_board(eff.atk, eff.hp),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- End of turn: buff all board units of type ---
+            elif isinstance(eff, EndOfTurnBuffBoardByType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_board_by_type(eff.trigger_type, eff.atk, eff.hp),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- SoC: buff all friendly of type (combat) ---
+            elif isinstance(eff, StartOfCombatBuffFriendlyType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_buff_friendly_type(eff.trigger_type, eff.atk, eff.hp),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- BC: buff all friendly of type (perm) ---
+            elif isinstance(eff, BattlecryBuffAllByType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_bc_buff_all_by_type(eff.trigger_type, eff.atk, eff.hp),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- On friendly play of type: add spell to hand ---
+            elif isinstance(eff, OnFriendlyPlayTypeAddSpell):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_play_type_add_spell(
+                            eff.trigger_type, eff.spell_id, eff.count, eff.exclude_self
+                        ),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- On friendly summoned of type: buff random other ---
+            elif isinstance(eff, OnSummonedTypeBuffRandomOther):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SUMMONED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_summoned_buff_random_other(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- Sell: add unit to hand ---
+            elif isinstance(eff, SellAddUnit):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SOLD,
+                        condition=_is_self_play,
+                        effect=_make_sell_add_unit_v2(eff.card_id),
+                        name=f"{card.name} Sell",
+                    )
+                )
+
+            # --- Rally: buff random other friendly of type (combat) ---
+            elif isinstance(eff, RallyBuffRandomFriendlyType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,
+                        effect=_make_rally_buff_random_type(eff.trigger_type, eff.atk, eff.hp),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- Sell: get random unit of type from pool ---
+            elif isinstance(eff, SellGetRandomUnitByType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SOLD,
+                        condition=_is_self_play,
+                        effect=_make_sell_get_random_by_type(eff.unit_type),
+                        name=f"{card.name} Sell",
+                    )
+                )
+
+            # --- BC: consume shop unit, give stats to random friendly of type ---
+            elif isinstance(eff, ConsumeShopUnitForRandomFriendly):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_consume_for_random_friendly(eff.trigger_type),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- After tavern refreshed: buff rightmost shop minion ---
+            elif isinstance(eff, OnTavernRefreshBuffRightmostShop):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.TAVERN_REFRESHED,
+                        condition=_make_on_tavern_refresh_buff_rightmost_shop_condition(),
+                        effect=_make_on_tavern_refresh_buff_rightmost_shop(
+                            eff.atk, eff.hp, eff.give_reborn, eff.use_blood_gem
+                        ),
+                        name=f"{card.name} Tavern Refresh",
+                    )
+                )
+
+            # --- Sell: buff board scaling ---
+            elif isinstance(eff, SellBuffBoardScaling):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SOLD,
+                        condition=_is_self_play,
+                        effect=_make_sell_buff_board_scaling(
+                            eff.scaling_key, eff.atk_per, eff.hp_per
+                        ),
+                        name=f"{card.name} Sell",
+                    )
+                )
+
+            # --- SoC: damage and buff adjacent ---
+            elif isinstance(eff, StartOfCombatDamageAndBuffAdjacent):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_damage_and_buff_adjacent(eff.damage, eff.atk, eff.hp),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- On hero damaged: heal and buff self ---
+            elif isinstance(eff, OnHeroDamagedHealAndBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.HERO_DAMAGED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_hero_damaged_heal_and_buff_self(eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- EOT: buff adjacent per golden ---
+            elif isinstance(eff, EndOfTurnBuffAdjacentPerGolden):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_adjacent_per_golden(eff.atk, eff.hp),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- Sell: discover ---
+            elif isinstance(eff, SellDiscover):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SOLD,
+                        condition=_is_self_play,
+                        effect=_make_sell_discover(eff.base_tier, eff.scaling_key),
+                        name=f"{card.name} Sell",
+                    )
+                )
+
+            # --- Deathrattle: add spell to hand ---
+            elif isinstance(eff, DeathrattleAddSpell):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_add_spell(eff.spell_id, eff.count),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- Rally: add spell to hand ---
+            elif isinstance(eff, RallyAddSpell):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,
+                        effect=_make_rally_add_spell(eff.spell_id, eff.count),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- EOT: buff self per golden ---
+            elif isinstance(eff, EndOfTurnBuffSelfPerGolden):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_self_per_golden(eff.atk_per, eff.hp_per),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- On Divine Shield lost: add spell ---
+            elif isinstance(eff, OnDivineShieldLostAddSpell):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.DIVINE_SHIELD_LOST,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_divine_shield_lost_add_spell(eff.spell_id, eff.count),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- BC: buff all of type in hand and board ---
+            elif isinstance(eff, BattlecryBuffAllByTypeIncludeHand):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_bc_buff_all_by_type_include_hand(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- Rally: damage own board ---
+            elif isinstance(eff, RallyDamageOwnBoard):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,
+                        effect=_make_rally_damage_own_board(eff.damage),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- Deathrattle: modify mechanic ---
+            elif isinstance(eff, DeathrattleModifyMechanic):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_modify_mechanic(eff.mechanic, eff.atk, eff.hp),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- SoC: buff random friendly of type + divine shield ---
+            elif isinstance(eff, StartOfCombatBuffRandomFriendlyTypeAndDS):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_buff_random_friendly_type_and_ds(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- On self damaged: buff board ---
+            elif isinstance(eff, OnSelfDamagedBuffBoard):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DAMAGED,
+                        condition=lambda ctx, event, ref: (
+                            event.target is not None and event.target.uid == ref
+                        ),
+                        effect=_make_on_self_damaged_buff_board(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- On friendly reborn: buff self ---
+            elif isinstance(eff, OnFriendlyRebornBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SUMMONED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_reborn_buff_self(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- Deathrattle: buff all friendly of type globally (hand+board) ---
+            elif isinstance(eff, DeathrattleBuffFriendlyTypeGlobal):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_buff_friendly_type_global(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- Deathrattle: buff shop minions ---
+            elif isinstance(eff, DeathrattleBuffShop):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_buff_shop(eff.atk, eff.hp),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- Deathrattle: buff random hand minion ---
+            elif isinstance(eff, DeathrattleBuffHandRandom):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_buff_hand_random(eff.atk, eff.hp),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- On friendly attack: buff the attacker (Roaring Recruiter) ---
+            elif isinstance(eff, OnFriendlyAttackBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_attack_buff_attacker(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- On friendly attack: buff self/trigger unit (Twilight Watcher) ---
+            elif isinstance(eff, OnFriendlyAttackBuffTriggerSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_attack_buff_trigger(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- While in hand, on friendly play of type: buff self (Bream Counter) ---
+            elif isinstance(eff, OnFriendlyPlayTypeBuffSelfInHand):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_play_type_buff_self_in_hand(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- On spell cast: buff self (Glad-iator, Timecap'n Hooktail) ---
+            elif isinstance(eff, OnSpellCastBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.SPELL_CAST,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_spell_cast_buff_self(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- On gain gold (spell cast with GAIN_GOLD): buff self ---
+            elif isinstance(eff, OnGainGoldBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.SPELL_CAST,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_gain_gold_buff_self(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- Deathrattle: damage all minions (Tunnel Blaster, Silent Enforcer) ---
+            elif isinstance(eff, DeathrattleDamageAllMinions):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_damage_all_minions(eff.damage),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- SoC: permanently buff all friendly of type (Prized Promo-Drake) ---
+            elif isinstance(eff, StartOfCombatBuffAllFriendlyType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_buff_all_friendly_type(eff.trigger_type, eff.atk, eff.hp),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- SoC: give random friendly of type Reborn (Soulsplitter) ---
+            elif isinstance(eff, StartOfCombatGiveFriendlyTypeReborn):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_give_friendly_type_reborn(eff.trigger_type),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- BC: add random unit of type to hand (Tavern Tempest) ---
+            elif isinstance(eff, BattlecryAddRandomUnit):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_bc_add_random_unit(eff.unit_type, eff.tier),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- BC: gain free refreshes (Refreshing Anomaly) ---
+            elif isinstance(eff, BattlecryGainFreeRefreshes):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_bc_gain_free_refreshes(eff.count),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- On DS lost: buff the unit that lost it (Grease Bot) ---
+            elif isinstance(eff, OnDivineShieldLostBuffUnit):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.DIVINE_SHIELD_LOST,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_ds_lost_buff_unit(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- Rally: play blood gems on all other friendlies (Bonker) ---
+            elif isinstance(eff, RallyBuffAllOthersByType):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,
+                        effect=_make_rally_buff_all_others_blood_gems(eff.count),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- EOT: add random spell to hand (Marquee Ticker) ---
+            elif isinstance(eff, EndOfTurnAddRandomSpell):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_add_random_spell(),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- StartOfCombatGainGold: handled as EOT gold (Accord-o-Tron, Industrious Deckhand) ---
+            elif isinstance(eff, StartOfCombatGainGold):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_battlecry_gain_gold(eff.amount),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- AvengeEffect: extended targets (add_spell, add_unit) ---
+            elif isinstance(eff, AvengeEffect) and eff.buff_target in ("add_spell", "add_unit"):
+                # These are handled in the avenge system via AVENGE_REGISTRY
+                # but we also need to register them so they fire.
+                # The avenge system in combat.py reads AVENGE_REGISTRY for threshold.
+                pass  # handled by avenge system reading AvengeEffect from registry
+
+            # --- AvengeBuffFriendlyTypeGlobal ---
+            elif isinstance(eff, AvengeBuffFriendlyTypeGlobal):
+                pass  # handled by avenge system; effect fired via avenge_registry
+
+            # --- OnSpellCastBuffBoard (Plankwalker, Sundered Matriarch) ---
+            elif isinstance(eff, OnSpellCastBuffBoard):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.SPELL_CAST,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_spell_cast_buff_board(eff.atk, eff.hp, eff.trigger_type),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- DeathrattleSummonTauntToken (Twilight Broodmother) ---
+            elif isinstance(eff, DeathrattleSummonTauntToken):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_summon_taunt_token(eff.token_id, eff.count),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- StartOfCombatBuffSelfByHighestAllyAtk (Costume Enthusiast) ---
+            elif isinstance(eff, StartOfCombatBuffSelfByHighestAllyAtk):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_buff_self_by_highest_ally_atk(),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- StartOfCombatBuffSelfByHighestBoardAtk (Psychus) ---
+            elif isinstance(eff, StartOfCombatBuffSelfByHighestBoardAtk):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_buff_self_by_highest_board_atk(),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- BattlecryMakeGoldenFriendlyByTier (Elite Navigator, Captain Sanders) ---
+            elif isinstance(eff, BattlecryMakeGoldenFriendlyByTier):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_PLAYED,
+                        condition=_is_self_play,
+                        effect=_make_bc_make_golden_friendly_by_tier(eff.max_tier),
+                        name=f"{card.name} Battlecry",
+                        priority=10,
+                    )
+                )
+
+            # --- RallyBuffFriendlyTypeAtk (Sunken Advocate) ---
+            elif isinstance(eff, RallyBuffFriendlyTypeAtk):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,
+                        effect=_make_rally_buff_friendly_type_atk(eff.trigger_type, eff.atk),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- OnFriendlyBeastDamagedBuffSelf (Trigore the Lasher) ---
+            elif isinstance(eff, OnFriendlyBeastDamagedBuffSelf):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DAMAGED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_beast_damaged_buff_self(eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- OnFriendlyBeastDamagedBuffOther (Iridescent Skyblazer) ---
+            elif isinstance(eff, OnFriendlyBeastDamagedBuffOther):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DAMAGED,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_beast_damaged_buff_other(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- DeathrattleDestroyKiller (Leeroy the Reckless) ---
+            elif isinstance(eff, DeathrattleDestroyKiller):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_destroy_killer(),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- SellForGoldConditional (Tortollan Blue Shell) ---
+            elif isinstance(eff, SellForGoldConditional):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_SOLD,
+                        condition=_is_self_play,
+                        effect=_make_sell_for_gold_conditional(eff.amount),
+                        name=f"{card.name} Sell",
+                    )
+                )
+
+            # --- DeathrattleBuffAllFriendliesGlobal (Goldrinn) ---
+            elif isinstance(eff, DeathrattleBuffAllFriendliesGlobal):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_buff_all_friendlies_global(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
+            # --- EndOfTurnBuffFriendlyTypeNaga (Slitherspear) ---
+            elif isinstance(eff, EndOfTurnBuffFriendlyTypeNaga):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_buff_friendly_type_naga(eff.atk, eff.hp),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- OnFriendlyDemonDamageBuff (Lord of the Ruins) ---
+            elif isinstance(eff, OnFriendlyDemonDamageBuff):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.DAMAGE_DEALT,
+                        condition=lambda ctx, event, ref: True,
+                        effect=_make_on_friendly_demon_damage_buff(eff.atk, eff.hp),
+                        name=f"{card.name} Trigger",
+                    )
+                )
+
+            # --- EndOfTurnConsumeTavernForDemon (Famished Felbat) ---
+            elif isinstance(eff, EndOfTurnConsumeTavernForDemon):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_consume_tavern_for_demon(),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- StartOfCombatBuffFriendlyTypeScaling (Ultraviolet Ascendant) ---
+            elif isinstance(eff, StartOfCombatBuffFriendlyTypeScaling):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.START_OF_COMBAT,
+                        condition=_is_friendly_soc,
+                        effect=_make_soc_buff_friendly_type_scaling(
+                            eff.trigger_type, eff.atk, eff.hp
+                        ),
+                        name=f"{card.name} SoC",
+                    )
+                )
+
+            # --- EndOfTurnTriggerAdjacentBattlecry (Young Murk-Eye) ---
+            elif isinstance(eff, EndOfTurnTriggerAdjacentBattlecry):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.END_OF_TURN,
+                        condition=_is_friendly_soc,
+                        effect=_make_eot_trigger_adjacent_battlecry(),
+                        name=f"{card.name} End of Turn",
+                    )
+                )
+
+            # --- RallyDealDamageEqualToAtk (Niuzao, Obsidian Ravager) ---
+            elif isinstance(eff, RallyDealDamageEqualToAtk):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.ATTACK_DECLARED,
+                        condition=_is_self_play,
+                        effect=_make_rally_deal_damage_equal_to_atk(),
+                        name=f"{card.name} Rally",
+                    )
+                )
+
+            # --- DeathrattleGiveFriendliesScaling (Spiked Savior) ---
+            elif isinstance(eff, DeathrattleGiveFriendliesScaling):
+                triggers.append(
+                    TriggerDef(
+                        event_type=EventType.MINION_DIED,
+                        condition=_is_self_death,
+                        effect=_make_dr_give_friendlies_scaling(
+                            eff.buff_atk, eff.buff_hp, eff.self_damage
+                        ),
+                        name=f"{card.name} Deathrattle",
+                    )
+                )
+
             # --- Pass-through for custom / hand-crafted triggers ---
             elif isinstance(eff, CustomEffect):
-                triggers.extend(eff.trigger_defs)
+                # Felemental: BC gives +2/+1 to all current shop minions, and future ones via mechanic
+                if card.card_id == CardIDs.FELEMENTAL:
+                    triggers.append(
+                        TriggerDef(
+                            event_type=EventType.MINION_PLAYED,
+                            condition=_is_self_play,
+                            effect=_make_felemental_bc(),
+                            name="Felemental Battlecry",
+                            priority=10,
+                        )
+                    )
+                else:
+                    triggers.extend(eff.trigger_defs)
 
         if triggers:
             registry[card.card_id] = triggers
@@ -992,3 +5712,85 @@ def build_trigger_registry() -> Dict[str, list]:
     ]
 
     return registry
+
+
+# =====================================================================
+# Module-level registries (importable by combat.py, game.py, tavern.py)
+# Lazy-initialized to avoid circular import:
+#   card_def → event_system → auras → entities → configs → card_def
+# =====================================================================
+
+_TRIGGER_REGISTRY = None
+GOLDEN_TRIGGER_REGISTRY: dict = {}
+
+
+def _get_trigger_registry():
+    global _TRIGGER_REGISTRY
+    if _TRIGGER_REGISTRY is None:
+        _TRIGGER_REGISTRY = build_trigger_registry()
+    return _TRIGGER_REGISTRY
+
+
+class _LazyTriggerRegistry:
+    """Dict-like proxy that builds TRIGGER_REGISTRY on first access."""
+
+    def __getattr__(self, name):
+        return getattr(_get_trigger_registry(), name)
+
+    def __getitem__(self, key):
+        return _get_trigger_registry()[key]
+
+    def __contains__(self, key):
+        return key in _get_trigger_registry()
+
+    def __iter__(self):
+        return iter(_get_trigger_registry())
+
+    def __len__(self):
+        return len(_get_trigger_registry())
+
+    def keys(self):
+        return _get_trigger_registry().keys()
+
+    def values(self):
+        return _get_trigger_registry().values()
+
+    def items(self):
+        return _get_trigger_registry().items()
+
+    def get(self, key, default=None):
+        return _get_trigger_registry().get(key, default)
+
+
+TRIGGER_REGISTRY = _LazyTriggerRegistry()
+
+
+# ---------------------------------------------------------------------------
+# AVENGE_REGISTRY — card_id → AvengeEffect for all cards with Avenge mechanic
+# ---------------------------------------------------------------------------
+
+
+def build_avenge_registry() -> Dict[str, AvengeEffect]:
+    """Map card_id → AvengeEffect for cards with Avenge mechanic.
+    Also maps AvengeBuffFriendlyTypeGlobal to a synthetic AvengeEffect."""
+    registry: Dict[str, AvengeEffect] = {}
+    for card in ALL_CARDS:
+        for eff in card.effects:
+            if isinstance(eff, AvengeEffect):
+                registry[card.card_id] = eff
+                break
+            elif isinstance(eff, AvengeBuffFriendlyTypeGlobal):
+                # Map to AvengeEffect with friendly_type scope covering board
+                registry[card.card_id] = AvengeEffect(
+                    threshold=eff.threshold,
+                    buff_atk=eff.atk,
+                    buff_hp=eff.hp,
+                    buff_scope="perm",
+                    buff_target="friendly_type",
+                    target_type=eff.trigger_type,
+                )
+                break
+    return registry
+
+
+AVENGE_REGISTRY: Dict[str, AvengeEffect] = build_avenge_registry()

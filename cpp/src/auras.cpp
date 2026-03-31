@@ -23,15 +23,12 @@ struct AuraDef {
 // ============================================================
 // Aura registry — just data, no functions
 // ============================================================
+// No aura cards in current patch — table empty.
+// Add entries here when aura cards are implemented.
 static const AuraDef g_aura_table[] = {
-    // Dire Wolf Alpha: neighbours +1/+0 (golden +2/+0)
-    {CardID::DIRE_WOLF_ALPHA,  AuraMode::NEIGHBOURS,  UnitTypes::NONE,   1, 0},
-    // Murloc Warleader: other murlocs +2/+0 (golden +4/+0)
-    {CardID::MURLOC_WARLEADER, AuraMode::TYPE_OTHERS,  UnitTypes::MURLOC, 2, 0},
-    // Southsea Captain: other pirates +1/+1 (golden +2/+2)
-    {CardID::SOUTHSEA_CAPTAIN, AuraMode::TYPE_OTHERS,  UnitTypes::PIRATE, 1, 1},
+    {CardID::INVALID, AuraMode::NEIGHBOURS, UnitTypes::NONE, 0, 0}, // placeholder
 };
-static constexpr int g_num_auras = sizeof(g_aura_table) / sizeof(g_aura_table[0]);
+static constexpr int g_num_auras = 0; // actual count (placeholder doesn't count)
 
 // ============================================================
 // Generic aura applicator

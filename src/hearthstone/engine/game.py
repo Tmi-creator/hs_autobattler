@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple
 
+from .card_def import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .combat import CombatManager
 from .cpp_bridge import get_cpp_engine
-from .effects import GOLDEN_TRIGGER_REGISTRY, TRIGGER_REGISTRY
 from .entities import Player
 from .enums import BattleOutcome
 from .event_system import EventManager
@@ -103,8 +103,15 @@ class Game:
 
         if result == BattleOutcome.WIN:
             p1.health -= damage_val
+            p0.lost_last_combat = False
+            p1.lost_last_combat = True
         elif result == BattleOutcome.LOSE:
             p0.health -= damage_val
+            p0.lost_last_combat = True
+            p1.lost_last_combat = False
+        else:
+            p0.lost_last_combat = False
+            p1.lost_last_combat = False
 
         if p0.health <= 0 or p1.health <= 0:
             self.game_over = True

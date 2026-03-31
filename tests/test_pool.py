@@ -94,7 +94,7 @@ class TestCardPoolReturn:
 
     def test_return_adds_cards_back(self) -> None:
         pool = CardPool()
-        cid = CardIDs.ALLEYCAT
+        cid = CardIDs.MANASABER
         tier = CARD_DB[cid]["tier"]
         count_before = pool.tiers[tier].count(cid)
         pool.return_cards([cid])
@@ -104,7 +104,7 @@ class TestCardPoolReturn:
     def test_return_tokens_ignored(self) -> None:
         pool = CardPool()
         total_before = sum(len(t) for t in pool.tiers.values())
-        pool.return_cards([CardIDs.TABBYCAT, CardIDs.IMP_TOKEN, CardIDs.PIRATE_TOKEN])
+        pool.return_cards([CardIDs.MICROBOT, CardIDs.SKELETON, CardIDs.TWILIGHT_WHELP])
         total_after = sum(len(t) for t in pool.tiers.values())
         assert total_after == total_before
 
@@ -167,8 +167,8 @@ class TestCardPoolDiscovery:
     def test_discovery_empty_pool_returns_empty(self) -> None:
         """If no cards match, return empty list."""
         pool = CardPool()
-        # Dragon type has no cards in our DB
-        predicate = lambda data: UnitType.DRAGON in data.get("type", [])
+        # Neutral type has no cards in our DB (all cards have specific types)
+        predicate = lambda data: UnitType.NEUTRAL in data.get("type", [])
         drawn = pool.draw_discovery_cards(3, tier=1, exact_tier=False, predicate=predicate)
         assert drawn == []
 

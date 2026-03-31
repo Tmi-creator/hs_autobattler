@@ -85,48 +85,12 @@ enum class EventType : uint8_t {
 };
 
 // ============================================================
-// Card IDs — numeric mapping of Python string IDs
-// Python: CardIDs.WRATH_WEAVER = "101" -> C++: 101
-// Tokens: 900+ range to avoid collisions
+// Card IDs + Effect IDs — AUTO-GENERATED, do not edit manually
+// Run: python scripts/generate_cpp_effects.py
 // ============================================================
-namespace CardID {
-    constexpr int16_t INVALID         = -1;
+#include "generated_card_ids.h"
 
-    // --- Tier 1 ---
-    constexpr int16_t WRATH_WEAVER    = 101;
-    constexpr int16_t ALLEYCAT        = 102;
-    constexpr int16_t SCALLYWAG       = 103;
-    constexpr int16_t SWAMPSTRIKER    = 104;
-    constexpr int16_t ANNOY_O_TRON    = 105;
-    constexpr int16_t SHELL_COLLECTOR = 107;
-    constexpr int16_t IMPRISONER      = 108;
-    constexpr int16_t MINTED_CORSAIR  = 109;
-    constexpr int16_t FLIGHTY_SCOUT   = 110;
-    constexpr int16_t DIRE_WOLF_ALPHA = 111;
-
-    // --- Tier 2 ---
-    constexpr int16_t LEAPFROGGER     = 201;
-    constexpr int16_t MOLTEN_ROCK     = 202;
-    constexpr int16_t MURLOC_WARLEADER = 203;
-    constexpr int16_t SOUTHSEA_CAPTAIN = 204;
-    constexpr int16_t ANNOY_O_MODULE  = 205;
-    constexpr int16_t SPAWN_OF_NZOTH  = 206;
-    constexpr int16_t KABOOM_BOT      = 207;
-
-    // --- Tier 3 ---
-    constexpr int16_t DEFLECT_O_BOT   = 301;
-
-    // --- Tokens (900+ range) ---
-    constexpr int16_t TABBYCAT        = 901;
-    constexpr int16_t PIRATE_TOKEN    = 902;
-    constexpr int16_t IMP_TOKEN       = 903;
-    constexpr int16_t CRAB_TOKEN      = 904;
-}
-
-// ============================================================
-// Spell IDs
-// Python: SpellIDs.TAVERN_COIN = "S001" -> C++: 1001
-// ============================================================
+// Spell IDs (not generated yet — small static set)
 namespace SpellID {
     constexpr int16_t TAVERN_COIN    = 1001;
     constexpr int16_t BANANA         = 1002;
@@ -136,41 +100,6 @@ namespace SpellID {
     constexpr int16_t APPLE          = 1006;
     constexpr int16_t SURF_SPELLCRAFT = 1007;
     constexpr int16_t TRIPLET_REWARD = 1999;
-}
-
-// ============================================================
-// EffectIDs — categorized by type via ID range:
-//   5000+ = attached/spell effects
-//   6000+ = deathrattles (6XNN where X = tier, NN = card)
-//   7000+ = battlecries / on-play triggers
-//   8000+ = combat-phase triggers
-// По ID сразу видно тип эффекта.
-namespace EffectID {
-    constexpr int16_t NONE                    = 0;
-
-    // --- Attached / Spell effects (5000+) ---
-    constexpr int16_t CRAB_DEATHRATTLE        = 5001;
-
-    // --- Deathrattles (6000+) ---
-    constexpr int16_t SCALLYWAG_DR            = 6103;
-    constexpr int16_t IMPRISONER_DR           = 6108;
-    constexpr int16_t LEAPFROGGER_DR          = 6201;
-    constexpr int16_t LEAPFROGGER_DR_GOLDEN   = 6202;
-    constexpr int16_t LEAPFROGGER_JUMP        = 6203;
-    constexpr int16_t LEAPFROGGER_JUMP_GOLDEN = 6204;
-    constexpr int16_t SPAWN_OF_NZOTH_DR       = 6206;
-    constexpr int16_t KABOOM_BOT_DR           = 6207;
-
-    // --- Battlecries / On-play (7000+) ---
-    constexpr int16_t SHELL_COLLECTOR_BC      = 7107;
-    constexpr int16_t ALLEYCAT_BC             = 7102;
-    constexpr int16_t ALLEYCAT_BC_GOLDEN      = 7103;
-    constexpr int16_t WRATH_WEAVER_TRIGGER    = 7101;
-    constexpr int16_t SWAMPSTRIKER_TRIGGER    = 7104;
-    constexpr int16_t MINTED_CORSAIR_SELL     = 7109;
-
-    // --- Combat triggers (8000+) ---
-    constexpr int16_t DEFLECT_O_BOT_TRIGGER   = 8301;
 }
 
 // ============================================================

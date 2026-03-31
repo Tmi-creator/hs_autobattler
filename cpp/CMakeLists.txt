@@ -6,15 +6,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Find pybind11 (installed via pip)
+execute_process(
+    COMMAND python -m pybind11 --cmakedir
+    OUTPUT_VARIABLE pybind11_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 find_package(pybind11 REQUIRED)
 
 # Include headers
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-# Source files (add more as they are created)
+# Source files
+# effects.cpp is auto-generated: python scripts/generate_cpp_effects.py
 set(ENGINE_SOURCES
     src/event_system.cpp
-    src/effects.cpp
+    src/generated_effects.cpp
     src/auras.cpp
     src/combat.cpp
 )

@@ -6,16 +6,16 @@
 
 Архитектура трансформера успешно переписана из текстового генератора в агента, принимающего состояния марковского процесса (Dec-POMDP) и выдающего вероятности действий.
 
-### 1. Dense Observation Encoder (Смена парадигмы с EAV)
-В отличие от MARL-GPT, где каждый атрибут является отдельным токеном (что полезно для зоопарка разных сред, но избыточно здесь), мы реализовали **Плотную репрезентацию объектов (Dense Entity Representation)**:
-* Каждая сущность (карта в Таверне, юнит на столе) подается как единый плотный вектор признаков `val` размерностью `d_features` (например, все 35 полей).
-* Это решает **Binding Problem** на аппаратном уровне: нейросети больше не нужно тратить первые слои на то, чтобы связать ХП и Атаку одного существа, так как они сшиты изначально.
-* Вычислительная сложность падает: вместо $N \approx 1000$ (разбитых токенов фичей), у нас $N \approx 30$ (карт на доске в сумме).
+### 1. DecomposedEncoder (Dense Entity Representation)
+Каждая сущность подается как единый плотный вектор, разделённый на 4 семантические группы:
+1. **Card ID** → `nn.Embedding(202, 64)` — обучаемый per-card вектор. Каждая из 200 карт получает уникальное представление в латентном пространстве. Похожие карты (мурлоки, мехи) кластеризуются через backprop.
+2. **Continuous (4)**: cost, tier, ATK, HP → symlog → Linear → d_model
+3. **Binary (20)**: is_present, is_spell, keywords, effect flags → Linear → d_model
+4. **Types (11)**: one-hot расовых типов → Linear → d_model
 
-**В состав токена прибавляются позиционные эмбеддинги:**
-  1. **`emb_team`**: Идентификатор зоны (доска игрока, раздача таверны, рука, доска врага).
-  2. **`emb_time`**: Временной шаг (история состояний для учета частичной наблюдаемости).
-*(`emb_pos` удален, так как на этапе таверны стол является неупорядоченным множеством (Set). Позиционирование будет решаться как отдельный Action/Heuristic в конце хода)*.
+Результаты суммируются аддитивно + **Zone Embedding** (`emb_team`).
+
+*(`emb_pos` удален — стол = неупорядоченное множество. Позиционирование через отдельный авторасстановщик).*
 
 ### 2. Core (TransformerBlock)
 Ядро трансформера — стандартный Pre-LN блок Self-Attention, дополненный стабилизирующими механизмами:
@@ -37,13 +37,20 @@
 
 ### 4. Пулинг
 * **`PMA` (Pooling by Multihead Attention)**: обучаемый Seed-вектор $S$ выступает как Query, токены стола — как Key/Value. Динамически извлекает информацию, критичную для оценки состояния, вместо тупого `mean()` который уничтожает найденные синергии между картами. Опционально: `use_pma=False` для fallback на masked mean pooling.
-* Actor/Critic головы **управляются SB3** (`MaskableActorCriticPolicy`), standalone ActorHead/DiscreteCriticHead удалены как мёртвый код.
+* Actor/Critic головы **управляются SB3** (`CategoricalValuePolicy`), используют `CategoricalMaskablePPO`.
 
-### 5. SB3 Интеграция (`TransformerFeaturesExtractor`)
-Реализована **модульная** интеграция с `MaskablePPO` через `BaseFeaturesExtractor`. Без изменений `hs_env.py` / `train.py`:
-* Парсит `Box(1009,)` → `val[B,27,37]` + `team_id` + `context`
+### 5. Categorical Critic (Symlog Two-Hot)
+Вместо MSE на скаляр V(s), критик выдаёт распределение вероятностей на 255 bins в symlog-пространстве [-20, +20]. Two-hot encoding, cross-entropy loss. Из DreamerV3.
+* Bounded gradients (не взрывается от outliers)
+* Мультимодальность (может выучить "или +100, или -100")
+* `scripts/categorical_critic.py`: `CategoricalValuePolicy` + `CategoricalMaskablePPO`
+
+### 6. SB3 Интеграция (`TransformerFeaturesExtractor`)
+Реализована **модульная** интеграция с `CategoricalMaskablePPO` через `BaseFeaturesExtractor`:
+* Парсит `Box(1036,)` → `val[B,27,38]` + `team_id` + `context`
 * Прогоняет через `Encoder → FiLM → GatedTransformer → PMA → [B, d_model]`
-* SB3 подключает Actor/Critic MLP поверх
+* Card embeddings извлекаются из val[..., 2] как raw int → nn.Embedding lookup
+* Categorical Critic + Actor MLP поверх
 * Отдельный скрипт: `scripts/train_transformer.py`
 
 ### 6. Утилиты
@@ -56,7 +63,12 @@
 - [x] **Интеграция со средой** → `TransformerFeaturesExtractor` парсит плоский `Box(1009,)` без изменения среды.
 - [x] **Цикл обучения** → `train_transformer.py` с `MaskablePPO` + `TransformerFeaturesExtractor`.
 - [x] **Архитектурная стабильность** → GatedResidual (GTrXL) + PMA + padding mask в attention.
-- [x] **Cleanup** → Удалены `MARLGPT`, `ActorHead`, `DiscreteCriticHead` (мёртвый код). Symlog включен по умолчанию. PMA нормализация исправлена.
+- [x] **Cleanup** → Удалены `MARLGPT`, `ActorHead`, `DiscreteCriticHead` (мёртвый код). Symlog включен по умолчанию.
+- [x] **Card Embeddings** → `nn.Embedding(202, 64)` вместо normalized float card_id.
+- [x] **Categorical Critic** → Symlog Two-Hot 255 bins, cross-entropy loss.
+- [x] **MC Oracle** → C++ engine как dense PBRS reward (20 combats per action).
+- [x] **Entropy Decay** → ent_coef 0.04 → 0.01 linear decay.
 - [ ] **Сбор экспертных данных**: пайплайн Behavior Cloning / учитель-бот.
-- [ ] **Сложные механики внимания**: MVP Detection, Spatial Encoding из `ideas.md`.
+- [ ] **Battle Predictor**: neural combat outcome predictor (может заменить MC Oracle).
+- [ ] **Curriculum Learning**: tier-based progressive complexity.
 

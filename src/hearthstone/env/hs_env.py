@@ -48,15 +48,17 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     26: 0<->1, 27: 1<->2 ... 31: 5<->6
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_tier: int = 6) -> None:
         super(HearthstoneEnv, self).__init__()
+
+        self._max_tier = max_tier
 
         all_ids = sorted(list(CARD_DB.keys()) + list(SPELL_DB.keys()))
 
         self.static_id_map = {cid: i + 1 for i, cid in enumerate(all_ids)}
         self.num_card_ids = len(all_ids) + 1  # +1 for padding id 0
 
-        self.game = Game()
+        self.game = Game(max_tier=max_tier)
         self.my_player_id = 0
         self.enemy_id = 1
         self.max_steps_per_episode = 500
@@ -191,7 +193,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             self.ghost_pool.finish_game(self._env_id)
             self.ghost_pool.finish_game(self._env_id + 1_000_000)  # bot
 
-        self.game = Game()
+        self.game = Game(max_tier=self._max_tier)
 
         self.steps_taken = 0
         self.actions_in_turn = 0
@@ -330,17 +332,10 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         if not success:
             return self._get_obs(), 0.0, self.game.game_over, truncated, {}
 
-        # === REWARD: MC Oracle PBRS + Round Outcome + Terminal ===
-        # Dense reward from C++ combat oracle on board-changing actions.
-        # Round outcome (+1/-1) at END_TURN. Terminal ±100.
+        # === REWARD: Round Outcome + Action Penalty + Terminal ===
+        reward: float = -0.005  # action penalty
 
-        reward: float = -0.005  # action penalty: discourages infinite loops
-
-        if action_type in ("BUY", "SELL", "PLAY"):
-            # MC Oracle: run N combats to measure board strength change
-            reward += self._oracle_reward(player)
-
-        elif action_type == "END_TURN":
+        if action_type == "END_TURN":
             reward = 0.0  # END_TURN itself is free
             self.actions_in_turn = 0
 
@@ -873,8 +868,12 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             masks[26 + i] = False  # positioning handled by auto_position / positioning module
             # masks[26 + i] = (i + 1 < len(player.board))
 
-        # UPGRADE (32)
-        masks[32] = (player.gold >= player.up_cost and player.tavern_tier < 6)
+        # UPGRADE (32) — disabled if tavern already at max_tier
+        masks[32] = (
+            player.gold >= player.up_cost
+            and player.tavern_tier < 6
+            and player.tavern_tier < self._max_tier
+        )
 
         # FREEZE_AND_END_TURN (33) — same availability as END_TURN
         masks[33] = True

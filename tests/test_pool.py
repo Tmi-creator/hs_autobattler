@@ -21,7 +21,8 @@ class TestCardPoolInit:
     def test_pool_has_all_tiers(self) -> None:
         pool = CardPool()
         for tier in TIER_COPIES:
-            assert tier in pool.tiers
+            if tier <= 6:  # default max_tier=6
+                assert tier in pool.tiers
 
     def test_pool_excludes_tokens(self) -> None:
         pool = CardPool()
@@ -36,13 +37,18 @@ class TestCardPoolInit:
             if data.get("is_token", False):
                 continue
             tier = data["tier"]
+            if tier > pool.max_tier:
+                continue
             expected = TIER_COPIES[tier]
             actual = pool.tiers[tier].count(card_id)
             assert actual == expected, f"{card_id}: {actual} copies, expected {expected}"
 
     def test_total_pool_size_matches_config(self) -> None:
         pool = CardPool()
-        non_tokens = [cid for cid, d in CARD_DB.items() if not d.get("is_token", False)]
+        non_tokens = [
+            cid for cid, d in CARD_DB.items()
+            if not d.get("is_token", False) and d["tier"] <= pool.max_tier
+        ]
         expected_total = sum(TIER_COPIES[CARD_DB[cid]["tier"]] for cid in non_tokens)
         actual_total = sum(len(t) for t in pool.tiers.values())
         assert actual_total == expected_total

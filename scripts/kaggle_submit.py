@@ -268,9 +268,11 @@ if _loaded > 0:
 else:
     print("[GHOST] No previous ghost pool found, starting fresh")
 
+CURRICULUM_MAX_TIER = 2  # Start with Tier 1-2 only
+
 def make_env(rank, seed=42):
     def _init():
-        env = HearthstoneEnv()
+        env = HearthstoneEnv(max_tier=CURRICULUM_MAX_TIER)
         env.set_ghost_pool(GHOST_POOL)
         env.reset(seed=seed + rank)
         return ActionMasker(env, mask_fn)
@@ -365,7 +367,7 @@ def train_transformer():
 
     run = wandb.init(
         project="hs_autobattler_comparison",
-        name="transformer_categorical",
+        name=f"transformer_tier{{CURRICULUM_MAX_TIER}}",
         config={{
             "model": "Transformer+CategoricalCritic",
             "timesteps": TOTAL_TIMESTEPS,

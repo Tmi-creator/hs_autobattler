@@ -13,8 +13,9 @@ from .tavern import TavernManager
 
 
 class Game:
-    def __init__(self) -> None:
-        self.pool = CardPool()
+    def __init__(self, max_tier: int = 6) -> None:
+        self.max_tier = max_tier
+        self.pool = CardPool(max_tier=max_tier)
         self.spell_pool = SpellPool()
         self.event_manager = EventManager(TRIGGER_REGISTRY, GOLDEN_TRIGGER_REGISTRY)
         self.tavern = TavernManager(self.pool, self.spell_pool, event_manager=self.event_manager)

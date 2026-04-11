@@ -12,21 +12,25 @@ USUALLY IT'S BECAUSE WE HAVE A LOT OF CARDS AND COPIES OF THEM
 
 
 class CardPool:
-    def __init__(self) -> None:
+    def __init__(self, max_tier: int = 6) -> None:
         # Структура: {1: ['101', '101'...], 2: ['201', ...]}
+        self.max_tier = max_tier
         self.tiers: Dict[int, List[str]] = {}
         self._initialize_pool()
 
     def _initialize_pool(self) -> None:
         """Заполняет пул картами согласно конфигу TIER_COPIES"""
         for t in TIER_COPIES.keys():
-            self.tiers[t] = []
+            if t <= self.max_tier:
+                self.tiers[t] = []
 
         for card_id, data in CARD_DB.items():
             if data.get("is_token", False):
                 continue
 
             tier = data["tier"]
+            if tier > self.max_tier:
+                continue
             count = TIER_COPIES.get(tier, 0)
 
             self.tiers[tier].extend([card_id] * count)

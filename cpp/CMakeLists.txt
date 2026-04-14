@@ -35,5 +35,5 @@ pybind11_add_module(hs_engine_cpp
 if(MSVC)
     target_compile_options(hs_engine_cpp PRIVATE /O2 /W4)
 else()
-    target_compile_options(hs_engine_cpp PRIVATE -O2 -Wall -Wextra)
+    target_compile_options(hs_engine_cpp PRIVATE -O2 -g -Wall -Wextra -mbmi2 -mpopcnt)
 endif()

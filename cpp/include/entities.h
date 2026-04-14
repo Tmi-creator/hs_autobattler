@@ -114,6 +114,8 @@ struct alignas(8) Unit {
 // boards[0] и boards[1] в CombatState — две стороны боя.
 // ============================================================
 struct CombatBoard {
+    uint8_t taunt_mask = 0;
+    uint8_t damage = 0;
     uint8_t count = 0;
     std::array<Unit, GameConst::MAX_BOARD> units{};
     int8_t  tavern_tier = 1;
@@ -122,6 +124,7 @@ struct CombatBoard {
     // Remove unit at index, shift remaining left
     void remove_at(int idx) {
         assert(idx >= 0 && idx < count && "remove_at: index out of bounds");
+        damage -= units[idx].tier;
         for (int i = idx; i < count - 1; ++i) {
             units[i] = units[i + 1];
         }
@@ -137,6 +140,7 @@ struct CombatBoard {
             units[i] = units[i - 1];
         }
         units[idx] = unit;
+        damage += unit.tier;
         count++;
     }
 };

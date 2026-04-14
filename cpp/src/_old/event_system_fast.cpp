@@ -85,6 +85,26 @@ const EffectTableEntry *find_effect_entry(int16_t id) {
 }
 
 // ============================================================
+// find_unit_pos — find a unit by UID in CombatState
+// Returns false if not found (unit dead or not on board)
+// ============================================================
+bool find_unit_pos(const CombatState &state, int32_t uid, int8_t &out_side, int8_t &out_slot) {
+    for (int s = 0; s < 2; ++s) {
+        const auto &board = state.boards[s];
+        for (int i = 0; i < board.count; ++i) {
+            if (board.units[i].uid == uid) {
+                out_side = static_cast<int8_t>(s);
+                out_slot = static_cast<int8_t>(i);
+                return true;
+            }
+        }
+    }
+    out_side = -1;
+    out_slot = -1;
+    return false;
+}
+
+// ============================================================
 // collect_unit_triggers — collect triggers for a SINGLE unit
 // Handles card_id lookup, golden logic, attached effects.
 // Shared by collect_triggers (board scan) and combat's collect_death_triggers.
@@ -266,14 +286,6 @@ void sort_triggers(
         } else {
             side_priority = side != active_side;
         }
-        /*
-        sort by:
-        is source trigger?
-        -priority
-        side_priority
-        slot
-        uid(tiebreaker)
-         */
         keys[i] = is_source_trigger ? 0 : 1;
         keys[i] <<= 8;
         keys[i] += (1 << 8) - 1 - t.def->priority;
@@ -343,11 +355,11 @@ void process_event(
             if (!trig.def || !trig.def->condition || !trig.def->effect) continue;
 
             // Check condition
-            if (!trig.def->condition(state, current, trig.trigger_uid, trig.side, trig.slot)) continue;
+            if (!trig.def->condition(state, current, trig.trigger_uid)) continue;
 
             // Fire effect × stacks
             for (int s = 0; s < trig.stacks; ++s) {
-                trig.def->effect(state, queue, current, trig.trigger_uid, trig.side, trig.slot);
+                trig.def->effect(state, queue, current, trig.trigger_uid);
             }
         }
 

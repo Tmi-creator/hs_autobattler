@@ -235,3 +235,4 @@ scripts/_kaggle_build/
 .agent_context/
 .claude/
 .vscode/
+.playwright-mcp/

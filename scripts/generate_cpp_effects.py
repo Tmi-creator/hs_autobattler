@@ -165,16 +165,25 @@ def generate_effects_cpp() -> str:
         "",
         '#include "event_system.h"',
         "",
-        "// ── Helpers (from original effects.cpp) ──",
+        "// ── Helpers ──",
         "",
-        "static Unit* resolve_unit(CombatState& state, int32_t uid) {",
-        "    for (int s = 0; s < 2; ++s) {",
-        "        auto& board = state.boards[s];",
-        "        for (int i = 0; i < board.count; ++i) {",
-        "            if (board.units[i].uid == uid) return &board.units[i];",
-        "        }",
-        "    }",
-        "    return nullptr;",
+        "// Прямой O(1) lookup владельца триггера: side/slot пробрасываются из process_event.",
+        "// Сверка uid защищает от случая, когда слот переиспользован (death+reborn в той же позиции).",
+        "static Unit* trigger_owner(CombatState& state, int8_t side, int8_t slot, int32_t uid) {",
+        "    if (side < 0 || slot < 0) return nullptr;",
+        "    auto& board = state.boards[side];",
+        "    if (slot >= board.count) return nullptr;",
+        "    Unit& u = board.units[slot];",
+        "    return u.uid == uid ? &u : nullptr;",
+        "}",
+        "",
+        "// Прямой lookup юнита-источника события через event.source_side/slot.",
+        "static Unit* event_source_unit(CombatState& state, const Event& event) {",
+        "    if (event.source_side < 0 || event.source_slot < 0) return nullptr;",
+        "    auto& board = state.boards[event.source_side];",
+        "    if (event.source_slot >= board.count) return nullptr;",
+        "    Unit& u = board.units[event.source_slot];",
+        "    return u.uid == event.source_uid ? &u : nullptr;",
         "}",
         "",
         "static int32_t summon_unit(",
@@ -206,16 +215,6 @@ def generate_effects_cpp() -> str:
         "    return unit.uid;",
         "}",
         "",
-        "static void buff_perm(CombatState& state, int32_t uid, int16_t atk, int16_t hp) {",
-        "    Unit* u = resolve_unit(state, uid);",
-        "    if (u) { u->perm_atk += atk; u->perm_hp += hp; }",
-        "}",
-        "",
-        "static void buff_combat(CombatState& state, int32_t uid, int16_t atk, int16_t hp) {",
-        "    Unit* u = resolve_unit(state, uid);",
-        "    if (u) { u->combat_atk += atk; u->combat_hp += hp; }",
-        "}",
-        "",
         "static bool get_source_pos(const Event& event, int8_t& side, int8_t& slot) {",
         "    if (event.source_side >= 0) { side = event.source_side; slot = event.source_slot; return true; }",
         "    if (event.snapshot.valid) { side = event.snapshot.side; slot = event.snapshot.slot; return true; }",
@@ -224,31 +223,28 @@ def generate_effects_cpp() -> str:
         "",
         "// ── Conditions ──",
         "",
-        "static bool cond_is_self(const CombatState&, const Event& e, int32_t uid) {",
+        "static bool cond_is_self(const CombatState&, const Event& e, int32_t uid, int8_t, int8_t) {",
         "    return e.source_uid == uid;",
         "}",
         "",
-        "static bool cond_self_death(const CombatState&, const Event& e, int32_t uid) {",
+        "static bool cond_self_death(const CombatState&, const Event& e, int32_t uid, int8_t, int8_t) {",
         "    return e.source_uid == uid;",
         "}",
         "",
-        "static bool cond_always(const CombatState&, const Event&, int32_t) {",
+        "static bool cond_always(const CombatState&, const Event&, int32_t, int8_t, int8_t) {",
         "    return true;",
         "}",
         "",
-        "static bool cond_friendly_death(const CombatState& state, const Event& event, int32_t trigger_uid) {",
-        "    int8_t dead_side = event.source_side >= 0 ? event.source_side : (event.snapshot.valid ? event.snapshot.side : -1);",
-        "    if (dead_side < 0) return false;",
-        "    int8_t owner_side = -1, owner_slot = -1;",
-        "    find_unit_pos(state, trigger_uid, owner_side, owner_slot);",
-        "    if (owner_side < 0) return false;",
+        "static bool cond_friendly_death(const CombatState&, const Event& event, int32_t trigger_uid, int8_t owner_side, int8_t) {",
+        "    int8_t dead_side = event.source_side >= 0",
+        "        ? event.source_side",
+        "        : (event.snapshot.valid ? event.snapshot.side : -1);",
+        "    if (dead_side < 0 || owner_side < 0) return false;",
         "    return (dead_side == owner_side) && (event.source_uid != trigger_uid);",
         "}",
         "",
-        "static bool cond_friendly_soc(const CombatState& state, const Event&, int32_t trigger_uid) {",
-        "    int8_t side = -1, slot = -1;",
-        "    find_unit_pos(state, trigger_uid, side, slot);",
-        "    return side >= 0;",
+        "static bool cond_friendly_soc(const CombatState&, const Event&, int32_t, int8_t owner_side, int8_t) {",
+        "    return owner_side >= 0;",
         "}",
         "",
         "// ── Generated effect functions ──",
@@ -271,13 +267,13 @@ def generate_effects_cpp() -> str:
 
                 fn_name = f"effect_dr_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue& queue, const Event& event, int32_t) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue& queue, const Event& event, int32_t, int8_t, int8_t) {{"
                 )
-                lines.append(f"    int8_t side = -1, slot = -1;")
-                lines.append(f"    if (!get_source_pos(event, side, slot)) return;")
+                lines.append(f"    int8_t s = -1, sl = -1;")
+                lines.append(f"    if (!get_source_pos(event, s, sl)) return;")
                 for _ in range(eff.count):
                     lines.append(
-                        f"    summon_unit(state, queue, side, slot, {token_cpp}, {token.atk}, {token.hp}, {token_types}, {token_tags}, {token.tier}, false);"
+                        f"    summon_unit(state, queue, s, sl, {token_cpp}, {token.atk}, {token.hp}, {token_types}, {token_tags}, {token.tier}, false);"
                     )
                 lines.append(f"}}")
                 lines.append("")
@@ -297,13 +293,13 @@ def generate_effects_cpp() -> str:
 
                 fn_name = f"effect_dr_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue& queue, const Event& event, int32_t) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue& queue, const Event& event, int32_t, int8_t, int8_t) {{"
                 )
-                lines.append(f"    int8_t side = -1, slot = -1;")
-                lines.append(f"    if (!get_source_pos(event, side, slot)) return;")
+                lines.append(f"    int8_t s = -1, sl = -1;")
+                lines.append(f"    if (!get_source_pos(event, s, sl)) return;")
                 for _ in range(eff.count):
                     lines.append(
-                        f"    summon_unit(state, queue, side, slot, {token_cpp}, {token.atk}, {token.hp}, {token_types}, {combined}, {token.tier}, false);"
+                        f"    summon_unit(state, queue, s, sl, {token_cpp}, {token.atk}, {token.hp}, {token_types}, {combined}, {token.tier}, false);"
                     )
                 lines.append(f"}}")
                 lines.append("")
@@ -316,11 +312,14 @@ def generate_effects_cpp() -> str:
             elif isinstance(eff, OnFriendlyDeathBuff):
                 fn_name = f"effect_on_death_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
                 )
-                lines.append(f"    Unit* u = resolve_unit(state, trigger_uid);")
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
                 lines.append(f"    if (!u || !u->is_alive()) return;")
-                lines.append(f"    buff_combat(state, trigger_uid, {eff.atk}, {eff.hp});")
+                if eff.atk:
+                    lines.append(f"    u->combat_atk += {eff.atk};")
+                if eff.hp:
+                    lines.append(f"    u->combat_hp += {eff.hp};")
                 lines.append(f"}}")
                 lines.append("")
 
@@ -332,15 +331,13 @@ def generate_effects_cpp() -> str:
             elif isinstance(eff, StartOfCombatBuffSelfByTier):
                 fn_name = f"effect_soc_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
                 )
-                lines.append(f"    Unit* u = resolve_unit(state, trigger_uid);")
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
                 lines.append(f"    if (!u || !u->is_alive()) return;")
-                lines.append(f"    int8_t side = -1, slot = -1;")
-                lines.append(f"    find_unit_pos(state, trigger_uid, side, slot);")
-                lines.append(f"    if (side < 0) return;")
                 lines.append(f"    int16_t tier = state.boards[side].tavern_tier;")
-                lines.append(f"    buff_combat(state, trigger_uid, tier, tier);")
+                lines.append(f"    u->combat_atk += tier;")
+                lines.append(f"    u->combat_hp += tier;")
                 lines.append(f"}}")
                 lines.append("")
 
@@ -353,12 +350,17 @@ def generate_effects_cpp() -> str:
                 type_mask = TYPE_MAP[eff.trigger_type]
                 fn_name = f"effect_on_play_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event& event, int32_t trigger_uid) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event& event, int32_t trigger_uid, int8_t side, int8_t slot) {{"
                 )
-                lines.append(f"    Unit* played = resolve_unit(state, event.source_uid);")
-                lines.append(f"    if (!played || !(played->types & {type_mask})) return;")
                 lines.append(f"    if (event.source_uid == trigger_uid) return;")
-                lines.append(f"    buff_perm(state, trigger_uid, {eff.atk}, {eff.hp});")
+                lines.append(f"    Unit* played = event_source_unit(state, event);")
+                lines.append(f"    if (!played || !(played->types & {type_mask})) return;")
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                lines.append(f"    if (!u) return;")
+                if eff.atk:
+                    lines.append(f"    u->perm_atk += {eff.atk};")
+                if eff.hp:
+                    lines.append(f"    u->perm_hp += {eff.hp};")
                 lines.append(f"}}")
                 lines.append("")
 
@@ -371,12 +373,17 @@ def generate_effects_cpp() -> str:
                 type_mask = TYPE_MAP[eff.trigger_type]
                 fn_name = f"effect_on_play_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event& event, int32_t trigger_uid) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event& event, int32_t trigger_uid, int8_t side, int8_t slot) {{"
                 )
-                lines.append(f"    Unit* played = resolve_unit(state, event.source_uid);")
-                lines.append(f"    if (!played || !(played->types & {type_mask})) return;")
                 lines.append(f"    if (event.source_uid == trigger_uid) return;")
-                lines.append(f"    buff_perm(state, trigger_uid, {eff.atk}, {eff.hp});")
+                lines.append(f"    Unit* played = event_source_unit(state, event);")
+                lines.append(f"    if (!played || !(played->types & {type_mask})) return;")
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                lines.append(f"    if (!u) return;")
+                if eff.atk:
+                    lines.append(f"    u->perm_atk += {eff.atk};")
+                if eff.hp:
+                    lines.append(f"    u->perm_hp += {eff.hp};")
                 lines.append(f"    // Hero damage ({eff.hero_dmg}) is tavern-only, no-op in combat")
                 lines.append(f"}}")
                 lines.append("")
@@ -392,11 +399,14 @@ def generate_effects_cpp() -> str:
                 buff_hp = eff.hp if not eff.use_blood_gem else 1
                 fn_name = f"effect_rally_{cpp_name_safe}"
                 lines.append(
-                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid) {{"
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
                 )
-                lines.append(f"    Unit* u = resolve_unit(state, trigger_uid);")
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
                 lines.append(f"    if (!u || !u->is_alive()) return;")
-                lines.append(f"    buff_combat(state, trigger_uid, {buff_atk}, {buff_hp});")
+                if buff_atk:
+                    lines.append(f"    u->combat_atk += {buff_atk};")
+                if buff_hp:
+                    lines.append(f"    u->combat_hp += {buff_hp};")
                 lines.append(f"}}")
                 lines.append("")
 
@@ -411,12 +421,12 @@ def generate_effects_cpp() -> str:
     crab = next(c for c in ALL_CARDS if c.card_id == CardIDs.CRAB_TOKEN)
     crab_cpp = card_id_to_cpp_int(CardIDs.CRAB_TOKEN)
     lines.append(
-        f"static void effect_dr_crab_attached(CombatState& state, EventQueue& queue, const Event& event, int32_t) {{"
+        f"static void effect_dr_crab_attached(CombatState& state, EventQueue& queue, const Event& event, int32_t, int8_t, int8_t) {{"
     )
-    lines.append(f"    int8_t side = -1, slot = -1;")
-    lines.append(f"    if (!get_source_pos(event, side, slot)) return;")
+    lines.append(f"    int8_t s = -1, sl = -1;")
+    lines.append(f"    if (!get_source_pos(event, s, sl)) return;")
     lines.append(
-        f"    summon_unit(state, queue, side, slot, {crab_cpp}, {crab.atk}, {crab.hp}, {types_to_cpp(crab.types)}, {tags_to_cpp(crab.tags)}, {crab.tier}, false);"
+        f"    summon_unit(state, queue, s, sl, {crab_cpp}, {crab.atk}, {crab.hp}, {types_to_cpp(crab.types)}, {tags_to_cpp(crab.tags)}, {crab.tier}, false);"
     )
     lines.append(f"}}")
     lines.append("")

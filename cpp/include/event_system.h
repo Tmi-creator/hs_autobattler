@@ -66,13 +66,13 @@ struct EventQueue {
 // Args: CombatState&, EventQueue&, Event&, trigger_uid
 // No heap, no closures, no virtuals — just a function pointer
 // ============================================================
-using EffectFn = void(*)(CombatState&, EventQueue&, const Event&, int32_t trigger_uid);
+using EffectFn = void(*)(CombatState&, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot);
 
 // ============================================================
 // Condition function pointer type
 // Returns true if the trigger should fire
 // ============================================================
-using ConditionFn = bool(*)(const CombatState&, const Event&, int32_t trigger_uid);
+using ConditionFn = bool(*)(const CombatState&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot);
 
 // ============================================================
 // TriggerDef — static definition of a card's trigger
@@ -153,9 +153,6 @@ void register_effect_entry(
 void register_system_trigger(const TriggerDef& def);
 
 const EffectTableEntry* find_effect_entry(int16_t id);
-
-// Helper: find a unit by UID, returns side+slot
-bool find_unit_pos(const CombatState& state, int32_t uid, int8_t& out_side, int8_t& out_slot);
 
 // Helper: collect triggers for a SINGLE unit matching an EventType
 // Used by both collect_triggers (live board scan) and collect_death_triggers (pre-removal)

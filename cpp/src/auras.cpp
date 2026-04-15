@@ -30,6 +30,16 @@ static const AuraDef g_aura_table[] = {
 };
 static constexpr int g_num_auras = 0; // actual count (placeholder doesn't count)
 
+// Используется в CombatBoard::insert_at для поддержания aura_source_mask —
+// набора слотов, в которых сидит юнит-источник ауры. Линейный скан короткой
+// таблицы (≤ 10 карт ожидается), вызывается только при вставке юнита.
+bool is_aura_source(int16_t card_id) {
+    for (int a = 0; a < g_num_auras; ++a) {
+        if (g_aura_table[a].card_id == card_id) return true;
+    }
+    return false;
+}
+
 // ============================================================
 // Generic aura applicator
 // ============================================================
@@ -65,13 +75,21 @@ static void apply_aura(const AuraDef& def, const Unit& source, CombatBoard& boar
 // recalculate_board_auras — wipe & reapply for one board
 // ============================================================
 void recalculate_board_auras(CombatBoard& board) {
+    // Fast path: нет ни одного аура-источника на борде — ни сбрасывать,
+    // ни применять нечего. aura_source_mask поддерживается в insert_at/remove_at
+    // и в recalculate_subscribers (для pybind parse_board path).
+    if (board.aura_source_mask == 0) return;
+
     // 1. Reset all aura buffs
     for (int i = 0; i < board.count; ++i) {
         board.units[i].reset_aura_buffs();
     }
 
-    // 2. Apply auras — scan board, match card_id against table
-    for (int i = 0; i < board.count; ++i) {
+    // 2. Apply auras — итерируем только по слотам с источниками через ctz.
+    uint8_t mask = board.aura_source_mask;
+    while (mask) {
+        const int i = __builtin_ctz(mask);
+        mask &= static_cast<uint8_t>(mask - 1);
         for (int a = 0; a < g_num_auras; ++a) {
             if (g_aura_table[a].card_id == board.units[i].card_id) {
                 apply_aura(g_aura_table[a], board.units[i], board, i);

@@ -23,6 +23,7 @@ set(ENGINE_SOURCES
     src/generated_effects.cpp
     src/auras.cpp
     src/combat.cpp
+    src/profiler.cpp
 )
 
 # pybind11 module

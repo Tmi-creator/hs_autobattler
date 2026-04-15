@@ -71,6 +71,14 @@ MATCHUPS = [
 NUM_COMBATS = int(os.environ.get("N", "200000"))
 
 if __name__ == "__main__":
+    # Warmup
+    for b0, b1 in MATCHUPS:
+        cpp_engine.fast_combat_batch(b0, b1, base_seed=0, count=100,
+                                     tavern_tier_0=3, tavern_tier_1=3)
+
+    if hasattr(cpp_engine, "prof_reset"):
+        cpp_engine.prof_reset()
+
     total = 0
     start = time.perf_counter()
     for b0, b1 in MATCHUPS:
@@ -80,3 +88,15 @@ if __name__ == "__main__":
     elapsed = time.perf_counter() - start
     rate = total / elapsed
     print(f"C++: {total} combats in {elapsed:.3f}s = {rate:,.0f} combats/sec")
+
+    if hasattr(cpp_engine, "prof_dump"):
+        rows = cpp_engine.prof_dump()
+        # First row is RESOLVE_COMBAT — use as 100% baseline
+        base_cycles = rows[0][1] or 1
+        print(f"\n{'section':<20} {'%':>7} {'Mcyc':>10} {'calls':>10} {'cyc/call':>10}")
+        print("-" * 62)
+        for name, cycles, calls in rows:
+            pct = 100.0 * cycles / base_cycles
+            mcyc = cycles / 1e6
+            cpc = (cycles / calls) if calls else 0
+            print(f"{name:<20} {pct:>6.1f}% {mcyc:>10.1f} {calls:>10} {cpc:>10.0f}")

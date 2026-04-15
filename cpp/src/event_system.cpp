@@ -2,15 +2,19 @@
 // Mirrors Python: EventManager.process_event(), collect_triggers(), order_triggers()
 
 #include "event_system.h"
+#include "profiler.h"
 #include <algorithm>
 #include <tuple>
 
 // ============================================================
-// Global effect table — registered once at startup, sorted for binary search
+// Global effect table + direct-index lookup.
+// Таблица g_effect_table хранит сами записи, g_effect_index[id] даёт O(1)
+// доступ по card_id / effect_id. Размер плоского массива — GameConst::EFFECT_INDEX_SIZE.
 // ============================================================
 static EffectTableEntry g_effect_table[GameConst::MAX_EFFECT_ENTRIES];
 static int g_num_entries = 0;
-static bool g_table_sorted = false;
+static bool g_table_finalized = false;
+static const EffectTableEntry* g_effect_index[GameConst::EFFECT_INDEX_SIZE] = {};
 
 // ============================================================
 // System triggers — global triggers not bound to any unit
@@ -24,12 +28,17 @@ struct SystemTriggerList {
 
 static SystemTriggerList g_system_triggers[static_cast<int>(EventType::EVENT_TYPE_COUNT)];
 
+// Битовая маска event types, на которые зарегистрирован хотя бы один system trigger.
+// Обновляется только в register_system_trigger (на старте). Читается в has_any_subscribers.
+uint32_t g_system_event_mask = 0;
+
 void register_system_trigger(const TriggerDef &def) {
     int idx = static_cast<int>(def.event_type);
     assert(idx >= 0 && idx < static_cast<int>(EventType::EVENT_TYPE_COUNT));
     auto &list = g_system_triggers[idx];
     assert(list.count < GameConst::MAX_SYSTEM_TRIGGERS && "Too many system triggers for this event type!");
     list.defs[list.count++] = def;
+    g_system_event_mask |= (1u << idx);
 }
 
 void register_effect_entry(
@@ -51,37 +60,106 @@ void register_effect_entry(
     for (int i = 0; i < golden_count; ++i) {
         entry.golden_triggers[i] = golden_defs[i];
     }
-    g_table_sorted = false; // invalidate sort
+    g_table_finalized = false; // invalidate index
 }
 
-// Called after all register_effect_entry() calls.
-// Sorts the table by id for O(log n) binary search.
+// Called after all register_effect_entry() calls. Строит плоский индекс
+// g_effect_index[id] -> EffectTableEntry* для O(1) лукапа.
 void finalize_effect_table() {
-    std::sort(g_effect_table, g_effect_table + g_num_entries,
-              [](const EffectTableEntry &a, const EffectTableEntry &b) {
-                  return a.id < b.id;
-              });
-    g_table_sorted = true;
+    for (int i = 0; i < GameConst::EFFECT_INDEX_SIZE; ++i) g_effect_index[i] = nullptr;
+    for (int i = 0; i < g_num_entries; ++i) {
+        const int16_t id = g_effect_table[i].id;
+        assert(id >= 0 && id < GameConst::EFFECT_INDEX_SIZE &&
+               "Effect id out of index range — увеличь GameConst::EFFECT_INDEX_SIZE");
+        g_effect_index[id] = &g_effect_table[i];
+    }
+    g_table_finalized = true;
 }
 
-// O(log n) binary search on sorted table.
-// Must call finalize_effect_table() after all registrations.
+// O(1) direct-index lookup. Один bounds-check + один load из плоского массива.
 const EffectTableEntry *find_effect_entry(int16_t id) {
-    assert(g_table_sorted && "Call finalize_effect_table() after registering all effects!");
-    // std::lower_bound on sorted array
-    int lo = 0, hi = g_num_entries;
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (g_effect_table[mid].id < id) {
-            lo = mid + 1;
+    assert(g_table_finalized && "Call finalize_effect_table() after registering all effects!");
+    const unsigned u = static_cast<unsigned>(id);
+    if (u >= GameConst::EFFECT_INDEX_SIZE) return nullptr;
+    return g_effect_index[u];
+}
+
+// ============================================================
+// compute_unit_event_mask — считает маску "на какие события подписан юнит".
+// Объявлена в entities.h (forward-decl), реализация здесь потому что
+// нуждается в find_effect_entry из глобальной таблицы эффектов.
+// Вызывается из CombatBoard::insert_at и из recalculate_subscribers.
+// ============================================================
+uint32_t compute_unit_event_mask(const Unit& unit) {
+    uint32_t m = 0;
+
+    // 1. Card-level triggers. Golden с overrideом читает golden_triggers, иначе — обычные.
+    const EffectTableEntry* entry = find_effect_entry(unit.card_id);
+    if (entry) {
+        const TriggerDef* defs;
+        int num;
+        if (unit.is_golden && entry->has_golden_override) {
+            defs = entry->golden_triggers;
+            num  = entry->num_golden_triggers;
         } else {
-            hi = mid;
+            defs = entry->triggers;
+            num  = entry->num_triggers;
+        }
+        for (int i = 0; i < num; ++i) {
+            m |= (1u << static_cast<int>(defs[i].event_type));
         }
     }
-    if (lo < g_num_entries && g_effect_table[lo].id == id) {
-        return &g_effect_table[lo];
+
+    // 2. Attached effects (3 scopes). Правило `count <= 0` — пропуск, как в collect_unit_triggers.
+    auto add_attached = [&](const std::array<AttachedEffect, GameConst::MAX_ATTACHED>& arr, uint8_t num) {
+        for (int a = 0; a < num; ++a) {
+            if (arr[a].count <= 0) continue;
+            const EffectTableEntry* att = find_effect_entry(arr[a].effect_id);
+            if (!att) continue;
+            for (int i = 0; i < att->num_triggers; ++i) {
+                m |= (1u << static_cast<int>(att->triggers[i].event_type));
+            }
+        }
+    };
+    add_attached(unit.attached_perm,   unit.num_perm);
+    add_attached(unit.attached_turn,   unit.num_turn);
+    add_attached(unit.attached_combat, unit.num_combat);
+
+    return m;
+}
+
+// ============================================================
+// recalculate_subscribers — полный ребилд всех slot-масок + damage.
+// Нужен после path'ов, которые пишут в units[] напрямую (parse_board в pybind).
+// В insert_at/remove_at поддержание инкрементальное, этот ребилд не нужен.
+// ============================================================
+void recalculate_subscribers(CombatBoard& board) {
+    for (int e = 0; e < static_cast<int>(EventType::EVENT_TYPE_COUNT); ++e) {
+        board.subscribers[e] = 0;
     }
-    return nullptr;
+    board.taunt_mask = 0;
+    board.aura_source_mask = 0;
+    board.dead_slot_mask = 0;
+    board.damage = 0;
+
+    for (int i = 0; i < board.count; ++i) {
+        const Unit& u = board.units[i];
+        const uint8_t bit = static_cast<uint8_t>(1u << i);
+
+        // subscribers
+        uint32_t um = compute_unit_event_mask(u);
+        while (um) {
+            int e = __builtin_ctz(um);
+            um &= um - 1;
+            board.subscribers[e] |= static_cast<uint16_t>(bit);
+        }
+
+        if (u.has_tag(Tags::TAUNT))    board.taunt_mask       |= bit;
+        if (is_aura_source(u.card_id)) board.aura_source_mask |= bit;
+
+        // damage (sum of tiers — used for battle result)
+        board.damage += static_cast<uint8_t>(u.tier);
+    }
 }
 
 // ============================================================
@@ -167,12 +245,19 @@ int collect_triggers(
     int num_extra,
     TriggerInstance *out_triggers
 ) {
+    ProfScope _ps(ProfSection::COLLECT_TRIGGERS);
     int count = 0;
+    const int evt_idx = static_cast<int>(event.event_type);
 
+    // Вместо слепого скана 7×2=14 слотов итерируем только по подписчикам
+    // через ctz по предрасчитанной битовой маске. Обычная маска содержит 0-2 бит,
+    // а не 7, и для событий без подписчиков (большинство) цикл не выполняется вообще.
     for (int s = 0; s < 2; ++s) {
-        const auto &board = state.boards[s];
-        for (int i = 0; i < board.count; ++i) {
-            if (board.units[i].is_empty()) continue;
+        const auto& board = state.boards[s];
+        uint16_t mask = board.subscribers[evt_idx];
+        while (mask) {
+            const int i = __builtin_ctz(mask);
+            mask &= static_cast<uint16_t>(mask - 1);
             int added = collect_unit_triggers(
                 board.units[i], event.event_type,
                 static_cast<int8_t>(s), static_cast<int8_t>(i),
@@ -189,7 +274,6 @@ int collect_triggers(
     }
 
     // System triggers (global, not bound to any unit)
-    int evt_idx = static_cast<int>(event.event_type);
     if (evt_idx >= 0 && evt_idx < static_cast<int>(EventType::EVENT_TYPE_COUNT)) {
         const auto &sys = g_system_triggers[evt_idx];
         for (int i = 0; i < sys.count; ++i) {
@@ -204,6 +288,25 @@ int collect_triggers(
     }
 
     return count;
+}
+
+// Сортирует массив индексов по соответствующим uint64 ключам возрастанию.
+// Используется в sort_triggers для упорядочивания срабатывания триггеров внутри
+// одного event. Типичный count = 3-5, максимум MAX_TRIGGERS_PER_EVENT (64), поэтому
+// insertion sort здесь быстрее std::sort: у него нет setup-overhead на partition,
+// предсказуемые бранчи, и на совсем маленьких n компилятор разворачивает внутренний
+// while в линейные mov'ы. Алгоритм стабильный — важно для тай-брейков по uid.
+static void insertion_sort_by_key(int16_t* indices, int count, const uint64_t* keys) {
+    for (int i = 1; i < count; ++i) {
+        const int16_t idx = indices[i];
+        const uint64_t key = keys[idx];
+        int j = i;
+        while (j > 0 && keys[indices[j - 1]] > key) {
+            indices[j] = indices[j - 1];
+            --j;
+        }
+        indices[j] = idx;
+    }
 }
 
 // ============================================================
@@ -226,6 +329,7 @@ void sort_triggers(
     const Event &event
 ) {
     if (count <= 1) return;
+    ProfScope _ps(ProfSection::SORT_TRIGGERS);
 
     int8_t active_side = event.source_side;
     if (active_side < 0 && event.snapshot.valid) {
@@ -289,9 +393,7 @@ void sort_triggers(
     int16_t indices[GameConst::MAX_TRIGGERS_PER_EVENT];
     for (int i = 0; i < count; ++i) indices[i] = i;
 
-    std::sort(indices, indices + count, [&](int16_t a, int16_t b) {
-        return keys[a] < keys[b];
-    });
+    insertion_sort_by_key(indices, count, keys);
 
     TriggerInstance sorted[GameConst::MAX_TRIGGERS_PER_EVENT];
     for (int i = 0; i < count; ++i) sorted[i] = triggers[indices[i]];
@@ -315,10 +417,19 @@ thread_local EventQueue queue;
 
 void process_event(
     CombatState &state,
-    Event initial_event,
+    const Event &initial_event,
     const TriggerInstance *extra_triggers,
     int num_extra
 ) {
+    ProfScope _ps(ProfSection::PROCESS_EVENT);
+    // Safety-net early exit: если нет ни extra triggers (death path), ни подписчиков
+    // на этот event type — process_event делать нечего. Callsite в перф-критичных
+    // путях должен был проверить это сам через has_any_subscribers() и не строить
+    // Event вообще, но если не проверил — спасаемся здесь.
+    if (num_extra == 0 && !has_any_subscribers(state, initial_event.event_type)) {
+        return;
+    }
+
     queue.reset();
     queue.push(initial_event);
 

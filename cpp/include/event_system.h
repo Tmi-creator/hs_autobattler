@@ -127,10 +127,25 @@ void sort_triggers(
 
 void process_event(
     CombatState& state,
-    Event initial_event,
+    const Event& initial_event,
     const TriggerInstance* extra_triggers = nullptr,
     int num_extra = 0
 );
+
+// ============================================================
+// Fast-path event guard — проверяет что на данный event_type есть хоть один
+// подписчик (на любой из двух сторон или среди system triggers). Если нет —
+// callsite пропускает всю церемонию с Event{} + process_event.
+// ============================================================
+extern uint32_t g_system_event_mask;
+
+inline bool has_any_subscribers(const CombatState& state, EventType t) {
+    const int idx = static_cast<int>(t);
+    const uint32_t board_mask =
+        static_cast<uint32_t>(state.boards[0].subscribers[idx]) |
+        static_cast<uint32_t>(state.boards[1].subscribers[idx]);
+    return board_mask != 0 || (g_system_event_mask & (1u << idx)) != 0;
+}
 
 // ============================================================
 // Effect registration — called once at startup
@@ -161,6 +176,14 @@ int collect_unit_triggers(
     int8_t side, int8_t slot,
     TriggerInstance* out_triggers, int max_out
 );
+
+// ============================================================
+// Subscribers mask — полный ребилд board.subscribers[] по текущим юнитам.
+// Обязателен после любого пути, который пишет в units[] минуя insert_at
+// (например parse_board в pybind-обёртке). resolve_combat вызывает его
+// в прологе.
+// ============================================================
+void recalculate_subscribers(CombatBoard& board);
 
 // ============================================================
 // Auras — wipe & reapply

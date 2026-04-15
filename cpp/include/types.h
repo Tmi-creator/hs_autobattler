@@ -110,7 +110,7 @@ namespace GameConst {
     constexpr int MAX_HAND     = 10;
     constexpr int MAX_STORE    = 7;
     constexpr int MAX_DISCOVER = 3;
-    constexpr int MAX_ATTACHED = 16;
+    constexpr int MAX_ATTACHED = 16; // can try 4 or 8 to even faster combats, but may crash
     constexpr int MAX_CARDS    = 512;
     constexpr int COST_BUY     = 3;
     constexpr int COST_REROLL  = 1;
@@ -121,4 +121,14 @@ namespace GameConst {
     constexpr int MAX_TRIGGERS_PER_EVENT = 64;  // Max triggers for one event
     constexpr int MAX_TRIGGERS_PER_CARD  = 4;   // Max trigger defs per card/effect
     constexpr int MAX_SYSTEM_TRIGGERS    = 16;  // Max system triggers per event type
+
+    // Размер плоского direct-index массива для find_effect_entry.
+    // Плотнее чем реально используемые id'шники (максимум ~5001), но round-up
+    // степень двойки даёт compiler дешёвый bounds check. Статика: 8192 × 8B = 64KB.
+    constexpr int EFFECT_INDEX_SIZE = 8192;
+
+    // Стартовое значение next_uid в свежем CombatState. Выше 9999 чтобы
+    // не пересекаться с UID'ами, которые Python-сторона использует для своих
+    // объектов до передачи в C++. Инкрементируется parse_board и summon_unit.
+    constexpr int32_t INITIAL_UID = 10000;
 }

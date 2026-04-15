@@ -98,6 +98,47 @@ def tags_to_cpp(tags: set[Tags]) -> str:
 # ── Generate card IDs header ──────────────────────────────────────────
 
 
+def generate_card_db_header() -> str:
+    """Generate cpp/include/generated_card_db.h with base_tags() lookup."""
+    lines = [
+        "#pragma once",
+        "// generated_card_db.h — AUTO-GENERATED from card_def.py",
+        "// DO NOT EDIT MANUALLY — run: python scripts/generate_cpp_effects.py",
+        "//",
+        "// Base card data used by combat code: tags that a card has INHERENTLY",
+        "// by its definition, before any combat/aura/magnetic modifications.",
+        "// Needed for reborn / clone effects which must restore the \"clean\" state.",
+        "",
+        "#include <cstdint>",
+        '#include "types.h"',
+        "",
+        "namespace CardDB {",
+        "",
+        "// Base tags of the card by id. Returns Tags::NONE for unknown ids",
+        "// (vanilla tokens, tests, etc). Compiler folds the switch into a jump table.",
+        "inline constexpr TagBitset base_tags(int16_t card_id) {",
+        "    switch (card_id) {",
+    ]
+
+    for card in ALL_CARDS:
+        if not card.tags:
+            continue
+        cpp_id = card_id_to_cpp_int(card.card_id)
+        tags_cpp = tags_to_cpp(card.tags)
+        lines.append(f"        case {cpp_id}: return {tags_cpp};")
+
+    lines.extend([
+        "        default: return Tags::NONE;",
+        "    }",
+        "}",
+        "",
+        "} // namespace CardDB",
+        "",
+    ])
+
+    return "\n".join(lines)
+
+
 def generate_card_ids_header() -> str:
     lines = [
         "#pragma once",
@@ -462,6 +503,13 @@ def main():
     header_path = include_dir / "generated_card_ids.h"
     header_path.write_text(header, encoding="utf-8")
     print(f"Generated {header_path} ({len(ALL_CARDS)} cards)")
+
+    # Generate card DB header (base tags lookup)
+    db_header = generate_card_db_header()
+    db_path = include_dir / "generated_card_db.h"
+    db_path.write_text(db_header, encoding="utf-8")
+    db_entries = sum(1 for c in ALL_CARDS if c.tags)
+    print(f"Generated {db_path} ({db_entries} cards with base tags)")
 
     # Generate effects
     effects = generate_effects_cpp()

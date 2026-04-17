@@ -130,7 +130,6 @@
       \item \textbf{Стохастика}: атаки рандомны, reroll рандомен
       \item \textbf{Комбинаторика}: $C_{18}^{7} \cdot 7! \sim 1.6\cdot 10^{8}$ конфигураций доски
       \item \textbf{Sparse reward}: итог через 10--15 раундов (credit assignment)
-      \item Конечный пул карт, конкуренция игроков
     \end{itemize}
 
     \column{0.5\textwidth}
@@ -334,7 +333,7 @@
   \textbf{Что пробовали:}
   \begin{enumerate}\small
     \item \textbf{5-компонентный shaping} (в отчёте): $r = r_{combat} + r_{economy} + r_{board} + r_{terminal} + r_{synergy}$ --- работал на малом пуле карт
-    \item \textbf{MC Oracle PBRS} --- dense reward через C++ Monte-Carlo симуляцию исходов боёв. Ради него написан C++-порт combat (7\,412 боёв/с). При росте пула значимого выигрыша не дал
+    \item \textbf{MC Oracle PBRS} --- dense reward через C++ Monte-Carlo симуляцию исходов боёв. Ради него написан C++-порт combat. При росте пула значимого выигрыша не дал
     \item \textbf{Sparse + tier-based curriculum} --- текущий подход: агент начинает с тиров 1--2, пул расширяется по мере сходимости
   \end{enumerate}
 
@@ -349,7 +348,7 @@
     \textbf{Сделано после сдачи отчёта:}
     \begin{itemize}\small
       \item Пул карт расширен с $\sim$18 до \textbf{175 карт, тиры 1--7}
-      \item Combat engine портирован на \textbf{C++ через pybind11}: 7\,412 боёв/с (изначально ради MC Oracle)
+      \item Combat engine портирован на \textbf{C++ через pybind11}: \textbf{270k+ боёв/с} (90k на сложных кейсах) --- $\sim$40$\times$ к прошлой C++-версии, $\sim$800$\times$ к Python
       \item \textbf{Tier-based curriculum learning}: \texttt{HearthstoneEnv(max\_tier)}
       \item \textbf{Categorical Critic} (DreamerV3): 255 бинов, symlog two-hot, cross-entropy loss
       \item \textbf{Кодовая база выросла}: с 3.5\,k LOC до $\sim$10.7\,k Python + 3.7\,k C++ + 9.8\,k тестов; тестов --- с 13 до \textbf{24 модулей / 762 теста}

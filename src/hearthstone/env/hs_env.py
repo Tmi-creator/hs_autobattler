@@ -17,6 +17,7 @@ from hearthstone.engine.enums import UnitType
 from hearthstone.engine.event_system import EventType
 from hearthstone.engine.game import Game
 from hearthstone.engine.spells import SPELLS_REQUIRE_TARGET
+from hearthstone.env.es_bot import es_bot_turn
 from hearthstone.env.ghost_pool import BoardSnapshot, GhostPool
 from hearthstone.env.smart_bot import smart_bot_turn
 
@@ -70,6 +71,9 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self.action_space = spaces.Discrete(34)
 
         self.opponent_model: Optional["MaskablePPO"] = None
+
+        # ES-bot opponent (parametric heuristic)
+        self._es_bot_weights: Optional[np.ndarray] = None
 
         # Ghost self-play
         self.ghost_pool: Optional[GhostPool] = None
@@ -219,6 +223,10 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
     def set_opponent(self, model: MaskablePPO) -> None:
         self.opponent_model = model
+
+    def set_es_bot(self, weights: np.ndarray) -> None:
+        """Use a parametric ES bot as the enemy (priority below neural opponent)."""
+        self._es_bot_weights = weights.astype(np.float32)
 
     def get_board_power(self) -> float:
         """Returns current board power for the agent's player."""
@@ -517,6 +525,17 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # === NEURAL SELF-PLAY (legacy, kept as fallback) ===
         if self.opponent_model is not None:
             self._neural_enemy_turn(p_idx)
+            return
+
+        # === ES BOT (parametric heuristic) ===
+        if self._es_bot_weights is not None:
+            es_bot_turn(self.game, p_idx, self._es_bot_weights)
+            if self.ghost_pool is not None:
+                self.ghost_pool.record_turn(
+                    self._env_id + 1_000_000,
+                    self.game.turn_count,
+                    enemy,
+                )
             return
 
         # === SMART BOT (default) ===

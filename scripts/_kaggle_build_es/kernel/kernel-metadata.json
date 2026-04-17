@@ -1,0 +1,13 @@
+{
+  "id": "tmitmi1999/hs-autobattler-es-evolution",
+  "title": "HS Autobattler ES Evolution",
+  "code_file": "train_kaggle_es.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

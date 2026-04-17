@@ -401,6 +401,12 @@ class EventManager:
         self.golden_trigger_registry = golden_trigger_registry or {}
         self.executor = executor or EffectExecutor()
 
+    def __deepcopy__(self, memo: dict) -> "EventManager":
+        # Stateless holder — all three fields are either module-level registries
+        # or a pure function executor. Sharing across clones is safe and cuts
+        # deepcopy cost dramatically for ES-bot lookahead.
+        return self
+
     def process_event(
         self,
         event: Event,

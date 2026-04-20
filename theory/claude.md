@@ -8,34 +8,34 @@
 - `theory/battle_predictor_design.md` — Battle Predictor, Positioning Module
 - `theory/todo.md` — оригинальный roadmap
 
-Актуальные числа производительности:
-- C++ combat: 7,412 combats/sec
-- MLP training: ~1,200 FPS (DummyVecEnv)
-- Transformer training: ~250 FPS (DummyVecEnv)
+Актуальные числа производительности (April 2026):
+- C++ combat: ~95,000 combats/sec (pybind11 numpy path, was 7.4k before optimization)
+- MLP training: ~1,200 FPS (DummyVecEnv, SB3) — deprecated
+- Transformer training (SB3): ~250 FPS (DummyVecEnv) — **deprecated, replaced by CleanRL**
+- Transformer training (CleanRL): ~500 FPS (SyncVectorEnv, Kaggle P100) — **current**
+- ES bot evolution: ~2ms/game, 500 gen in ~20 min on Kaggle CPU (4 workers)
 
 ---
 
 ## 1. Полный Training Pipeline
 
 ```
-Этап 0: ES Evolution ──────────────► Evolved Bot (W*)
-  │  (mu+lambda, 50 поколений)        + 200k записанных игр
+Этап 0: ES Evolution ──────────────► Evolved Bot (W*)         ✅ DONE
+  │  (mu+lambda, 500 поколений)       93.8% vs Smart Bot
+  │  rule-based + 23 evolved weights   board_power=26, tier=4.4
   │
-  ├──► Этап 1: Battle Predictor ────► Trained Predictor
-  │    (supervised на MC combat data)   embedding + P(win) + survival
-  │
-  └──► Этап 2: BC Pretrain ─────────► BC-инициализированный Actor
+  └──► Этап 1: BC Pretrain ─────────► BC-инициализированный Actor   ← NEXT
        (cross-entropy от ES bot)
                 │
                 ▼
-       Этап 3: PPO Fine-tune ───────► Trained Agent
+       Этап 2: PPO Fine-tune ───────► Trained Agent              ✅ INFRA DONE
+         - CleanRL PPO (500 FPS, 2x vs SB3)
+         - Categorical Critic + entropy decay
          - Ghost pool curriculum (70% ghost / 30% bot)
-         - Predictor как dense reward
-         - Categorical Critic + EMA target
-         - Percentile return normalization
+         - MC Oracle как опциональный dense reward (95k combats/sec)
                 │
                 ▼
-       Этап 4: Self-Play Iterations
+       Этап 3: Self-Play Iterations
          - Лучшая модель vs копии → ghost pool
          - Опционально: RMCTS для complex decisions
          - Повторять 3-4 пока растёт winrate
@@ -43,10 +43,16 @@
 
 ### Почему именно такой порядок
 
-- **Чистый PPO from scratch** на 100+ картах обречён: комбинаторика таверны слишком велика, агент потратит миллионы шагов на обучение "покупай юнитов"
-- **BC pretrain** перескакивает через cold start за часы
-- **Battle Predictor** даёт dense reward между действиями таверны (PPO видит эффект каждой покупки, не только конец хода)
-- **ES bot** масштабируется автоматически: добавил карты → перезапустил эволюцию → новый оптимальный bot
+- **Чистый PPO from scratch** уже показывает рост (board_power 0→15+ на CleanRL), но BC pretrain ускорит cold start
+- **BC pretrain** перескакивает через early training за часы: агент стартует уже умея "покупай по синергиям, апгрейдь на curve"
+- **Battle Predictor отложен**: C++ MC Oracle даёт ground-truth winrate за 0.2ms (20 combats at 95k/sec). Neural predictor нужен только для COMBAT_CTX embedding в observation
+- **ES bot** масштабируется автоматически: добавил карты → перезапустил эволюцию (~20 мин) → новый оптимальный bot
+
+### Что изменилось vs оригинальный план
+
+1. **SB3 убран** — заменён CleanRL-style PPO (`scripts/train_ppo.py` + `scripts/model.py`). 2x FPS, пробил plateau по board_power.
+2. **Battle Predictor стал необязательным** — MC Oracle достаточно быстр для dense reward. Predictor нужен только для embedding-based RMCTS leaf evaluation.
+3. **ES bot v2** — rule-based priority loop (не deepcopy lookahead). 93.8% vs Smart Bot, ~2ms/game.
 
 ---
 
@@ -281,14 +287,22 @@ BC: cross-entropy от ES-bot, lr=1e-4, ~20 epochs
 
 ## 6. Performance: что реально является bottleneck
 
-При 250 FPS transformer на DummyVecEnv:
-- **Bottleneck = model inference**, не Python env
-- C++ tavern НЕ поможет (env шаги быстрые, inference медленный)
-- Что поможет:
-  1. **Async envs** (Sample Factory / custom) — убрать sync overhead, N_envs буст
-  2. **ONNX/TorchScript** для inference — 2-3x speedup
-  3. **Mixed precision** (fp16) — 1.5-2x на GPU inference
-  4. **Больше envs** — текущий DummyVecEnv ограничен single-threaded Python
+**Текущие числа (CleanRL, April 2026):**
+- CleanRL PPO: ~500 FPS на Kaggle P100 (SyncVectorEnv, 8 envs)
+- Было: SB3 250 FPS → **2x speedup от удаления SB3 overhead** (unified forward, no ActionMasker, no callback dispatch)
+- Board power пробил SB3-plateau (10→15+ и растёт)
+
+**Текущий bottleneck = env.step() + action_masks() + obs encoding** (Python).
+Model inference на T4 ~0.5-1ms, env.step ~0.1-0.3ms. При 500 FPS пока не критично.
+
+**Что ещё можно выжать:**
+1. **AsyncVectorEnv** (одна строка `Sync→Async`) — env.step параллелится с inference. +50-100% FPS. **Самый жирный рычаг.**
+2. **torch.compile + fp16** — ещё 1.5-2x на GPU inference
+3. **Больше envs** (16-32) — лучшая GPU утилизация при batched inference
+4. **На мощном GPU (A100/4090)** — inference 3-5x быстрее T4. Реалистично 2000-5000 FPS.
+5. **Multi-GPU (DDP)** — 4x A100 = ~10000 FPS. 5M steps за 8 минут.
+6. **C++ obs encoding** — перенести `_get_obs()` в pybind. Полезно только если env.step станет >50% total time.
+7. C++ таверна — overkill на текущем этапе. Имеет смысл только при FPS >5000 когда env.step доминирует.
 
 ---
 

@@ -1,0 +1,14 @@
+{
+  "id": "tmitmi1999/hs-autobattler-cleanrl-ppo",
+  "title": "HS Autobattler CleanRL PPO",
+  "code_file": "train_kaggle_ppo.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "accelerator": "gpu-t4",
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

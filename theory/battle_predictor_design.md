@@ -177,8 +177,8 @@ def _compute_predictor_reward(self, action):
 ├── Для каждой пары (board_A, board_B):
 │   └── C++ combat × 200 runs → statistics
 ├── 2.4M пар × 200 runs = 480M боёв
-├── При 7,412 боёв/сек = ~18 часов
-├── (параллелится по ядрам: 8 cores → ~2.5 часа)
+├── При ~95,000 боёв/сек (C++ engine, April 2026) = ~1.4 часа
+├── (параллелится по ядрам: 8 cores → ~12 мин)
 └── Результат: labeled dataset
 
 Фаза 4: Train Predictor

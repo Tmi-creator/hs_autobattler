@@ -37,38 +37,40 @@
 
 ### 4. Пулинг
 * **`PMA` (Pooling by Multihead Attention)**: обучаемый Seed-вектор $S$ выступает как Query, токены стола — как Key/Value. Динамически извлекает информацию, критичную для оценки состояния, вместо тупого `mean()` который уничтожает найденные синергии между картами. Опционально: `use_pma=False` для fallback на masked mean pooling.
-* Actor/Critic головы **управляются SB3** (`CategoricalValuePolicy`), используют `CategoricalMaskablePPO`.
+* Actor/Critic головы встроены в `HSTransformerAgent` (`scripts/model.py`). Actor: MLP → 34 logits. Critic: MLP → 255 bins (two-hot categorical).
 
 ### 5. Categorical Critic (Symlog Two-Hot)
 Вместо MSE на скаляр V(s), критик выдаёт распределение вероятностей на 255 bins в symlog-пространстве [-20, +20]. Two-hot encoding, cross-entropy loss. Из DreamerV3.
 * Bounded gradients (не взрывается от outliers)
 * Мультимодальность (может выучить "или +100, или -100")
-* `scripts/categorical_critic.py`: `CategoricalValuePolicy` + `CategoricalMaskablePPO`
+* Two-hot utilities: `encode_twohot()`, `decode_value()`, `BIN_CENTERS` в `scripts/model.py`
 
-### 6. SB3 Интеграция (`TransformerFeaturesExtractor`)
-Реализована **модульная** интеграция с `CategoricalMaskablePPO` через `BaseFeaturesExtractor`:
-* Парсит `Box(1036,)` → `val[B,27,38]` + `team_id` + `context`
-* Прогоняет через `Encoder → FiLM → GatedTransformer → PMA → [B, d_model]`
-* Card embeddings извлекаются из val[..., 2] как raw int → nn.Embedding lookup
-* Categorical Critic + Actor MLP поверх
-* Отдельный скрипт: `scripts/train_transformer.py`
+### 6. Training Infrastructure (CleanRL)
+**SB3 удалён (April 2026).** Миграция на CleanRL-style single-file PPO дала 2x FPS (250→500) и пробила plateau по board_power.
+
+Текущие файлы:
+* `scripts/model.py` — standalone `HSTransformerAgent(nn.Module)`. Единый `forward()`: obs → (action_logits, value_logits). Нет `BaseFeaturesExtractor`, нет раздельных extractor/mlp/heads.
+* `scripts/train_ppo.py` — CleanRL PPO loop (~300 LOC). Rollout collection → GAE → minibatch PPO update. Action masking через `logits[~mask] = -1e8`.
+* `scripts/trans.py` — **legacy**, содержит SB3-обёртку `TransformerFeaturesExtractor`. Building blocks (encoder, attention, etc.) продублированы в `model.py`.
+* `scripts/categorical_critic.py` — **legacy**, two-hot utils переехали в `model.py`.
 
 ### 6. Утилиты
 * **`symlog(x)`**: $\text{sign}(x) \cdot \ln(|x| + 1)$ из DreamerV3. Безопасно сжимает HP ~50000 до ~10.8. **Включен по умолчанию** (`use_symlog=True`).
 
 ---
 
-## 🚀 План дальнейшей работы (TODO)
+## Plan / TODO
 
-- [x] **Интеграция со средой** → `TransformerFeaturesExtractor` парсит плоский `Box(1009,)` без изменения среды.
-- [x] **Цикл обучения** → `train_transformer.py` с `MaskablePPO` + `TransformerFeaturesExtractor`.
-- [x] **Архитектурная стабильность** → GatedResidual (GTrXL) + PMA + padding mask в attention.
-- [x] **Cleanup** → Удалены `MARLGPT`, `ActorHead`, `DiscreteCriticHead` (мёртвый код). Symlog включен по умолчанию.
-- [x] **Card Embeddings** → `nn.Embedding(202, 64)` вместо normalized float card_id.
-- [x] **Categorical Critic** → Symlog Two-Hot 255 bins, cross-entropy loss.
-- [x] **MC Oracle** → C++ engine как dense PBRS reward (20 combats per action).
-- [x] **Entropy Decay** → ent_coef 0.04 → 0.01 linear decay.
-- [ ] **Сбор экспертных данных**: пайплайн Behavior Cloning / учитель-бот.
-- [ ] **Battle Predictor**: neural combat outcome predictor (может заменить MC Oracle).
-- [ ] **Curriculum Learning**: tier-based progressive complexity.
+- [x] **Интеграция со средой** → парсинг плоского `Box(1036,)` obs
+- [x] **Архитектурная стабильность** → GatedResidual (GTrXL) + PMA + padding mask
+- [x] **Card Embeddings** → `nn.Embedding(202, 64)`
+- [x] **Categorical Critic** → Symlog Two-Hot 255 bins, cross-entropy loss
+- [x] **MC Oracle** → C++ engine как dense PBRS reward (95k combats/sec)
+- [x] **Entropy Decay** → ent_coef 0.04 → 0.01 linear decay
+- [x] **SB3 → CleanRL** → standalone `HSTransformerAgent` в `scripts/model.py`, PPO loop в `scripts/train_ppo.py`. 2x FPS, пробил plateau.
+- [x] **ES Bot** → rule-based priority loop с 23 эволюционными весами, 93.8% vs Smart Bot
+- [ ] **BC Pretrain**: cross-entropy от ES bot → warm start для PPO
+- [ ] **BC → PPO transition**: freeze encoder, low lr, target_kl
+- [ ] **AsyncVectorEnv**: одна строка замены для +50-100% FPS
+- [ ] **Battle Predictor**: deferred, MC Oracle достаточно быстр. Нужен только для COMBAT_CTX token embedding.
 

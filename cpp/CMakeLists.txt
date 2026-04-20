@@ -4,6 +4,7 @@ project(hs_engine_cpp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+option(HS_PROFILE_COMBAT "Enable TSC profiler counters in the combat hot path" OFF)
 
 # Find pybind11 (installed via pip)
 execute_process(
@@ -31,6 +32,10 @@ pybind11_add_module(hs_engine_cpp
     bindings/pybind_module.cpp
     ${ENGINE_SOURCES}
 )
+
+if(HS_PROFILE_COMBAT)
+    target_compile_definitions(hs_engine_cpp PRIVATE PROFILE_COMBAT)
+endif()
 
 # Compiler flags
 if(MSVC)

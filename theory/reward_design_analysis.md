@@ -2,13 +2,13 @@
 
 ## Контекст проекта
 
-RL-агент для Hearthstone Battlegrounds. ~200 карт, Set Transformer encoder (DecomposedEncoder + FiLM + GTrXL + PMA), MaskablePPO с Discrete(34) action space. 1v1 через ghost pool. Categorical Critic (Two-Hot 255 bins) только что внедрён.
+RL-агент для Hearthstone Battlegrounds. ~200 карт, Set Transformer encoder (DecomposedEncoder + FiLM + GTrXL + PMA), CleanRL-style PPO в `scripts/train_ppo.py` с Discrete(34) action space и action masks. Categorical Critic (Two-Hot 255 bins) встроен в `scripts/model.py`. BC pipeline (`scripts/bc_collect.py` + `scripts/bc_train.py`) реализован как инфраструктура, но сравнение PPO-from-BC vs PPO-from-scratch ещё нужно прогнать.
 
-## Текущая проблема: Reward Hacking (Sell-Cycle Exploit)
+## Историческая проблема: Reward Hacking (Sell-Cycle Exploit)
 
 Агент обнаружил, что продажа всех юнитов → покупка спеллов → продажа → roll → repeat генерирует стабильный поток маленьких положительных rewards. Он уходит в бой с пустой доской и проигрывает, но сумма per-action rewards превышает штраф за проигрыш.
 
-### Текущая reward function:
+### Старая reward function, которая ломалась:
 ```
 Per-action (внутри хода таверны):
   - Buy triple (3-я копия): +2.5
@@ -91,7 +91,7 @@ if game_over:
 Но агент стартует не с нуля, а с BC pretrain от ES bot. Уже умеет покупать/продавать/играть нормально. PPO только оптимизирует.
 
 **Плюсы**: honest signal, BC решает cold start, нет shaping для эксплуатации
-**Минусы**: требует ES bot + BC pipeline (ещё не реализовано); при PPO fine-tune с pure terminal agentмможет "забыть" BC поведение и деградировать
+**Минусы**: требует прогнанного ES → BC датасета и аккуратного PPO fine-tune; при pure terminal fine-tune агент может "забыть" BC поведение и деградировать
 
 **Оценка**: правильный долгосрочный ответ, но требует инфраструктуры.
 
@@ -192,14 +192,16 @@ n_steps: 4096 (вместо 2048)
 
 ---
 
-## Принятое решение: Config 1 (реализовано)
+## Принятое решение: Round Outcome + Terminal (реализовано)
 
-Реализован Config 1 "Round Outcomes + Penalty" в `hs_env.py`:
-- Все per-action positive rewards удалены (triple +2.5, pair +0.5, spell +3.0)
-- Действия таверны: -0.005 (микро-штраф), END_TURN: 0 (бесплатно)
-- Round outcome: +1.0 (победа), -1.0 (поражение), 0 (ничья)
-- Terminal: ±50.0
-- gamma: 0.999, ent_coef: 0.04, n_steps: 4096
+Текущее фактическое состояние в `src/hearthstone/env/hs_env.py` и `scripts/train_ppo.py`:
+- Все старые per-action positive rewards удалены (triple +2.5, pair +0.5, spell +3.0)
+- Обычные действия таверны: -0.005 (микро-штраф)
+- `END_TURN`, targeting wait/cancel: 0.0
+- После боя: +1.0 если damage_dealt > damage_taken, -1.0 если damage_taken > damage_dealt, иначе 0.0
+- Terminal: +100.0 / -100.0
+- PPO defaults: gamma=0.999, ent_coef 0.04 → 0.01, n_steps=2048, target_kl=0.03
+- MC Oracle methods есть и кешируют winrate, но dense oracle reward сейчас не добавляется в `step()` reward
 
 Config 2 и 3 сохранены ниже для будущих stress-тестов.
 

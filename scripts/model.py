@@ -322,9 +322,14 @@ class HSTransformerAgent(nn.Module):
         return self.pma(x, mask=pad_mask)
 
     def forward(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Returns (action_logits [B, 34], value_logits [B, 255])."""
+        """Returns (action_logits [B, 34], value_logits [B, 255]).
+
+        Critic is detached from the encoder: value-loss gradients update the
+        critic head only, not shared representations. Prevents value-target
+        noise from corrupting the actor's view of the board.
+        """
         features = self._encode(obs)
-        return self.actor(features), self.critic(features)
+        return self.actor(features), self.critic(features.detach())
 
     def get_action_and_value(
         self,

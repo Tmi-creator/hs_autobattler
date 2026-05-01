@@ -1,69 +1,95 @@
 # Hearthstone Battlegrounds RL Environment
 
-High-performance RL environment for training agents in **Hearthstone: Battlegrounds** with a custom game engine (Python + C++), Set Transformer architecture, and modern training pipeline.
+High-performance Hearthstone Battlegrounds simulator and RL training stack. The
+current main path is a custom Python engine with optional C++ combat, a
+Gymnasium environment, a standalone Set Transformer actor-critic, ES bot
+pretraining data, and a CleanRL-style PPO loop.
 
 ## Architecture
 
-```
-Game Engine (Python + C++ combat)
-    ↓
-Gymnasium Environment (obs/action/reward)
-    ↓
-Set Transformer Encoder
-  • DecomposedEncoder (card embedding + continuous + binary + types)
-  • FiLM (global context modulation)
-  • GTrXL Gating (stable PPO training)
-  • PMA (multi-seed aggregation)
-    ↓
-MaskablePPO (Categorical Critic + MC Oracle reward)
+```text
+Game Engine (Python tavern + Python/C++ combat)
+    |
+Gymnasium Environment
+  - flat Box(1036) observation
+  - 34 discrete tavern actions
+  - dynamic legal-action masks
+    |
+HSTransformerAgent (scripts/model.py)
+  - DecomposedEncoder for card id / continuous / binary / type features
+  - FiLM global context modulation
+  - GTrXL gated residual blocks
+  - PMA multi-seed aggregation
+  - actor logits + symlog two-hot categorical critic
+    |
+CleanRL-style PPO (scripts/train_ppo.py)
+  - AsyncVectorEnv
+  - masked categorical policy
+  - entropy decay
+  - target_kl early stopping
+  - optional resume from BC checkpoint
 ```
 
-## Features
+Older SB3 files still exist for reference and compatibility, but they are no
+longer the primary training route.
 
-* **200+ cards** implemented via declarative CardDef system with auto-generated C++ effects
-* **C++ combat engine** — 7,400+ combats/sec (20x faster than Python), pybind11
-* **Card Embeddings** — `nn.Embedding(202, 64)` learned per-card representations
-* **Categorical Critic** — Symlog Two-Hot (255 bins, cross-entropy) from DreamerV3
-* **MC Oracle** — C++ engine as dense reward (PBRS): 20 combats per action for instant board evaluation
-* **Ghost Pool** — zero-inference self-play via recorded board trajectories with recency bias
-* **Action Masking** — dynamic masking of illegal actions via sb3-contrib MaskablePPO
+## Current Features
+
+* **200+ cards** through the declarative `CardDef` system and generated C++ effects.
+* **Rewritten C++ combat engine** with pybind11 bindings and a batched numpy path. Current benchmarks are ~90-95k combats/sec on complex cases and 270k+ combats/sec on simple cases, about **800x faster than the pure Python combat baseline**; Python combat remains the fallback.
+* **Standalone transformer agent** in `scripts/model.py`, with no SB3 dependency.
+* **Categorical critic** using DreamerV3-style symlog two-hot targets over 255 bins.
+* **Critic-detached encoder path** so value loss updates the critic head without corrupting actor representations.
+* **ES Bot v2** in `src/hearthstone/env/es_bot.py`: 23 evolved weights, Hall of Fame support in `scripts/evolve_bot.py`, and saved weights expected at `artifacts/es_kaggle/artifacts/best.npz`.
+* **Behavior cloning infrastructure** via `scripts/bc_collect.py` and `scripts/bc_train.py`.
+* **Kaggle PPO submission flow** in `scripts/kaggle_submit_ppo.py`, with optional BC collection/train before PPO.
+* **Ghost pool and MC Oracle infrastructure** in the environment. MC Oracle code is present, but the current CleanRL reward path is still round outcome + terminal reward; dense oracle reward is tracked as follow-up work in theory docs.
 
 ## Project Structure
 
-### `src/hearthstone/engine/` — Game Engine
-* **`card_def.py`** — Single source of truth for all cards. Declarative EffectDef system (40+ effect types)
-* **`game.py`** — Main game loop, phase management
-* **`event_system.py`** — Event bus with trigger priorities
-* **`combat.py`** — Combat resolution (Cleave, Divine Shield, Poison, Reborn, Immediate Attack, Auras)
-* **`tavern.py`** — Tavern phase (buy/sell/roll/upgrade/freeze/discover)
-* **`entities.py`** — Unit, Player, Spell with 4-scope buff system
-* **`pool.py`** — Card pool management per tier
-* **`auras.py`** — Position-dependent aura recalculation
+### `src/hearthstone/engine/` - Game Engine
 
-### `src/hearthstone/env/` — RL Environment
-* **`hs_env.py`** — Gymnasium wrapper, observation encoding, MC Oracle, reward function
-* **`ghost_pool.py`** — Historical board replay for self-play
-* **`smart_bot.py`** — Score-based heuristic opponent
+* `card_def.py` - single source of truth for cards and declarative effects.
+* `game.py` - main game loop and phase management.
+* `event_system.py` - event bus with trigger priorities.
+* `combat.py` - Python combat resolution.
+* `tavern.py` - buy/sell/roll/upgrade/freeze/discover logic.
+* `entities.py` - units, players, spells, and buff scopes.
+* `pool.py` - minion and spell pool management.
+* `auras.py` - position-dependent aura recalculation.
 
-### `scripts/` — Training & Analysis
-* **`trans.py`** — Set Transformer feature extractor (DecomposedEncoder, FiLM, GTrXL, PMA)
-* **`categorical_critic.py`** — Symlog Two-Hot categorical value head
-* **`train_transformer.py`** — Transformer PPO training pipeline
-* **`callbacks.py`** — WandB logging, curriculum, entropy decay, board power tracking
-* **`kaggle_submit.py`** — Self-contained Kaggle kernel with embedded source
-* **`generate_cpp_effects.py`** — Auto-generate C++ effects from CardDef
+### `src/hearthstone/env/` - RL Environment
 
-### `cpp/` — C++ Combat Engine
-* **`src/combat.cpp`** — Full combat loop with POD structs, memcpy batch, GIL release
-* **`src/generated_effects.cpp`** — Auto-generated from card_def.py
-* **`bindings/pybind_module.cpp`** — `fast_combat()` and `fast_combat_batch()`
+* `hs_env.py` - Gymnasium wrapper, observation encoding, masks, rewards, ghost/oracle hooks.
+* `es_bot.py` - evolved heuristic bot used for BC data.
+* `ghost_pool.py` - recorded board trajectories for self-play.
+* `smart_bot.py` - score-based baseline opponent.
 
-### `theory/` — Design Documents
-* **`todo.md`** — Original MARL-GPT roadmap
-* **`claude.md`** — Training pipeline design (ES → BC → PPO → Battle Predictor)
-* **`battle_predictor_design.md`** — Combat outcome predictor architecture
-* **`transformer_scaling_research.md`** — Scaling analysis from 60+ papers
-* **`reward_design_analysis.md`** — Reward function design and experiments
+### `scripts/` - Training and Tooling
+
+* `model.py` - current standalone `HSTransformerAgent`.
+* `train_ppo.py` - current CleanRL-style PPO loop.
+* `bc_collect.py` - collect ES bot trajectories as `(obs, mask, action)`.
+* `bc_train.py` - masked cross-entropy actor pretrain.
+* `kaggle_submit_ppo.py` - self-contained Kaggle kernel generator for BC + PPO.
+* `evolve_bot.py` - `(mu+lambda)` ES trainer for `es_bot.py`.
+* `generate_cpp_effects.py` - generate C++ effects from `CardDef`.
+* `trans.py`, `categorical_critic.py`, `train_transformer.py` - legacy SB3-era transformer/PPO path.
+
+### `cpp/` - C++ Combat Engine
+
+* `src/combat.cpp` - combat hot path.
+* `src/generated_effects.cpp` - generated card effects.
+* `src/profiler.cpp` - optional profiler counters.
+* `bindings/pybind_module.cpp` - `fast_combat()` / `fast_combat_batch()` bindings.
+
+### `theory/` - Design Documents
+
+* `INDEX.md` - current map of theory docs and status.
+* `CLAUDE.md` - main training pipeline design: ES -> BC -> PPO, RMCTS, 8-player path.
+* `transformer.md` - transformer architecture and current implementation notes.
+* `battle_predictor_design.md` - deferred combat predictor design.
+* `reward_design_analysis.md` - reward design notes and ablation plan.
 
 ## Installation
 
@@ -71,7 +97,8 @@ MaskablePPO (Categorical Critic + MC Oracle reward)
 pip install -e .
 ```
 
-### C++ Engine (optional, for faster combat)
+### C++ Engine
+
 ```bash
 pip install pybind11
 python scripts/generate_cpp_effects.py
@@ -82,35 +109,54 @@ cmake --build cpp/build
 ## Training
 
 ```bash
-# Transformer with Categorical Critic + MC Oracle
-python scripts/train_transformer.py
+# Evolve ES bot weights
+python scripts/evolve_bot.py --generations 500 --out-dir artifacts/es_kaggle/artifacts
 
-# Submit to Kaggle (T4 GPU)
-python scripts/kaggle_submit.py
+# Collect behavior-cloning data from ES bot
+python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artifacts/best.npz
+
+# Train BC actor checkpoint
+python scripts/bc_train.py --epochs 15 --batch-size 512
+
+# Fine-tune with PPO from BC checkpoint
+python scripts/train_ppo.py --resume artifacts/bc/bc_pretrain.pt --total-timesteps 5000000
+
+# Submit BC + PPO pipeline to Kaggle
+python scripts/kaggle_submit_ppo.py
 ```
 
 ## Tests
 
 ```bash
-pytest tests/ -q  # 709 tests
+$env:PYTHONPATH = "src"
+pytest tests -q
 ```
+
+`tests/` currently collects 826 tests in this checkout. Full repository
+collection also sees `scripts/test_trans_integration.py`, which depends on the
+legacy SB3 path.
 
 ## Current Status
 
 **Implemented:**
-- [x] 200+ cards with declarative CardDef system
-- [x] C++ combat engine (20x speedup)
-- [x] Set Transformer with card embeddings
-- [x] Categorical Critic (DreamerV3 Two-Hot)
-- [x] MC Oracle dense reward (PBRS)
-- [x] Ghost pool self-play with recency bias
-- [x] Kaggle training pipeline
 
-**In Progress:**
-- [ ] Breaking board_power plateau via MC Oracle
-- [ ] ES bot for Behavioral Cloning pretrain
-- [ ] Battle Predictor (neural combat outcome predictor)
-- [ ] Curriculum learning (tier-based progressive complexity)
+- [x] CardDef-based card database and generated C++ effects.
+- [x] Python engine with optional rewritten C++ combat acceleration (~800x faster than pure Python combat in benchmarks).
+- [x] Gymnasium environment with 34 actions and action masks.
+- [x] Standalone Set Transformer actor-critic in `scripts/model.py`.
+- [x] CleanRL-style PPO in `scripts/train_ppo.py`.
+- [x] AsyncVectorEnv rollout collection.
+- [x] Symlog two-hot categorical critic.
+- [x] Critic-detached encoder path and `target_kl=0.03`.
+- [x] ES bot evolution and BC data/training scripts.
+- [x] Kaggle BC + PPO submission script.
+
+**Next:**
+
+- [ ] Run BC pretrain on the current ES weights and compare PPO from BC vs PPO from scratch.
+- [ ] Wire ghost pool curriculum into the current CleanRL PPO path.
+- [ ] Decide whether MC Oracle dense reward should be enabled in the current reward function.
+- [ ] Revisit Battle Predictor only if C++ MC Oracle becomes the bottleneck or COMBAT_CTX is needed.
 
 ---
 Created by Tmi-creator.

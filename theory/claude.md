@@ -9,11 +9,12 @@
 - `theory/todo.md` — оригинальный roadmap
 
 Актуальные числа производительности (April 2026):
-- C++ combat: ~95,000 combats/sec (pybind11 numpy path, was 7.4k before optimization)
+- C++ combat: ~90-95,000 combats/sec on complex cases, 270k+ on simple cases (pybind11 numpy path), about 800x faster than pure Python combat
 - MLP training: ~1,200 FPS (DummyVecEnv, SB3) — deprecated
 - Transformer training (SB3): ~250 FPS (DummyVecEnv) — **deprecated, replaced by CleanRL**
-- Transformer training (CleanRL): ~500 FPS (SyncVectorEnv, Kaggle P100) — **current**
-- ES bot evolution: ~2ms/game, 500 gen in ~20 min on Kaggle CPU (4 workers)
+- Transformer training (CleanRL): ~500 FPS SyncVectorEnv → **AsyncVectorEnv switch (current)**, 750-1000 FPS expected
+- ES bot evolution: ~2ms/game, 500 gen in ~20 min on Kaggle CPU (4 workers). Best: gen 499, fitness 0.85, weights in `artifacts/es_kaggle/artifacts/best.npz`
+- BC trajectory collection: ~1,200 steps/sec single-threaded (es_pick_action via game.step snoop)
 
 ---
 
@@ -21,18 +22,22 @@
 
 ```
 Этап 0: ES Evolution ──────────────► Evolved Bot (W*)         ✅ DONE
-  │  (mu+lambda, 500 поколений)       93.8% vs Smart Bot
-  │  rule-based + 23 evolved weights   board_power=26, tier=4.4
+  │  (mu+lambda, 500 поколений)       fitness=0.85 vs Smart Bot
+  │  rule-based + 23 evolved weights   board_power≈25, tier≈4.3
+  │  artifacts/es_kaggle/artifacts/best.npz
   │
-  └──► Этап 1: BC Pretrain ─────────► BC-инициализированный Actor   ← NEXT
-       (cross-entropy от ES bot)
-                │
-                ▼
+  └──► Этап 1: BC Pretrain ─────────► BC-инициализированный Actor    ✅ INFRA DONE
+       │   (cross-entropy от ES bot)   scripts/bc_collect.py + bc_train.py
+       │                                training run pending (Kaggle)
+       ▼
        Этап 2: PPO Fine-tune ───────► Trained Agent              ✅ INFRA DONE
-         - CleanRL PPO (500 FPS, 2x vs SB3)
+         - CleanRL PPO (AsyncVectorEnv, 750-1000 FPS expected)
          - Categorical Critic + entropy decay
-         - Ghost pool curriculum (70% ghost / 30% bot)
-         - MC Oracle как опциональный dense reward (95k combats/sec)
+         - Critic detached from encoder (value loss не отравляет actor representations)
+         - target_kl=0.03 (early-stop если политика дрейфует)
+         - --resume from BC checkpoint (model-only, fresh PPO optimizer)
+         - Ghost pool curriculum (70% ghost / 30% bot)        ← TODO
+         - MC Oracle dense reward (95k combats/sec)           ← TODO
                 │
                 ▼
        Этап 3: Self-Play Iterations
@@ -40,6 +45,15 @@
          - Опционально: RMCTS для complex decisions
          - Повторять 3-4 пока растёт winrate
 ```
+
+### Стабилизация PPO (April 2026 fixes)
+
+После первого full PPO ран (cleanrl_ppo_1776448844, 5M steps) увидели плато на board_power 20-25 (vs ES бот 32+) с диагнозом:
+
+1. **Plateau** — настоящая причина: PPO с нуля на 200 карт × 34 actions не нащупает синергии. Лекарство = BC pretrain (см. выше).
+2. **Critic вытекает в encoder** — общий энкодер для actor/critic, vf_coef=0.5 → шум value loss портит представления стола. **Fix**: `critic(features.detach())` в [scripts/model.py:325](scripts/model.py#L325).
+3. **KL drift** — approx_kl рос с 0.005 до 0.02 без early-stop (target_kl=None). **Fix**: target_kl=0.03 default.
+4. **AsyncVectorEnv** — env.step параллельно с inference, +50-100% FPS. На Linux/Kaggle через fork, на Windows — spawn (pickle issues возможны, но мы тренируем на Kaggle).
 
 ### Почему именно такой порядок
 
@@ -234,7 +248,7 @@ class BG8PlayerEnv:
 | Loss | Cross-entropy вместо MSE |
 | Decoding | `V = symexp(Σ softmax(logits) × bin_centers)` |
 
-**SB3**: subclass `MaskableActorCriticPolicy` (override value_net, predict_values, evaluate_actions) + subclass `MaskablePPO.train()` (replace MSE loss).
+**Текущая реализация**: categorical critic встроен прямо в `scripts/model.py` (`value_logits [B, 255]`) и обучается в `scripts/train_ppo.py` через two-hot cross-entropy. Старый SB3-вариант через `MaskableActorCriticPolicy`/`MaskablePPO.train()` остался только в legacy `scripts/categorical_critic.py`.
 
 ### 5.2 Battle Predictor → [COMBAT_CTX] Token
 
@@ -254,17 +268,29 @@ class BG8PlayerEnv:
 
 Decay к 0 за 75% обучения.
 
-### 5.4 BC Pretrain → PPO Transition
+### 5.4 BC Pretrain → PPO Transition  ✅ INFRA DONE
 
+**Текущая реализация** (April 2026):
+
+`scripts/bc_collect.py` — генерация датасета. Стратегия: monkey-patch `game.step` внутри `es_bot_turn` через `_ESActionSnoop`, перехватываем первый вызов, конвертируем `(verb, kwargs)` в `action_int` 0..33, выполняем через `env.step` и записываем `(obs, mask, action_int)`. Корректно обрабатывает `is_targeting` (spell-with-target разворачивается в две action: PLAY → target slot) и `is_discovering` (3 опции скорятся ES-функцией). Скорость ~1,200 шагов/сек.
+
+`scripts/bc_train.py` — cross-entropy на masked actor logits. Critic head не обучается (zero-init сохраняется для PPO). AdamW + grad clip. Сохраняет чекпоинт `{model, global_step=0, args}`, совместимый с `train_ppo --resume`.
+
+`scripts/train_ppo.py` — `--resume` теперь толерантен к чекпоинтам без optimizer state ([train_ppo.py:217-228](scripts/train_ppo.py#L217-L228)): для BC pretrain создаётся свежий Adam.
+
+**Команды на Kaggle:**
+```bash
+python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artifacts/best.npz
+python scripts/bc_train.py --epochs 15 --batch-size 512 --wandb
+python scripts/train_ppo.py --resume artifacts/bc/bc_pretrain.pt --total-timesteps 5000000
 ```
-BC: cross-entropy от ES-bot, lr=1e-4, ~20 epochs
-    dummy critic target=0 (vf_coef=0.01)
-    
-Переход:
-    PPO lr=3e-5 → warmup до 1e-4 за 50k steps
-    Freeze features_extractor на 100k steps
-    target_kl=0.02, ent_coef=0.02→0.01
-```
+
+**Caveat про action distribution**: ES бот всегда играет первую карту в руке (`hand_index=0`), поэтому в датасете действие `16` (PLAY hand[0]) сильно доминирует, а `17..25` — почти нули. Также SWAP (26..31) и FREEZE (33) ES бот не использует. PPO потом дообучит эти ветви через ε-exploration, но BC даст быстрый старт только по экономике/покупкам/UPGRADE/discovery.
+
+**Возможные улучшения** (если BC даст слабый старт):
+- Дать ES боту randomized weights ε≠0 при сборе → разнообразие траекторий
+- Сэмплировать `hand_index` после shuffle при PLAY → агент увидит все слоты
+- Добавить small entropy bonus в BC loss → не схлопываться в argmax
 
 ### 5.5 Percentile Return Normalization
 
@@ -288,15 +314,15 @@ BC: cross-entropy от ES-bot, lr=1e-4, ~20 epochs
 ## 6. Performance: что реально является bottleneck
 
 **Текущие числа (CleanRL, April 2026):**
-- CleanRL PPO: ~500 FPS на Kaggle P100 (SyncVectorEnv, 8 envs)
+- CleanRL PPO: ~500 FPS на SyncVectorEnv → **AsyncVectorEnv switch**, ожидаем 750-1000 FPS на Kaggle P100/T4
 - Было: SB3 250 FPS → **2x speedup от удаления SB3 overhead** (unified forward, no ActionMasker, no callback dispatch)
-- Board power пробил SB3-plateau (10→15+ и растёт)
+- Board power пробил SB3-plateau (10→20-25), но плато на ~25 — лечится BC pretrain
 
 **Текущий bottleneck = env.step() + action_masks() + obs encoding** (Python).
-Model inference на T4 ~0.5-1ms, env.step ~0.1-0.3ms. При 500 FPS пока не критично.
+Model inference на T4 ~0.5-1ms, env.step ~0.1-0.3ms.
 
 **Что ещё можно выжать:**
-1. **AsyncVectorEnv** (одна строка `Sync→Async`) — env.step параллелится с inference. +50-100% FPS. **Самый жирный рычаг.**
+1. ~~AsyncVectorEnv~~ ✅ done (April 2026). Env.step параллелится с inference через worker процессы.
 2. **torch.compile + fp16** — ещё 1.5-2x на GPU inference
 3. **Больше envs** (16-32) — лучшая GPU утилизация при batched inference
 4. **На мощном GPU (A100/4090)** — inference 3-5x быстрее T4. Реалистично 2000-5000 FPS.

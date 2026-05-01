@@ -54,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ent-decay-frac", type=float, default=0.75)
     p.add_argument("--vf-coef", type=float, default=0.5)
     p.add_argument("--max-grad-norm", type=float, default=0.5)
-    p.add_argument("--target-kl", type=float, default=None)
+    p.add_argument("--target-kl", type=float, default=0.03)
     # Rollout
     p.add_argument("--n-envs", type=int, default=8)
     p.add_argument("--n-steps", type=int, default=2048)
@@ -92,23 +92,21 @@ def make_env(rank: int, seed: int, max_tier: int):
         env = HearthstoneEnv(max_tier=max_tier)
         env.reset(seed=seed + rank)
         return env
+
     return thunk
 
 
 def get_action_masks(envs) -> torch.Tensor:
-    """Get action masks from all envs. Returns [n_envs, n_actions] bool tensor."""
-    masks = []
-    for i in range(envs.num_envs):
-        m = envs.envs[i].action_masks()
-        masks.append(m)
+    """Get action masks from all envs. Returns [n_envs, n_actions] bool tensor.
+
+    Works for both Sync and Async vector envs via the .call() RPC.
+    """
+    masks = envs.call("action_masks")
     return torch.tensor(np.array(masks), dtype=torch.bool)
 
 
 def get_board_powers(envs) -> list[float]:
-    powers = []
-    for env in envs.envs:
-        powers.append(env.get_board_power())
-    return powers
+    return list(envs.call("get_board_power"))
 
 
 # ============================================================
@@ -116,12 +114,12 @@ def get_board_powers(envs) -> list[float]:
 # ============================================================
 
 def compute_gae(
-    rewards: torch.Tensor,      # [T, N]
-    values: torch.Tensor,       # [T, N]
-    dones: torch.Tensor,        # [T, N]
-    next_value: torch.Tensor,   # [N]
-    gamma: float,
-    gae_lambda: float,
+        rewards: torch.Tensor,  # [T, N]
+        values: torch.Tensor,  # [T, N]
+        dones: torch.Tensor,  # [T, N]
+        next_value: torch.Tensor,  # [N]
+        gamma: float,
+        gae_lambda: float,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Returns (advantages [T, N], returns [T, N])."""
     T, N = rewards.shape
@@ -147,11 +145,11 @@ def compute_gae(
 # ============================================================
 
 def get_ent_coef(
-    update: int,
-    n_updates: int,
-    ent_start: float,
-    ent_end: float,
-    decay_frac: float,
+        update: int,
+        n_updates: int,
+        ent_start: float,
+        ent_end: float,
+        decay_frac: float,
 ) -> float:
     decay_updates = int(n_updates * decay_frac)
     if update >= decay_updates:
@@ -185,15 +183,14 @@ def main():
             config=vars(args),
         )
 
-    # Envs
-    envs = gymnasium.vector.SyncVectorEnv(
+    # Envs (Async = env.step parallelized with model inference, +50-100% FPS)
+    envs = gymnasium.vector.AsyncVectorEnv(
         [make_env(i, args.seed, args.max_tier) for i in range(args.n_envs)]
     )
     n_actions = 34
     obs_dim = envs.single_observation_space.shape[0]
 
-    # Get num_card_ids from first env
-    num_card_ids = envs.envs[0].num_card_ids
+    num_card_ids = envs.get_attr("num_card_ids")[0]
     print(f"[env] obs_dim={obs_dim} n_actions={n_actions} card_ids={num_card_ids}")
 
     # Model
@@ -210,14 +207,20 @@ def main():
 
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
 
-    # Resume
+    # Resume (works with both PPO checkpoints and BC pretrain checkpoints)
     global_step = 0
     if args.resume:
         ckpt = torch.load(args.resume, map_location=device)
         agent.load_state_dict(ckpt["model"])
-        optimizer.load_state_dict(ckpt["optimizer"])
+        if "optimizer" in ckpt:
+            try:
+                optimizer.load_state_dict(ckpt["optimizer"])
+                print(f"[resume] loaded model+optimizer from {args.resume}")
+            except (ValueError, KeyError) as e:
+                print(f"[resume] optimizer load failed ({e}), keeping fresh optimizer")
+        else:
+            print(f"[resume] loaded model-only from {args.resume} (BC pretrain → fresh optimizer)")
         global_step = ckpt.get("global_step", 0)
-        print(f"[resume] loaded from {args.resume}, step={global_step}")
 
     # Rollout storage
     batch_size = args.n_envs * args.n_steps
@@ -335,7 +338,7 @@ def main():
                 vf_loss = -(target_twohot * F.log_softmax(new_vlogits, -1)).sum(-1).mean()
 
                 ent_loss = entropy.mean()
-
+                # TODO: fix this fucking loss
                 loss = pg_loss + args.vf_coef * vf_loss - ent_coef * ent_loss
 
                 optimizer.zero_grad()

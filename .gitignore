@@ -218,6 +218,7 @@ runs/
 logs/
 wandb/
 visualizations/
+artifacts/
 
 !src/hearthstone/env/
 !typings/hearthstone/env

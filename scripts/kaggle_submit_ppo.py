@@ -1,11 +1,15 @@
-"""Submit CleanRL PPO training to Kaggle GPU kernel.
+"""Submit CleanRL PPO (with optional BC pretrain) to Kaggle GPU kernel.
 
-Embeds src/ + scripts/ + cpp/ as base64 inside a generated kernel script.
-The kernel builds C++ engine, then runs scripts/train_ppo.py with wandb logging.
+Embeds src/ + scripts/ + cpp/ + ES weights as base64 inside a generated kernel
+script. The kernel:
+    1. Builds C++ engine
+    2. (optional) Runs scripts/bc_collect.py → bc_train.py
+    3. Runs scripts/train_ppo.py [--resume bc_ckpt] with wandb logging
 
 Usage:
-    python scripts/kaggle_submit_ppo.py
-    python scripts/kaggle_submit_ppo.py --total-timesteps 2000000 --n-envs 4
+    python scripts/kaggle_submit_ppo.py                    # BC + PPO (default)
+    python scripts/kaggle_submit_ppo.py --no-bc            # PPO from scratch
+    python scripts/kaggle_submit_ppo.py --bc-episodes 10000 --total-timesteps 8000000
     python scripts/kaggle_submit_ppo.py --dry-run
 """
 
@@ -40,6 +44,8 @@ _load_env(root_dir / ".env")
 KAGGLE_USERNAME = "tmitmi1999"
 KERNEL_SLUG = "hs-autobattler-cleanrl-ppo"
 
+ES_WEIGHTS_PATH = root_dir / "artifacts" / "es_kaggle" / "artifacts" / "best.npz"
+
 
 def _pack_project_b64() -> str:
     buf = io.BytesIO()
@@ -53,13 +59,21 @@ def _pack_project_b64() -> str:
             if (fp.is_file() and "build" not in fp.parts
                     and "_old" not in fp.parts and "__pycache__" not in str(fp)):
                 zf.write(fp, str(fp.relative_to(root_dir)))
-        # scripts/ (only what PPO needs)
+        # scripts/ (PPO + BC pipeline)
         for fname in [
-            "__init__.py", "model.py", "train_ppo.py", "generate_cpp_effects.py",
+            "__init__.py",
+            "model.py",
+            "train_ppo.py",
+            "bc_collect.py",
+            "bc_train.py",
+            "generate_cpp_effects.py",
         ]:
             fp = scripts_dir / fname
             if fp.exists():
                 zf.write(fp, f"scripts/{fname}")
+        # ES weights (best.npz, ~92 bytes payload but in zip wrapper)
+        if ES_WEIGHTS_PATH.exists():
+            zf.write(ES_WEIGHTS_PATH, "artifacts/es_kaggle/artifacts/best.npz")
         # pyproject.toml
         pt = root_dir / "pyproject.toml"
         if pt.exists():
@@ -72,6 +86,7 @@ def _pack_project_b64() -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
+    # PPO
     p.add_argument("--total-timesteps", type=int, default=5_000_000)
     p.add_argument("--n-envs", type=int, default=8)
     p.add_argument("--n-steps", type=int, default=2048)
@@ -80,6 +95,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--eval-interval", type=int, default=5)
     p.add_argument("--save-interval", type=int, default=50)
+    # BC pretrain
+    p.add_argument("--no-bc", action="store_true",
+                   help="Skip BC pretrain stage, run PPO from scratch")
+    p.add_argument("--bc-episodes", type=int, default=5000)
+    p.add_argument("--bc-epochs", type=int, default=15)
+    p.add_argument("--bc-batch-size", type=int, default=512)
+    p.add_argument("--bc-lr", type=float, default=3e-4)
+    # Submit
     p.add_argument("--dry-run", action="store_true")
     return p
 
@@ -90,10 +113,16 @@ def create_kernel(args: argparse.Namespace) -> Path:
         shutil.rmtree(kernel_dir)
     kernel_dir.mkdir(parents=True)
 
+    if not args.no_bc and not ES_WEIGHTS_PATH.exists():
+        raise FileNotFoundError(
+            f"ES weights not found at {ES_WEIGHTS_PATH} — needed for BC pretrain. "
+            "Either add the file or pass --no-bc."
+        )
+
     project_b64 = _pack_project_b64()
     wandb_key = os.environ.get("WANDB_API_KEY", "")
 
-    ppo_args = {
+    config = {
         "total_timesteps": args.total_timesteps,
         "n_envs": args.n_envs,
         "n_steps": args.n_steps,
@@ -102,8 +131,13 @@ def create_kernel(args: argparse.Namespace) -> Path:
         "seed": args.seed,
         "eval_interval": args.eval_interval,
         "save_interval": args.save_interval,
+        "use_bc": not args.no_bc,
+        "bc_episodes": args.bc_episodes,
+        "bc_epochs": args.bc_epochs,
+        "bc_batch_size": args.bc_batch_size,
+        "bc_lr": args.bc_lr,
     }
-    ppo_args_json = json.dumps(ppo_args)
+    config_json = json.dumps(config)
 
     metadata = {
         "id": f"{KAGGLE_USERNAME}/{KERNEL_SLUG}",
@@ -123,15 +157,20 @@ def create_kernel(args: argparse.Namespace) -> Path:
         json.dump(metadata, f, indent=2)
 
     script = f'''#!/usr/bin/env python3
-"""HS Autobattler: CleanRL PPO on Kaggle T4 GPU."""
+"""HS Autobattler: CleanRL PPO (+ optional BC pretrain) on Kaggle T4 GPU."""
 
 import base64, io, json, os, subprocess, sys, time, zipfile
 
 PROJECT_B64 = "{project_b64}"
 WANDB_KEY = "{wandb_key}"
-PPO_ARGS = json.loads({ppo_args_json!r})
+CFG = json.loads({config_json!r})
 PROJECT_DIR = "/kaggle/working/project"
 OUTPUT_DIR = "/kaggle/working/artifacts/ppo"
+BC_DIR = "/kaggle/working/artifacts/bc"
+DATASET_PATH = os.path.join(BC_DIR, "bc_dataset.npz")
+BC_CKPT = os.path.join(BC_DIR, "bc_pretrain.pt")
+ES_WEIGHTS = os.path.join(PROJECT_DIR, "artifacts", "es_kaggle", "artifacts", "best.npz")
+RUN_TAG = int(time.time())
 
 # === Extract ===
 _marker = os.path.join(PROJECT_DIR, "pyproject.toml")
@@ -147,6 +186,12 @@ sys.path.insert(0, os.path.join(PROJECT_DIR, "scripts"))
 CPP_BUILD = os.path.join(PROJECT_DIR, "cpp", "build")
 if os.path.isdir(CPP_BUILD):
     sys.path.insert(0, CPP_BUILD)
+
+
+def run(cmd):
+    print(f"[RUN] {{' '.join(cmd)}}", flush=True)
+    subprocess.run(cmd, check=True)
+
 
 if __name__ == "__main__":
     # === Install deps ===
@@ -191,25 +236,64 @@ if __name__ == "__main__":
     except ImportError:
         pass
 
-    # === Run PPO ===
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    cmd = [
+    os.makedirs(BC_DIR, exist_ok=True)
+
+    # === Stage 1: BC collect ===
+    if CFG["use_bc"]:
+        if not os.path.exists(ES_WEIGHTS):
+            print(f"[BC] ES weights missing at {{ES_WEIGHTS}} — falling back to PPO from scratch")
+            CFG["use_bc"] = False
+        else:
+            print(f"\\n=== [STAGE 1/3] BC trajectory collection ({{CFG['bc_episodes']}} eps) ===")
+            run([
+                sys.executable, os.path.join(PROJECT_DIR, "scripts", "bc_collect.py"),
+                "--weights", ES_WEIGHTS,
+                "--episodes", str(CFG["bc_episodes"]),
+                "--max-tier", str(CFG["max_tier"]),
+                "--seed", str(CFG["seed"]),
+                "--out", DATASET_PATH,
+                "--log-every", "100",
+            ])
+
+    # === Stage 2: BC train ===
+    if CFG["use_bc"]:
+        print(f"\\n=== [STAGE 2/3] BC pretrain ({{CFG['bc_epochs']}} epochs) ===")
+        run([
+            sys.executable, os.path.join(PROJECT_DIR, "scripts", "bc_train.py"),
+            "--dataset", DATASET_PATH,
+            "--out", BC_CKPT,
+            "--epochs", str(CFG["bc_epochs"]),
+            "--batch-size", str(CFG["bc_batch_size"]),
+            "--lr", str(CFG["bc_lr"]),
+            "--max-tier", str(CFG["max_tier"]),
+            "--seed", str(CFG["seed"]),
+            "--wandb",
+            "--wandb-project", "hs_autobattler",
+            "--run-name", f"bc_{{RUN_TAG}}",
+        ])
+
+    # === Stage 3: PPO ===
+    stage_label = "PPO from BC" if CFG["use_bc"] and os.path.exists(BC_CKPT) else "PPO from scratch"
+    print(f"\\n=== [STAGE 3/3] {{stage_label}} ===")
+    ppo_cmd = [
         sys.executable, os.path.join(PROJECT_DIR, "scripts", "train_ppo.py"),
         "--wandb",
         "--wandb-project", "hs_autobattler",
-        "--run-name", f"cleanrl_ppo_{{int(time.time())}}",
+        "--run-name", f"{{'ppo_from_bc' if CFG['use_bc'] else 'ppo_scratch'}}_{{RUN_TAG}}",
         "--out-dir", OUTPUT_DIR,
-        "--total-timesteps", str(PPO_ARGS["total_timesteps"]),
-        "--n-envs", str(PPO_ARGS["n_envs"]),
-        "--n-steps", str(PPO_ARGS["n_steps"]),
-        "--lr", str(PPO_ARGS["lr"]),
-        "--max-tier", str(PPO_ARGS["max_tier"]),
-        "--seed", str(PPO_ARGS["seed"]),
-        "--eval-interval", str(PPO_ARGS["eval_interval"]),
-        "--save-interval", str(PPO_ARGS["save_interval"]),
+        "--total-timesteps", str(CFG["total_timesteps"]),
+        "--n-envs", str(CFG["n_envs"]),
+        "--n-steps", str(CFG["n_steps"]),
+        "--lr", str(CFG["lr"]),
+        "--max-tier", str(CFG["max_tier"]),
+        "--seed", str(CFG["seed"]),
+        "--eval-interval", str(CFG["eval_interval"]),
+        "--save-interval", str(CFG["save_interval"]),
     ]
-    print(f"[RUN] {{' '.join(cmd)}}")
-    subprocess.run(cmd, check=True)
+    if CFG["use_bc"] and os.path.exists(BC_CKPT):
+        ppo_cmd.extend(["--resume", BC_CKPT])
+    run(ppo_cmd)
     print("[DONE]")
 '''
 

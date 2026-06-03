@@ -49,11 +49,19 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     26: 0<->1, 27: 1<->2 ... 31: 5<->6
     """
 
-    def __init__(self, max_tier: int = 6, auto_position: bool = True) -> None:
+    def __init__(
+        self,
+        max_tier: int = 6,
+        auto_position: bool = True,
+        use_oracle_reward: bool = False,
+        oracle_reward_scale: float = 10.0,
+    ) -> None:
         super(HearthstoneEnv, self).__init__()
 
         self._max_tier = max_tier
         self.auto_position = auto_position
+        self.use_oracle_reward = use_oracle_reward
+        self.oracle_reward_scale = oracle_reward_scale
 
         all_ids = sorted(list(CARD_DB.keys()) + list(SPELL_DB.keys()))
 
@@ -357,6 +365,9 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # === REWARD: Round Outcome + Action Penalty + Terminal ===
         reward: float = -0.005  # action penalty
 
+        if self.use_oracle_reward and action_type != "END_TURN":
+            reward += self._oracle_reward(player)
+
         if action_type == "END_TURN":
             reward = 0.0  # END_TURN itself is free
             self.actions_in_turn = 0
@@ -524,7 +535,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         wr_after = self._oracle_eval_winrate(player)
         delta = wr_after - self._oracle_cached_wr
         self._oracle_cached_wr = wr_after
-        return delta * 10.0
+        return delta * self.oracle_reward_scale
 
     def _play_enemy_turn(self) -> None:
         p_idx = self.enemy_id

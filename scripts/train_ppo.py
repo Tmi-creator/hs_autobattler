@@ -86,6 +86,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ghost-ratio", type=float, default=0.8, help="ratio of ghost self-play vs bot")
     p.add_argument("--ghost-pool-size", type=int, default=2000, help="max games in ghost pool")
     p.add_argument("--ghost-pool-path", default="artifacts/ppo/ghost_pool.pkl", help="path to save/load ghost pool")
+    # MC Oracle Reward
+    p.add_argument("--use-oracle-reward", action="store_true", help="use dense MC Oracle reward")
+    p.add_argument("--oracle-reward-scale", type=float, default=10.0, help="scale of dense MC Oracle reward")
     return p.parse_args()
 
 
@@ -102,6 +105,8 @@ def make_env(
     use_ghost: bool = False,
     ghost_ratio: float = 0.8,
     ghost_pool: GhostPool | None = None,
+    use_oracle_reward: bool = False,
+    oracle_reward_scale: float = 10.0,
 ):
     def thunk():
         import sys
@@ -110,7 +115,11 @@ def make_env(
         sys.path.insert(0, str(ROOT / "src"))
         sys.path.insert(0, str(ROOT / "cpp" / "build"))
 
-        env = HearthstoneEnv(max_tier=max_tier)
+        env = HearthstoneEnv(
+            max_tier=max_tier,
+            use_oracle_reward=use_oracle_reward,
+            oracle_reward_scale=oracle_reward_scale,
+        )
         if ghost_pool is not None:
             env.set_ghost_pool(ghost_pool)
             if use_ghost:
@@ -229,6 +238,8 @@ def main():
                 use_ghost=args.ghost_self_play,
                 ghost_ratio=args.ghost_ratio,
                 ghost_pool=main_ghost_pool,
+                use_oracle_reward=args.use_oracle_reward,
+                oracle_reward_scale=args.oracle_reward_scale,
             )
             for i in range(args.n_envs)
         ]

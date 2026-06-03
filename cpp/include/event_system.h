@@ -37,7 +37,9 @@ struct Event {
     int8_t  target_side = -1;
     int8_t  target_slot = -1;
     int16_t value = 0;        // Damage amount, buff value, etc.
+    int32_t meta = 0;         // Extra metadata (e.g. killer UID, reborn flag)
     MinionSnapshot snapshot;  // For MINION_DIED: snapshot of the dead unit
+
 };
 
 // ============================================================
@@ -145,6 +147,17 @@ inline bool has_any_subscribers(const CombatState& state, EventType t) {
         static_cast<uint32_t>(state.boards[0].subscribers[idx]) |
         static_cast<uint32_t>(state.boards[1].subscribers[idx]);
     return board_mask != 0 || (g_system_event_mask & (1u << idx)) != 0;
+}
+
+inline void fire_unit_event(CombatState& state, EventType t,
+                            int32_t uid, int8_t side, int8_t slot) {
+    if (!has_any_subscribers(state, t)) return;
+    Event e{};
+    e.event_type = t;
+    e.source_uid = uid;
+    e.source_side = side;
+    e.source_slot = slot;
+    process_event(state, e);
 }
 
 // ============================================================

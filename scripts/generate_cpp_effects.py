@@ -99,7 +99,7 @@ def tags_to_cpp(tags: set[Tags]) -> str:
 
 
 def generate_card_db_header() -> str:
-    """Generate cpp/include/generated_card_db.h with base_tags() lookup."""
+    """Generate cpp/include/generated_card_db.h with base_tags() and avenge_threshold() lookups."""
     lines = [
         "#pragma once",
         "// generated_card_db.h — AUTO-GENERATED from card_def.py",
@@ -132,11 +132,32 @@ def generate_card_db_header() -> str:
         "    }",
         "}",
         "",
+        "// Avenge threshold lookup. Returns 0 if card has no Avenge effect.",
+        "inline constexpr int8_t avenge_threshold(int16_t card_id) {",
+        "    switch (card_id) {",
+    ])
+
+    for card in ALL_CARDS:
+        threshold = 0
+        for eff in card.effects:
+            if hasattr(eff, "threshold"):
+                threshold = eff.threshold
+                break
+        if threshold > 0:
+            cpp_id = card_id_to_cpp_int(card.card_id)
+            lines.append(f"        case {cpp_id}: return {threshold};")
+
+    lines.extend([
+        "        default: return 0;",
+        "    }",
+        "}",
+        "",
         "} // namespace CardDB",
         "",
     ])
 
     return "\n".join(lines)
+
 
 
 def generate_card_ids_header() -> str:
@@ -205,6 +226,7 @@ def generate_effects_cpp() -> str:
         "// Tavern-phase effects (BC, sell) run in Python only.",
         "",
         '#include "event_system.h"',
+        '#include "generated_card_db.h"',
         "",
         "// ── Helpers ──",
         "",
@@ -227,6 +249,22 @@ def generate_effects_cpp() -> str:
         "    return u.uid == event.source_uid ? &u : nullptr;",
         "}",
         "",
+        "// Lookup юнита на обеих досках по UID, возвращает side/slot",
+        "static Unit* find_unit_by_uid(CombatState& state, int32_t uid, int8_t& out_side, int8_t& out_slot) {",
+        "    if (uid == 0) return nullptr;",
+        "    for (int s = 0; s < 2; ++s) {",
+        "        auto& board = state.boards[s];",
+        "        for (int i = 0; i < board.count; ++i) {",
+        "            if (board.units[i].uid == uid) {",
+        "                out_side = s;",
+        "                out_slot = i;",
+        "                return &board.units[i];",
+        "            }",
+        "        }",
+        "    }",
+        "    return nullptr;",
+        "}",
+        "",
         "static int32_t summon_unit(",
         "    CombatState& state, EventQueue& queue,",
         "    int8_t side, int8_t slot, int16_t card_id,",
@@ -244,6 +282,7 @@ def generate_effects_cpp() -> str:
         "    unit.atk_base = atk;",
         "    unit.hp_base = hp;",
         "    unit.is_golden = is_golden;",
+        "    unit.avenge_counter = CardDB::avenge_threshold(card_id);",
         "    if (slot < 0) slot = 0;",
         "    if (slot > board.count) slot = board.count;",
         "    board.insert_at(slot, unit);",
@@ -298,9 +337,10 @@ def generate_effects_cpp() -> str:
         for eff in card.effects:
             cpp_id = card_id_to_cpp_int(card.card_id)
             cpp_name_safe = card_id_to_cpp_name(card).lower()
+            eff_type = type(eff).__name__
 
             # DeathrattleSummon: combat-relevant
-            if isinstance(eff, DeathrattleSummon):
+            if eff_type == "DeathrattleSummon":
                 token = next(c for c in ALL_CARDS if c.card_id == eff.token_id)
                 token_cpp = card_id_to_cpp_int(eff.token_id)
                 token_types = types_to_cpp(token.types)
@@ -324,7 +364,7 @@ def generate_effects_cpp() -> str:
                 )
 
             # DeathrattleSummonWithTag: combat-relevant (Twilight Hatchling)
-            elif isinstance(eff, DeathrattleSummonWithTag):
+            elif eff_type == "DeathrattleSummonWithTag":
                 token = next(c for c in ALL_CARDS if c.card_id == eff.token_id)
                 token_cpp = card_id_to_cpp_int(eff.token_id)
                 token_types = types_to_cpp(token.types)
@@ -350,7 +390,7 @@ def generate_effects_cpp() -> str:
                 )
 
             # OnFriendlyDeathBuff: combat-relevant (Rot Hide Gnoll)
-            elif isinstance(eff, OnFriendlyDeathBuff):
+            elif eff_type == "OnFriendlyDeathBuff":
                 fn_name = f"effect_on_death_{cpp_name_safe}"
                 lines.append(
                     f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
@@ -369,7 +409,7 @@ def generate_effects_cpp() -> str:
                 )
 
             # StartOfCombatBuffSelfByTier: combat-relevant (Misfit Dragonling)
-            elif isinstance(eff, StartOfCombatBuffSelfByTier):
+            elif eff_type == "StartOfCombatBuffSelfByTier":
                 fn_name = f"effect_soc_{cpp_name_safe}"
                 lines.append(
                     f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
@@ -387,7 +427,7 @@ def generate_effects_cpp() -> str:
                 )
 
             # OnFriendlyPlayType: combat-relevant only for Swampstriker (murloc summon in combat)
-            elif isinstance(eff, OnFriendlyPlayType):
+            elif eff_type == "OnFriendlyPlayType":
                 type_mask = TYPE_MAP[eff.trigger_type]
                 fn_name = f"effect_on_play_{cpp_name_safe}"
                 lines.append(
@@ -410,7 +450,7 @@ def generate_effects_cpp() -> str:
                 )
 
             # OnFriendlyPlayTypeDamageHero: Wrath Weaver (hero dmg is no-op in combat)
-            elif isinstance(eff, OnFriendlyPlayTypeDamageHero):
+            elif eff_type == "OnFriendlyPlayTypeDamageHero":
                 type_mask = TYPE_MAP[eff.trigger_type]
                 fn_name = f"effect_on_play_{cpp_name_safe}"
                 lines.append(
@@ -434,7 +474,7 @@ def generate_effects_cpp() -> str:
                 )
 
             # RallyBuff: combat-relevant (ATTACK_DECLARED, self)
-            elif isinstance(eff, RallyBuff):
+            elif eff_type == "RallyBuff":
                 # In C++ combat, Blood Gem mechanic modifiers don't exist — use base 1/1
                 buff_atk = eff.atk if not eff.use_blood_gem else 1
                 buff_hp = eff.hp if not eff.use_blood_gem else 1
@@ -455,8 +495,499 @@ def generate_effects_cpp() -> str:
                     f"    {{ TriggerDef def{{EventType::ATTACK_DECLARED, cond_is_self, {fn_name}}}; register_effect_entry({cpp_id}, &def, 1); }}"
                 )
 
-            # All other EffectDef types (BattlecryAddSpell, SellAddSpell, etc.)
-            # are tavern-phase only — no C++ generation needed
+            # Avenge: combat-relevant
+            elif eff_type in ("AvengeEffect", "AvengeBuffFriendlyTypeGlobal"):
+                fn_name = f"effect_avenge_{cpp_name_safe}"
+                lines.append(
+                    f"static void {fn_name}(CombatState& state, EventQueue& queue, const Event& event, int32_t trigger_uid, int8_t side, int8_t slot) {{"
+                )
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                lines.append(f"    if (!u || !u->is_alive()) return;")
+                lines.append(f"    u->avenge_counter--;")
+                lines.append(f"    if (u->avenge_counter <= 0) {{")
+                lines.append(f"        u->avenge_counter = {eff.threshold};")
+
+                if eff_type == "AvengeBuffFriendlyTypeGlobal":
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"        auto& board = state.boards[side];")
+                    lines.append(f"        for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"            Unit& target = board.units[i];")
+                    lines.append(f"            if (target.is_alive() && (target.types & {cpp_type})) {{")
+                    lines.append(f"                target.combat_atk += {eff.atk};")
+                    lines.append(f"                target.combat_hp += {eff.hp};")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                else:
+                    if eff.buff_target == "self":
+                        lines.append(f"        u->combat_atk += {eff.buff_atk};")
+                        lines.append(f"        u->combat_hp += {eff.buff_hp};")
+                    elif eff.buff_target == "friendly_type":
+                        lines.append(f"        auto& board = state.boards[side];")
+                        lines.append(f"        for (int i = 0; i < board.count; ++i) {{")
+                        lines.append(f"            Unit& target = board.units[i];")
+                        if eff.target_type:
+                            cpp_type = TYPE_MAP[eff.target_type]
+                            lines.append(f"            if (target.is_alive() && (target.types & {cpp_type})) {{")
+                        else:
+                            lines.append(f"            if (target.is_alive()) {{")
+                        lines.append(f"                target.combat_atk += {eff.buff_atk};")
+                        lines.append(f"                target.combat_hp += {eff.buff_hp};")
+                        lines.append(f"            }}")
+                        lines.append(f"        }}")
+                    elif eff.buff_target == "random_friendly_type":
+                        lines.append(f"        auto& board = state.boards[side];")
+                        lines.append(f"        Unit* candidates[GameConst::MAX_BOARD];")
+                        lines.append(f"        int count = 0;")
+                        lines.append(f"        for (int i = 0; i < board.count; ++i) {{")
+                        lines.append(f"            Unit& target = board.units[i];")
+                        if eff.target_type:
+                            cpp_type = TYPE_MAP[eff.target_type]
+                            lines.append(f"            if (target.is_alive() && (target.types & {cpp_type})) {{")
+                        else:
+                            lines.append(f"            if (target.is_alive()) {{")
+                        lines.append(f"                candidates[count++] = &target;")
+                        lines.append(f"            }}")
+                        lines.append(f"        }}")
+                        lines.append(f"        if (count > 0) {{")
+                        lines.append(f"            int idx = rng_index(state.rng, count);")
+                        lines.append(f"            candidates[idx]->combat_atk += {eff.buff_atk};")
+                        lines.append(f"            candidates[idx]->combat_hp += {eff.buff_hp};")
+                        lines.append(f"        }}")
+                    elif eff.buff_target == "adjacent":
+                        lines.append(f"        auto& board = state.boards[side];")
+                        lines.append(f"        for (int adj_idx : {{slot - 1, slot + 1}}) {{")
+                        lines.append(f"            if (adj_idx >= 0 && adj_idx < board.count) {{")
+                        lines.append(f"                Unit& target = board.units[adj_idx];")
+                        lines.append(f"                if (target.is_alive()) {{")
+                        lines.append(f"                    target.combat_atk += {eff.buff_atk};")
+                        lines.append(f"                    target.combat_hp += {eff.buff_hp};")
+                        lines.append(f"                }}")
+                        lines.append(f"            }}")
+                        lines.append(f"        }}")
+
+                lines.append(f"    }}")
+                lines.append(f"}}")
+                lines.append("")
+
+                registrations.append(
+                    f"    {{ TriggerDef def{{EventType::MINION_DIED, cond_friendly_death, {fn_name}}}; register_effect_entry({cpp_id}, &def, 1); }}"
+                )
+
+            # Start of Combat Effects
+            elif eff_type in ("StartOfCombatBuffSelf", "StartOfCombatBuffFriendlyType", "StartOfCombatBuffAllFriendlyType", "StartOfCombatGiveFriendlyTypeReborn", "StartOfCombatBuffSelfByHighestAllyAtk", "StartOfCombatBuffSelfByHighestBoardAtk", "StartOfCombatDamageAndBuffAdjacent", "StartOfCombatBuffRandomFriendlyTypeAndDS", "StartOfCombatBuffFriendlyTypeScaling"):
+                fn_name = f"effect_soc_{cpp_name_safe}"
+                lines.append(
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
+                )
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                lines.append(f"    if (!u || !u->is_alive()) return;")
+
+                if eff_type == "StartOfCombatBuffSelf":
+                    lines.append(f"    u->combat_atk += {eff.atk};")
+                    lines.append(f"    u->combat_hp += {eff.hp};")
+
+                elif eff_type in ("StartOfCombatBuffFriendlyType", "StartOfCombatBuffAllFriendlyType"):
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && (target.types & {cpp_type})) {{")
+                    lines.append(f"            target.combat_atk += {eff.atk};")
+                    lines.append(f"            target.combat_hp += {eff.hp};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "StartOfCombatGiveFriendlyTypeReborn":
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    Unit* candidates[GameConst::MAX_BOARD];")
+                    lines.append(f"    int count = 0;")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid && (target.types & {cpp_type}) && !target.has_tag(Tags::REBORN)) {{")
+                    lines.append(f"            candidates[count++] = &target;")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+                    lines.append(f"    if (count > 0) {{")
+                    lines.append(f"        int idx = rng_index(state.rng, count);")
+                    lines.append(f"        candidates[idx]->set_tag(Tags::REBORN);")
+                    lines.append(f"    }}")
+
+                elif eff_type == "StartOfCombatBuffSelfByHighestAllyAtk":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    int16_t max_atk = 0;")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid) {{")
+                    lines.append(f"            if (target.get_atk() > max_atk) max_atk = target.get_atk();")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+                    lines.append(f"    if (max_atk > 0) u->combat_atk += max_atk;")
+
+                elif eff_type == "StartOfCombatBuffSelfByHighestBoardAtk":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    int16_t best_atk = 0, best_hp = 0;")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid) {{")
+                    lines.append(f"            if (target.get_atk() > best_atk) {{")
+                    lines.append(f"                best_atk = target.get_atk();")
+                    lines.append(f"                best_hp = target.get_hp();")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+                    lines.append(f"    if (best_atk > 0) {{")
+                    lines.append(f"        int16_t gain_atk = std::max<int16_t>(0, best_atk - u->get_atk());")
+                    lines.append(f"        int16_t gain_hp = std::max<int16_t>(0, best_hp - u->get_hp());")
+                    lines.append(f"        u->combat_atk += gain_atk;")
+                    lines.append(f"        u->combat_hp += gain_hp;")
+                    lines.append(f"    }}")
+
+                elif eff_type == "StartOfCombatDamageAndBuffAdjacent":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int adj_idx : {{slot - 1, slot + 1}}) {{")
+                    lines.append(f"        if (adj_idx >= 0 && adj_idx < board.count) {{")
+                    lines.append(f"            Unit& target = board.units[adj_idx];")
+                    lines.append(f"            if (target.is_alive()) {{")
+                    lines.append(f"                target.damage_taken += {eff.damage};")
+                    lines.append(f"                if (target.get_hp() <= 0) {{")
+                    lines.append(f"                    board.dead_slot_mask |= (1 << adj_idx);")
+                    lines.append(f"                    state.has_pending_deaths = true;")
+                    lines.append(f"                }}")
+                    lines.append(f"                target.combat_atk += {eff.atk};")
+                    lines.append(f"                target.combat_hp += {eff.hp};")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "StartOfCombatBuffRandomFriendlyTypeAndDS":
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    Unit* candidates[GameConst::MAX_BOARD];")
+                    lines.append(f"    int count = 0;")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid && (target.types & {cpp_type})) {{")
+                    lines.append(f"            candidates[count++] = &target;")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+                    lines.append(f"    if (count > 0) {{")
+                    lines.append(f"        int idx = rng_index(state.rng, count);")
+                    lines.append(f"        candidates[idx]->combat_atk += {eff.atk};")
+                    lines.append(f"        candidates[idx]->combat_hp += {eff.hp};")
+                    lines.append(f"        candidates[idx]->set_tag(Tags::DIVINE_SHIELD);")
+                    lines.append(f"    }}")
+
+                elif eff_type == "StartOfCombatBuffFriendlyTypeScaling":
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid && (target.types & {cpp_type})) {{")
+                    lines.append(f"            target.combat_atk += {eff.atk};")
+                    lines.append(f"            target.combat_hp += {eff.hp};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                lines.append(f"}}")
+                lines.append("")
+
+                registrations.append(
+                    f"    {{ TriggerDef def{{EventType::START_OF_COMBAT, cond_friendly_soc, {fn_name}}}; register_effect_entry({cpp_id}, &def, 1); }}"
+                )
+
+            # Deathrattles
+            elif eff_type in ("DeathrattleDamageAllMinions", "DeathrattleBuffAllFriendlies", "DeathrattleBuffAllFriendliesGlobal", "DeathrattleBuffFriendlyTypeGlobal", "DeathrattleDestroyKiller", "DeathrattleGiveFriendliesScaling", "DeathrattleSummonTauntToken"):
+                fn_name = f"effect_dr_{cpp_name_safe}"
+                lines.append(
+                    f"static void {fn_name}(CombatState& state, EventQueue& queue, const Event& event, int32_t trigger_uid, int8_t side, int8_t slot) {{"
+                )
+
+                if eff_type == "DeathrattleDamageAllMinions":
+                    lines.append(f"    for (int s = 0; s < 2; ++s) {{")
+                    lines.append(f"        auto& board = state.boards[s];")
+                    lines.append(f"        for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"            Unit& victim = board.units[i];")
+                    lines.append(f"            if (victim.is_alive()) {{")
+                    lines.append(f"                if (victim.has_tag(Tags::DIVINE_SHIELD)) {{")
+                    lines.append(f"                    victim.remove_tag(Tags::DIVINE_SHIELD);")
+                    lines.append(f"                    fire_unit_event(state, EventType::DIVINE_SHIELD_LOST, victim.uid, s, i);")
+                    lines.append(f"                }} else {{")
+                    lines.append(f"                    victim.damage_taken += {eff.damage};")
+                    lines.append(f"                    if (victim.get_hp() <= 0) {{")
+                    lines.append(f"                        board.dead_slot_mask |= (1 << i);")
+                    lines.append(f"                        state.has_pending_deaths = true;")
+                    lines.append(f"                    }}")
+                    lines.append(f"                }}")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "DeathrattleBuffAllFriendlies":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive()) {{")
+                    lines.append(f"            target.combat_atk += {eff.atk};")
+                    lines.append(f"            target.combat_hp += {eff.hp};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type in ("DeathrattleBuffAllFriendliesGlobal", "DeathrattleBuffFriendlyTypeGlobal"):
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && (target.types & {cpp_type})) {{")
+                    lines.append(f"            target.combat_atk += {eff.atk};")
+                    lines.append(f"            target.combat_hp += {eff.hp};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "DeathrattleDestroyKiller":
+                    lines.append(f"    int32_t killer_uid = event.meta;")
+                    lines.append(f"    if (killer_uid != 0) {{")
+                    lines.append(f"        for (int s = 0; s < 2; ++s) {{")
+                    lines.append(f"            auto& board = state.boards[s];")
+                    lines.append(f"            for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"                Unit& target = board.units[i];")
+                    lines.append(f"                if (target.uid == killer_uid && target.is_alive()) {{")
+                    lines.append(f"                    target.damage_taken += target.get_hp();")
+                    lines.append(f"                    board.dead_slot_mask |= (1 << i);")
+                    lines.append(f"                    state.has_pending_deaths = true;")
+                    lines.append(f"                    return;")
+                    lines.append(f"                }}")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "DeathrattleGiveFriendliesScaling":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive()) {{")
+                    lines.append(f"            target.combat_atk += {eff.buff_atk};")
+                    lines.append(f"            target.combat_hp += {eff.buff_hp};")
+                    lines.append(f"            if ({eff.self_damage} > 0) {{")
+                    lines.append(f"                target.damage_taken += {eff.self_damage};")
+                    lines.append(f"                if (target.get_hp() <= 0) {{")
+                    lines.append(f"                    board.dead_slot_mask |= (1 << i);")
+                    lines.append(f"                    state.has_pending_deaths = true;")
+                    lines.append(f"                }}")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "DeathrattleSummonTauntToken":
+                    token = next(c for c in ALL_CARDS if c.card_id == eff.token_id)
+                    token_cpp = card_id_to_cpp_int(eff.token_id)
+                    token_types = types_to_cpp(token.types)
+                    token_tags = tags_to_cpp(token.tags | {Tags.TAUNT})
+                    lines.append(f"    int8_t s = -1, sl = -1;")
+                    lines.append(f"    if (!get_source_pos(event, s, sl)) return;")
+                    for _ in range(eff.count):
+                        lines.append(
+                            f"    summon_unit(state, queue, s, sl, {token_cpp}, {token.atk}, {token.hp}, {token_types}, {token_tags}, {token.tier}, false);"
+                        )
+
+                lines.append(f"}}")
+                lines.append("")
+
+                registrations.append(
+                    f"    {{ TriggerDef def{{EventType::MINION_DIED, cond_self_death, {fn_name}}}; register_effect_entry({cpp_id}, &def, 1); }}"
+                )
+
+            # Custom Triggers
+            elif eff_type in ("OnFriendlySummonedTypeBuff", "OnSelfDamagedBuffBoard", "OnFriendlyBeastDamagedBuffSelf", "OnFriendlyBeastDamagedBuffOther", "OnFriendlyRebornBuffSelf", "OnFriendlyAttackBuffSelf", "OnFriendlyAttackBuffTriggerSelf"):
+                fn_name = f"effect_trig_{cpp_name_safe}"
+                lines.append(
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event& event, int32_t trigger_uid, int8_t side, int8_t slot) {{"
+                )
+
+                if eff_type == "OnFriendlySummonedTypeBuff":
+                    if eff.exclude_self:
+                        lines.append(f"    if (event.source_uid == trigger_uid) return;")
+                    lines.append(f"    if (event.source_side != side) return;")
+                    lines.append(f"    Unit* summoned = event_source_unit(state, event);")
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    if (!summoned || !(summoned->types & {cpp_type})) return;")
+                    lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                    lines.append(f"    if (!u || !u->is_alive()) return;")
+                    lines.append(f"    u->combat_atk += {eff.atk};")
+                    lines.append(f"    u->combat_hp += {eff.hp};")
+                    if eff.gain_divine_shield:
+                        lines.append(f"    u->set_tag(Tags::DIVINE_SHIELD);")
+
+                elif eff_type == "OnSelfDamagedBuffBoard":
+                    lines.append(f"    if (event.target_uid != trigger_uid) return;")
+                    lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                    lines.append(f"    if (!u || !u->is_alive()) return;")
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid) {{")
+                    lines.append(f"            target.combat_atk += {eff.atk};")
+                    lines.append(f"            target.combat_hp += {eff.hp};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "OnFriendlyBeastDamagedBuffSelf":
+                    lines.append(f"    if (event.target_uid == trigger_uid) return;")
+                    lines.append(f"    int8_t tgt_side = -1, tgt_slot = -1;")
+                    lines.append(f"    Unit* target = find_unit_by_uid(state, event.target_uid, tgt_side, tgt_slot);")
+                    lines.append(f"    if (!target || tgt_side != side || !(target->types & UnitTypes::BEAST)) return;")
+                    lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                    lines.append(f"    if (!u || !u->is_alive()) return;")
+                    lines.append(f"    u->combat_hp += {eff.hp};")
+
+                elif eff_type == "OnFriendlyBeastDamagedBuffOther":
+                    lines.append(f"    int8_t tgt_side = -1, tgt_slot = -1;")
+                    lines.append(f"    Unit* target = find_unit_by_uid(state, event.target_uid, tgt_side, tgt_slot);")
+                    lines.append(f"    if (!target || tgt_side != side || !(target->types & UnitTypes::BEAST)) return;")
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    Unit* candidates[GameConst::MAX_BOARD];")
+                    lines.append(f"    int count = 0;")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& other = board.units[i];")
+                    lines.append(f"        if (other.is_alive() && other.uid != event.target_uid && (other.types & UnitTypes::BEAST)) {{")
+                    lines.append(f"            candidates[count++] = &other;")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+                    lines.append(f"    if (count > 0) {{")
+                    lines.append(f"        int idx = rng_index(state.rng, count);")
+                    lines.append(f"        candidates[idx]->combat_atk += {eff.atk};")
+                    lines.append(f"        candidates[idx]->combat_hp += {eff.hp};")
+                    lines.append(f"    }}")
+
+                elif eff_type == "OnFriendlyRebornBuffSelf":
+                    lines.append(f"    if (event.meta != 1) return;")
+                    lines.append(f"    if (event.source_side != side) return;")
+                    lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                    lines.append(f"    if (!u || !u->is_alive()) return;")
+                    lines.append(f"    u->combat_atk += {eff.atk};")
+                    lines.append(f"    u->combat_hp += {eff.hp};")
+
+                elif eff_type == "OnFriendlyAttackBuffSelf":
+                    lines.append(f"    if (event.source_uid == trigger_uid) return;")
+                    lines.append(f"    if (event.source_side != side) return;")
+                    lines.append(f"    int8_t att_side = -1, att_slot = -1;")
+                    lines.append(f"    Unit* attacker = find_unit_by_uid(state, event.source_uid, att_side, att_slot);")
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    if (!attacker || att_side != side || !(attacker->types & {cpp_type})) return;")
+                    lines.append(f"    attacker->combat_atk += {eff.atk};")
+                    lines.append(f"    attacker->combat_hp += {eff.hp};")
+
+                elif eff_type == "OnFriendlyAttackBuffTriggerSelf":
+                    lines.append(f"    if (event.source_uid == trigger_uid) return;")
+                    lines.append(f"    if (event.source_side != side) return;")
+                    lines.append(f"    int8_t att_side = -1, att_slot = -1;")
+                    lines.append(f"    Unit* attacker = find_unit_by_uid(state, event.source_uid, att_side, att_slot);")
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    if (!attacker || att_side != side || !(attacker->types & {cpp_type})) return;")
+                    lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                    lines.append(f"    if (!u || !u->is_alive()) return;")
+                    lines.append(f"    u->combat_atk += {eff.atk};")
+                    lines.append(f"    u->combat_hp += {eff.hp};")
+
+                lines.append(f"}}")
+                lines.append("")
+
+                if eff_type in ("OnFriendlySummonedTypeBuff", "OnFriendlyRebornBuffSelf"):
+                    event_type_cpp = "EventType::MINION_SUMMONED"
+                elif eff_type in ("OnFriendlyAttackBuffSelf", "OnFriendlyAttackBuffTriggerSelf"):
+                    event_type_cpp = "EventType::ATTACK_DECLARED"
+                else:
+                    event_type_cpp = "EventType::MINION_DAMAGED"
+                cond_fn_cpp = "cond_always"
+                registrations.append(
+                    f"    {{ TriggerDef def{{{event_type_cpp}, {cond_fn_cpp}, {fn_name}}}; register_effect_entry({cpp_id}, &def, 1); }}"
+                )
+
+            # Rally
+            elif eff_type in ("RallyDealDamageEqualToAtk", "RallyBuffRandomFriendlyType", "RallyBuffFriendlyTypeAtk", "RallyDamageOwnBoard", "RallyBuffAllOthersByType"):
+                fn_name = f"effect_rally_{cpp_name_safe}"
+                lines.append(
+                    f"static void {fn_name}(CombatState& state, EventQueue&, const Event&, int32_t trigger_uid, int8_t side, int8_t slot) {{"
+                )
+                lines.append(f"    Unit* u = trigger_owner(state, side, slot, trigger_uid);")
+                lines.append(f"    if (!u || !u->is_alive()) return;")
+
+                if eff_type == "RallyDealDamageEqualToAtk":
+                    lines.append(f"    auto& enemy_board = state.boards[1 - side];")
+                    lines.append(f"    if (enemy_board.count > 0) {{")
+                    lines.append(f"        int idx = rng_index(state.rng, enemy_board.count);")
+                    lines.append(f"        Unit& victim = enemy_board.units[idx];")
+                    lines.append(f"        int16_t dmg = u->get_atk();")
+                    lines.append(f"        if (dmg > 0) {{")
+                    lines.append(f"            if (victim.has_tag(Tags::DIVINE_SHIELD)) {{")
+                    lines.append(f"                victim.remove_tag(Tags::DIVINE_SHIELD);")
+                    lines.append(f"                fire_unit_event(state, EventType::DIVINE_SHIELD_LOST, victim.uid, 1 - side, idx);")
+                    lines.append(f"            }} else {{")
+                    lines.append(f"                victim.damage_taken += dmg;")
+                    lines.append(f"                if (victim.get_hp() <= 0) {{")
+                    lines.append(f"                    enemy_board.dead_slot_mask |= (1 << idx);")
+                    lines.append(f"                    state.has_pending_deaths = true;")
+                    lines.append(f"                }}")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "RallyBuffRandomFriendlyType":
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    Unit* candidates[GameConst::MAX_BOARD];")
+                    lines.append(f"    int count = 0;")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& other = board.units[i];")
+                    lines.append(f"        if (other.is_alive() && other.uid != trigger_uid && (other.types & {cpp_type})) {{")
+                    lines.append(f"            candidates[count++] = &other;")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+                    lines.append(f"    if (count > 0) {{")
+                    lines.append(f"        int idx = rng_index(state.rng, count);")
+                    lines.append(f"        candidates[idx]->combat_atk += {eff.atk};")
+                    lines.append(f"        candidates[idx]->combat_hp += {eff.hp};")
+                    lines.append(f"    }}")
+
+                elif eff_type == "RallyBuffFriendlyTypeAtk":
+                    cpp_type = TYPE_MAP[eff.trigger_type]
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid && (target.types & {cpp_type})) {{")
+                    lines.append(f"            target.combat_atk += {eff.atk};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "RallyDamageOwnBoard":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid) {{")
+                    lines.append(f"            target.damage_taken += {eff.damage};")
+                    lines.append(f"            if (target.get_hp() <= 0) {{")
+                    lines.append(f"                board.dead_slot_mask |= (1 << i);")
+                    lines.append(f"                state.has_pending_deaths = true;")
+                    lines.append(f"            }}")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                elif eff_type == "RallyBuffAllOthersByType":
+                    lines.append(f"    auto& board = state.boards[side];")
+                    lines.append(f"    for (int i = 0; i < board.count; ++i) {{")
+                    lines.append(f"        Unit& target = board.units[i];")
+                    lines.append(f"        if (target.is_alive() && target.uid != trigger_uid) {{")
+                    lines.append(f"            target.combat_atk += {eff.count};")
+                    lines.append(f"            target.combat_hp += {eff.count};")
+                    lines.append(f"        }}")
+                    lines.append(f"    }}")
+
+                lines.append(f"}}")
+                lines.append("")
+
+                registrations.append(
+                    f"    {{ TriggerDef def{{EventType::ATTACK_DECLARED, cond_is_self, {fn_name}}}; register_effect_entry({cpp_id}, &def, 1); }}"
+                )
 
     # EffectIDs.CRAB_DEATHRATTLE — attached effect, always needed
     crab = next(c for c in ALL_CARDS if c.card_id == CardIDs.CRAB_TOKEN)
@@ -488,6 +1019,7 @@ def generate_effects_cpp() -> str:
     lines.append("")
 
     return "\n".join(lines)
+
 
 
 # ── Main ──────────────────────────────────────────────────────────────

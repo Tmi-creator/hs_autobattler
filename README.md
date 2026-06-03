@@ -74,7 +74,7 @@ longer the primary training route.
 * `kaggle_submit_ppo.py` - self-contained Kaggle kernel generator for BC + PPO.
 * `evolve_bot.py` - `(mu+lambda)` ES trainer for `es_bot.py`.
 * `generate_cpp_effects.py` - generate C++ effects from `CardDef`.
-* `trans.py`, `categorical_critic.py`, `train_transformer.py` - legacy SB3-era transformer/PPO path.
+* `legacy/` - legacy SB3-era training files (trans, categorical_critic, train, evaluate_pvp, visualize_attention), integration tests, and the archived Python combat simulator.
 
 ### `cpp/` - C++ Combat Engine
 

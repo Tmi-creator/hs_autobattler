@@ -81,23 +81,23 @@ class TestMappings:
 class TestUnitConversion:
     def test_basic_unit(self):
         """Convert a simple unit to C++ tuple."""
-        u = Unit.create_from_db(CardIDs.SCALLYWAG, uid=1, owner_id=0)
+        u = Unit.create_from_db(CardIDs.CORD_PULLER, uid=1, owner_id=0)
         t = CombatManager._unit_to_cpp(u)
         card_id, atk, hp, types, tags, tier, golden = t
-        assert card_id == 103  # Scallywag
-        assert atk == 3
+        assert card_id == 103  # Cord Puller
+        assert atk == 1
         assert hp == 1
-        assert types == TYPE_TO_BIT[UnitType.PIRATE]
+        assert types == TYPE_TO_BIT[UnitType.MECH]
         assert tier == 1
         assert golden is False
 
     def test_golden_unit(self):
         """Golden unit should have doubled stats and golden=True."""
-        u = Unit.create_from_db(CardIDs.SCALLYWAG, uid=1, owner_id=0, is_golden=True)
+        u = Unit.create_from_db(CardIDs.CORD_PULLER, uid=1, owner_id=0, is_golden=True)
         t = CombatManager._unit_to_cpp(u)
         card_id, atk, hp, types, tags, tier, golden = t
         assert card_id == 103
-        assert atk == 6  # doubled
+        assert atk == 2  # doubled
         assert hp == 2   # doubled
         assert golden is True
 
@@ -122,8 +122,8 @@ class TestFastCombat:
 
     def test_basic_1v1(self):
         """1v1 combat should produce WIN, LOSE, or DRAW."""
-        u0 = Unit.create_from_db(CardIDs.SCALLYWAG, uid=1, owner_id=0)
-        u1 = Unit.create_from_db(CardIDs.ALLEYCAT, uid=2, owner_id=1)
+        u0 = Unit.create_from_db(CardIDs.CORD_PULLER, uid=1, owner_id=0)
+        u1 = Unit.create_from_db(CardIDs.AUREATE_LAUREATE, uid=2, owner_id=1)
         p0 = self._make_player([u0], uid=0)
         p1 = self._make_player([u1], uid=1)
         cm = CombatManager()
@@ -148,7 +148,7 @@ class TestFastCombat:
 
         for seed in range(N):
             random.seed(seed)
-            u0 = Unit.create_from_db(CardIDs.IMPRISONER, uid=100, owner_id=0)
+            u0 = Unit.create_from_db(CardIDs.MANASABER, uid=100, owner_id=0)
             u1 = Unit.create_from_db(CardIDs.ANNOY_O_TRON, uid=200, owner_id=1)
             p0_cpp = self._make_player([u0], uid=0, tavern_tier=2)
             p1_cpp = self._make_player([u1], uid=1, tavern_tier=2)
@@ -160,7 +160,7 @@ class TestFastCombat:
 
         for seed in range(N):
             random.seed(seed)
-            u0 = Unit.create_from_db(CardIDs.IMPRISONER, uid=100, owner_id=0)
+            u0 = Unit.create_from_db(CardIDs.MANASABER, uid=100, owner_id=0)
             u1 = Unit.create_from_db(CardIDs.ANNOY_O_TRON, uid=200, owner_id=1)
             p0_py = self._make_player([u0], uid=0, tavern_tier=2)
             p1_py = self._make_player([u1], uid=1, tavern_tier=2)
@@ -172,7 +172,5 @@ class TestFastCombat:
 
         cpp_wr = cpp_wins / N
         py_wr = py_wins / N
-        # Different RNGs, but results should be within ~15%
-        assert abs(cpp_wr - py_wr) < 0.20, (
-            f"Win rates diverge too much: C++ {cpp_wr:.2f} vs Python {py_wr:.2f}"
-        )
+        # Since resolve_combat now redirects to resolve_combat_fast, they should be exactly identical
+        assert cpp_wr == py_wr

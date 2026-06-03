@@ -27,6 +27,7 @@ import torch.nn.functional as F
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "cpp" / "build"))
 
 from model import (
     HSTransformerAgent,
@@ -80,6 +81,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out-dir", default="artifacts/ppo")
     # Resume
     p.add_argument("--resume", default=None, help="path to checkpoint .pt")
+    # Ghost Self-Play
+    p.add_argument("--ghost-self-play", action="store_true", help="enable ghost self-play")
+    p.add_argument("--ghost-ratio", type=float, default=0.8, help="ratio of ghost self-play vs bot")
+    p.add_argument("--ghost-pool-size", type=int, default=2000, help="max games in ghost pool")
+    p.add_argument("--ghost-pool-path", default="artifacts/ppo/ghost_pool.pkl", help="path to save/load ghost pool")
     return p.parse_args()
 
 
@@ -87,9 +93,29 @@ def parse_args() -> argparse.Namespace:
 # Environment
 # ============================================================
 
-def make_env(rank: int, seed: int, max_tier: int):
+from hearthstone.env.ghost_pool import GhostPool
+
+def make_env(
+    rank: int,
+    seed: int,
+    max_tier: int,
+    use_ghost: bool = False,
+    ghost_ratio: float = 0.8,
+    ghost_pool: GhostPool | None = None,
+):
     def thunk():
+        import sys
+        from pathlib import Path
+        ROOT = Path(__file__).resolve().parent.parent
+        sys.path.insert(0, str(ROOT / "src"))
+        sys.path.insert(0, str(ROOT / "cpp" / "build"))
+
         env = HearthstoneEnv(max_tier=max_tier)
+        if ghost_pool is not None:
+            env.set_ghost_pool(ghost_pool)
+            if use_ghost:
+                env.enable_ghost_mode()
+                env._ghost_ratio = ghost_ratio
         env.reset(seed=seed + rank)
         return env
 
@@ -183,9 +209,29 @@ def main():
             config=vars(args),
         )
 
+    # Ghost self-play pool
+    main_ghost_pool = None
+    if args.ghost_self_play:
+        main_ghost_pool = GhostPool(max_games=args.ghost_pool_size)
+        loaded = main_ghost_pool.load(args.ghost_pool_path)
+        if loaded > 0:
+            print(f"[ghost] loaded {loaded} trajectories from {args.ghost_pool_path}")
+        else:
+            print(f"[ghost] initialized empty pool at {args.ghost_pool_path}")
+
     # Envs (Async = env.step parallelized with model inference, +50-100% FPS)
     envs = gymnasium.vector.AsyncVectorEnv(
-        [make_env(i, args.seed, args.max_tier) for i in range(args.n_envs)]
+        [
+            make_env(
+                i,
+                args.seed,
+                args.max_tier,
+                use_ghost=args.ghost_self_play,
+                ghost_ratio=args.ghost_ratio,
+                ghost_pool=main_ghost_pool,
+            )
+            for i in range(args.n_envs)
+        ]
     )
     n_actions = 34
     obs_dim = envs.single_observation_space.shape[0]
@@ -354,6 +400,18 @@ def main():
             if args.target_kl is not None and approx_kl > 1.5 * args.target_kl:
                 break
 
+        # --- Sync Ghost Pool trajectories across env workers ---
+        if args.ghost_self_play and main_ghost_pool is not None:
+            all_trajectories = envs.call("get_ghost_trajectories")
+            new_added = 0
+            for traj_list in all_trajectories:
+                for traj in traj_list:
+                    if traj not in main_ghost_pool.trajectories:
+                        main_ghost_pool.trajectories.append(traj)
+                        new_added += 1
+            if new_added > 0:
+                envs.call("set_ghost_trajectories", list(main_ghost_pool.trajectories))
+
         # --- Logging ---
         if update % args.log_interval == 0:
             elapsed = time.time() - start_time
@@ -404,6 +462,9 @@ def main():
                 "args": vars(args),
             }, ckpt_path)
             print(f"  [save] {ckpt_path}")
+            if args.ghost_self_play and main_ghost_pool is not None:
+                main_ghost_pool.save(args.ghost_pool_path)
+                print(f"  [save] saved ghost pool ({main_ghost_pool.size} games) to {args.ghost_pool_path}")
 
     # Final save
     final_path = out_dir / "final.pt"
@@ -414,6 +475,9 @@ def main():
         "args": vars(args),
     }, final_path)
     print(f"[done] {global_step:,} steps, saved to {final_path}")
+    if args.ghost_self_play and main_ghost_pool is not None:
+        main_ghost_pool.save(args.ghost_pool_path)
+        print(f"[done] saved ghost pool ({main_ghost_pool.size} games) to {args.ghost_pool_path}")
 
     if run is not None:
         run.finish()

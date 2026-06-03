@@ -49,10 +49,11 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     26: 0<->1, 27: 1<->2 ... 31: 5<->6
     """
 
-    def __init__(self, max_tier: int = 6) -> None:
+    def __init__(self, max_tier: int = 6, auto_position: bool = True) -> None:
         super(HearthstoneEnv, self).__init__()
 
         self._max_tier = max_tier
+        self.auto_position = auto_position
 
         all_ids = sorted(list(CARD_DB.keys()) + list(SPELL_DB.keys()))
 
@@ -86,7 +87,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self._oracle_n_combats: int = 20
         self._oracle_cached_wr: float = 0.5
         self._oracle_seed: int = random.getrandbits(32)
-        self._oracle_ghost_cpp: list | None = None  # cached C++ tuples for ghost board
+        self._oracle_ghost_flat: list | None = None  # cached C++ flat list for ghost board
         self._oracle_ghost_tier: int = 1
 
         self.all_types = list(UnitType)
@@ -176,6 +177,19 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         """Set shared ghost pool (called once at env creation)."""
         self.ghost_pool = pool
 
+    def get_ghost_trajectories(self) -> list:
+        """Get copy of trajectories from the local ghost pool."""
+        if self.ghost_pool is not None:
+            return list(self.ghost_pool.trajectories)
+        return []
+
+    def set_ghost_trajectories(self, trajectories: list) -> None:
+        """Update local ghost pool with trajectories from main process."""
+        if self.ghost_pool is not None:
+            self.ghost_pool.trajectories.clear()
+            for traj in trajectories:
+                self.ghost_pool.trajectories.append(traj)
+
     def enable_ghost_mode(self) -> None:
         """Enable ghost self-play (called by CurriculumCallback)."""
         self._use_ghost = True
@@ -217,7 +231,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # Reset MC Oracle state
         self._oracle_cached_wr = 0.5
         self._oracle_seed = random.getrandbits(32)
-        self._oracle_ghost_cpp = None
+        self._oracle_ghost_flat = None
 
         return self._get_obs(), {}
 
@@ -347,7 +361,8 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             reward = 0.0  # END_TURN itself is free
             self.actions_in_turn = 0
 
-            self._auto_position_board(player)
+            if self.auto_position:
+                self._auto_position_board(player)
 
             if self.ghost_pool is not None:
                 self.ghost_pool.record_turn(self._env_id, self.game.turn_count, player)
@@ -456,40 +471,45 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     # MC Oracle: use C++ combat engine as dense reward signal (PBRS)
     # ================================================================
 
-    @staticmethod
-    def _unit_to_cpp(unit: Unit) -> tuple:
-        """Convert Unit → C++ tuple. Mirrors CombatManager._unit_to_cpp."""
-        cpp_types = 0
-        for t in unit.types:
-            cpp_types |= TYPE_TO_BIT.get(t, 0)
-        cpp_tags = 0
-        for tag in unit.tags:
-            cpp_tags |= TAG_TO_BIT.get(tag, 0)
-        return (
-            CARD_ID_MAP.get(unit.card_id, 0),
-            unit.cur_atk, unit.cur_hp,
-            cpp_types, cpp_tags,
-            unit.tier, unit.is_golden,
-        )
+    def _board_to_flat(self, board: List[Unit]) -> list[int]:
+        """Convert a list of Units to a flat list of integers for C++ bindings."""
+        flat = []
+        for u in board:
+            cpp_types = 0
+            for t in u.types:
+                cpp_types |= TYPE_TO_BIT.get(t, 0)
+            cpp_tags = 0
+            for tag in u.tags:
+                cpp_tags |= TAG_TO_BIT.get(tag, 0)
+            flat.extend([
+                CARD_ID_MAP.get(u.card_id, 0),
+                u.cur_atk,
+                u.cur_hp,
+                cpp_types,
+                cpp_tags,
+                u.tier,
+                int(u.is_golden)
+            ])
+        return flat
 
     def _oracle_prepare_ghost(self) -> None:
-        """Cache C++ tuples for the current ghost board (called once per turn)."""
+        """Cache flat representation of the current ghost board (called once per turn)."""
         enemy = self.game.players[self.enemy_id]
         if enemy.board:
-            self._oracle_ghost_cpp = [self._unit_to_cpp(u) for u in enemy.board]
+            self._oracle_ghost_flat = self._board_to_flat(enemy.board)
             self._oracle_ghost_tier = enemy.tavern_tier
         else:
-            self._oracle_ghost_cpp = None
+            self._oracle_ghost_flat = None
 
     def _oracle_eval_winrate(self, player: Player) -> float:
-        """Run N combats via C++ engine, return winrate [0, 1]."""
+        """Run N combats via C++ engine using flat lists, return winrate [0, 1]."""
         cpp = get_cpp_engine()
-        if cpp is None or not player.board or self._oracle_ghost_cpp is None:
+        if cpp is None or not player.board or self._oracle_ghost_flat is None:
             return 0.5
 
-        side0 = [self._unit_to_cpp(u) for u in player.board]
-        results = cpp.fast_combat_batch(
-            side0, self._oracle_ghost_cpp,
+        side0 = self._board_to_flat(player.board)
+        results = cpp.fast_combat_batch_flat(
+            side0, self._oracle_ghost_flat,
             self._oracle_seed, self._oracle_n_combats,
             tavern_tier_0=player.tavern_tier,
             tavern_tier_1=self._oracle_ghost_tier,
@@ -884,8 +904,10 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         # SWAP (26-31)
         for i in range(6):
-            masks[26 + i] = False  # positioning handled by auto_position / positioning module
-            # masks[26 + i] = (i + 1 < len(player.board))
+            if self.auto_position:
+                masks[26 + i] = False  # positioning handled by auto_position / positioning module
+            else:
+                masks[26 + i] = (i + 1 < len(player.board))
 
         # UPGRADE (32) — disabled if tavern already at max_tier
         masks[32] = (

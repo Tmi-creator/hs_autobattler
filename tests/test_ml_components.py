@@ -6,51 +6,71 @@ import torch
 
 from hearthstone.env.hs_env import HearthstoneEnv
 
+try:
+    import stable_baselines3
+    has_sb3 = True
+except ImportError:
+    has_sb3 = False
+
+try:
+    import sb3_contrib
+    has_sb3_contrib = True
+except ImportError:
+    has_sb3_contrib = False
+
+try:
+    import wandb
+    has_wandb = True
+except ImportError:
+    has_wandb = False
+
 
 # ===================================================================
 #  1. CATEGORICAL CRITIC (symlog, two-hot, encode/decode)
 # ===================================================================
 
 
+@pytest.mark.skipif(not has_sb3_contrib, reason="sb3_contrib is not installed")
 class TestSymlog:
     """Test symlog/symexp transformations."""
 
     def test_symlog_zero(self):
-        from scripts.categorical_critic import symlog
+        from legacy.categorical_critic import symlog
         assert symlog(torch.tensor(0.0)).item() == pytest.approx(0.0)
 
     def test_symlog_positive(self):
-        from scripts.categorical_critic import symlog
+        from legacy.categorical_critic import symlog
         # symlog(x) = sign(x) * log(1 + |x|)
         x = torch.tensor(100.0)
         expected = torch.log1p(torch.tensor(100.0)).item()
         assert symlog(x).item() == pytest.approx(expected)
 
     def test_symlog_negative(self):
-        from scripts.categorical_critic import symlog
+        from legacy.categorical_critic import symlog
         x = torch.tensor(-50.0)
         expected = -torch.log1p(torch.tensor(50.0)).item()
         assert symlog(x).item() == pytest.approx(expected)
 
     def test_symexp_inverse(self):
-        from scripts.categorical_critic import symlog, symexp
+        from legacy.categorical_critic import symlog, symexp
         values = torch.tensor([-100.0, -1.0, 0.0, 1.0, 50.0, 1000.0])
         roundtrip = symexp(symlog(values))
         assert torch.allclose(roundtrip, values, atol=1e-4)
 
     def test_symlog_compresses_large_values(self):
-        from scripts.categorical_critic import symlog
+        from legacy.categorical_critic import symlog
         # 50000 → ~10.8, keeps things manageable
         result = symlog(torch.tensor(50000.0))
         assert result.item() < 12.0
         assert result.item() > 10.0
 
 
+@pytest.mark.skipif(not has_sb3_contrib, reason="sb3_contrib is not installed")
 class TestTwoHotEncoding:
     """Test two-hot encoding and decoding for categorical critic."""
 
     def test_encode_exact_bin(self):
-        from scripts.categorical_critic import encode_twohot, BIN_CENTERS
+        from legacy.categorical_critic import encode_twohot, BIN_CENTERS
         # Target exactly at a bin center should be ~one-hot
         target = torch.tensor([0.0])  # symlog(0) = 0, should hit center bin
         twohot = encode_twohot(target, BIN_CENTERS)
@@ -58,7 +78,7 @@ class TestTwoHotEncoding:
         assert twohot.sum().item() == pytest.approx(1.0, abs=1e-5)
 
     def test_encode_between_bins(self):
-        from scripts.categorical_critic import encode_twohot, BIN_CENTERS
+        from legacy.categorical_critic import encode_twohot, BIN_CENTERS
         # Target between bins → two non-zero entries summing to 1
         target = torch.tensor([5.7])
         twohot = encode_twohot(target, BIN_CENTERS)
@@ -67,20 +87,20 @@ class TestTwoHotEncoding:
         assert twohot.sum().item() == pytest.approx(1.0, abs=1e-5)
 
     def test_encode_extreme_positive(self):
-        from scripts.categorical_critic import encode_twohot, BIN_CENTERS
+        from legacy.categorical_critic import encode_twohot, BIN_CENTERS
         # Very large value → clamped to last bin
         target = torch.tensor([999999.0])
         twohot = encode_twohot(target, BIN_CENTERS)
         assert twohot.sum().item() == pytest.approx(1.0, abs=1e-5)
 
     def test_encode_extreme_negative(self):
-        from scripts.categorical_critic import encode_twohot, BIN_CENTERS
+        from legacy.categorical_critic import encode_twohot, BIN_CENTERS
         target = torch.tensor([-999999.0])
         twohot = encode_twohot(target, BIN_CENTERS)
         assert twohot.sum().item() == pytest.approx(1.0, abs=1e-5)
 
     def test_decode_roundtrip(self):
-        from scripts.categorical_critic import encode_twohot, decode_value, BIN_CENTERS
+        from legacy.categorical_critic import encode_twohot, decode_value, BIN_CENTERS
         # Encode → decode should approximately recover the original
         original = torch.tensor([3.0, -2.0, 0.5, 10.0])
         twohot = encode_twohot(original, BIN_CENTERS)
@@ -90,7 +110,7 @@ class TestTwoHotEncoding:
         assert torch.allclose(decoded, original, atol=0.5)
 
     def test_batch_encoding(self):
-        from scripts.categorical_critic import encode_twohot, BIN_CENTERS
+        from legacy.categorical_critic import encode_twohot, BIN_CENTERS
         targets = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
         twohot = encode_twohot(targets, BIN_CENTERS)
         assert twohot.shape == (5, 255)
@@ -139,9 +159,10 @@ class TestCardEmbeddings:
         total_unique = len(set(CARD_DB.keys()) | set(SPELL_DB.keys()))
         assert env.num_card_ids == total_unique + 1  # +1 for padding id 0
 
+    @pytest.mark.skipif(not has_sb3, reason="stable_baselines3 is not installed")
     def test_transformer_embedding_shape(self):
         """TransformerFeaturesExtractor should have card embedding table."""
-        from scripts.trans import TransformerFeaturesExtractor
+        from legacy.trans import TransformerFeaturesExtractor
         env = HearthstoneEnv()
         ext = TransformerFeaturesExtractor(
             env.observation_space,
@@ -151,9 +172,10 @@ class TestCardEmbeddings:
         assert ext.encoder.emb_card.num_embeddings == env.num_card_ids
         assert ext.encoder.emb_card.embedding_dim == 32  # d_model // 2
 
+    @pytest.mark.skipif(not has_sb3, reason="stable_baselines3 is not installed")
     def test_transformer_forward_with_embeddings(self):
         """Forward pass should work with card embeddings."""
-        from scripts.trans import TransformerFeaturesExtractor
+        from legacy.trans import TransformerFeaturesExtractor
         env = HearthstoneEnv()
         obs, _ = env.reset(seed=42)
         ext = TransformerFeaturesExtractor(
@@ -252,7 +274,7 @@ class TestMCOracle:
         """Oracle seed should change after evaluation."""
         initial_seed = env._oracle_seed
         env._oracle_prepare_ghost()
-        if env._oracle_ghost_cpp is not None:
+        if env._oracle_ghost_flat is not None:
             player = env.game.players[env.my_player_id]
             env._oracle_eval_winrate(player)
             assert env._oracle_seed != initial_seed
@@ -292,11 +314,12 @@ class TestMCOracle:
 # ===================================================================
 
 
+@pytest.mark.skipif(not has_wandb, reason="wandb is not installed")
 class TestEntropyDecayCallback:
     """Test entropy coefficient decay."""
 
     def test_decay_start(self):
-        from scripts.callbacks import EntropyDecayCallback
+        from legacy.callbacks import EntropyDecayCallback
         cb = EntropyDecayCallback(ent_coef_start=0.04, ent_coef_end=0.01, decay_fraction=0.75)
 
         # Simulate: at progress=0, ent_coef should be 0.04
@@ -308,7 +331,7 @@ class TestEntropyDecayCallback:
         assert cb.model.ent_coef == pytest.approx(0.04)
 
     def test_decay_midway(self):
-        from scripts.callbacks import EntropyDecayCallback
+        from legacy.callbacks import EntropyDecayCallback
         cb = EntropyDecayCallback(ent_coef_start=0.04, ent_coef_end=0.01, decay_fraction=0.75)
 
         class MockModel:
@@ -321,7 +344,7 @@ class TestEntropyDecayCallback:
         assert cb.model.ent_coef == pytest.approx(expected, abs=0.002)
 
     def test_decay_end(self):
-        from scripts.callbacks import EntropyDecayCallback
+        from legacy.callbacks import EntropyDecayCallback
         cb = EntropyDecayCallback(ent_coef_start=0.04, ent_coef_end=0.01, decay_fraction=0.75)
 
         class MockModel:
@@ -332,7 +355,7 @@ class TestEntropyDecayCallback:
         assert cb.model.ent_coef == pytest.approx(0.01)
 
     def test_decay_after_fraction(self):
-        from scripts.callbacks import EntropyDecayCallback
+        from legacy.callbacks import EntropyDecayCallback
         cb = EntropyDecayCallback(ent_coef_start=0.04, ent_coef_end=0.01, decay_fraction=0.75)
 
         class MockModel:

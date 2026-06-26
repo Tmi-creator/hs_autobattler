@@ -236,15 +236,48 @@ class HSTransformerAgent(nn.Module):
         d_context: int = 10,
         num_card_ids: int = 300,
         use_gating: bool = True,
+        use_pos_embeddings: bool = False,
         pma_seeds: int = 4,
         actor_hidden: int = 128,
         critic_hidden: int = 128,
+        use_summary_tokens: bool = False,
+        use_memory: bool = False,
+        memory_size: int = 4,
+        use_enemy_board_obs: bool = False,
+        use_player_status_obs: bool = False,
     ):
         super().__init__()
         self.d_model = d_model
+        self.use_pos_embeddings = use_pos_embeddings
+        self.use_summary_tokens = use_summary_tokens
+        self.use_memory = use_memory
+        self.memory_size = memory_size
+        self.use_enemy_board_obs = use_enemy_board_obs
+        self.use_player_status_obs = use_player_status_obs
+
+        self.zones = list(self._ZONES)
+        if use_enemy_board_obs:
+            self.zones.append((7, 5))
+
+        if use_pos_embeddings:
+            num_entities = 34 if use_enemy_board_obs else 27
+            self.pos_emb = nn.Parameter(torch.randn(1, num_entities, d_model) * 0.02)
+
+        if use_summary_tokens:
+            num_zones = 5 if use_enemy_board_obs else 4
+            self.summary_tokens = nn.Parameter(torch.randn(1, num_zones, d_model) * 0.02)
+
+        if use_player_status_obs:
+            self.proj_player_status = nn.Linear(32, d_model)
+            self.emb_player_index = nn.Embedding(2, d_model)
+
+        if use_memory:
+            self.temporal_blocks = nn.ModuleList([
+                TransformerBlock(d_model, n_heads, use_gating) for _ in range(n_layers)
+            ])
 
         # Encoder
-        self.encoder = DecomposedEncoder(d_model, num_card_ids=num_card_ids)
+        self.encoder = DecomposedEncoder(d_model, max_teams=6, num_card_ids=num_card_ids)
         self.film = FiLM(d_context, d_model)
         self.global_ctx_proj = nn.Sequential(
             nn.Linear(d_context, d_model), nn.SiLU(), nn.Linear(d_model, d_model),
@@ -275,13 +308,12 @@ class HSTransformerAgent(nn.Module):
         self.register_buffer("bins", BIN_CENTERS.clone())
 
     def _parse_obs(self, flat: torch.Tensor):
-        """[B, 1036] → val [B, 27, 38], team_id [B, 27], context [B, 10]"""
         B, device = flat.shape[0], flat.device
         global_vec = flat[:, :self._GLOBAL_SIZE]
         pos = self._GLOBAL_SIZE
 
         chunks, ids = [], []
-        for n_slots, zone_id in self._ZONES:
+        for n_slots, zone_id in self.zones:
             size = n_slots * self._EF
             chunks.append(flat[:, pos:pos + size].view(B, n_slots, self._EF))
             ids.append(torch.full((B, n_slots), zone_id, device=device, dtype=torch.long))
@@ -297,6 +329,7 @@ class HSTransformerAgent(nn.Module):
     def _encode(self, flat: torch.Tensor) -> torch.Tensor:
         """Flat obs → pooled features [B, d_model]."""
         val, team_id, context = self._parse_obs(flat)
+        B = flat.shape[0]
 
         # Symlog continuous features, preserve card_id
         card_ids = val[..., 2].clone()
@@ -306,14 +339,39 @@ class HSTransformerAgent(nn.Module):
         x = self.encoder(val, team_id)
         x = self.film(x, context)
 
+        if self.use_pos_embeddings:
+            x = x + self.pos_emb
+
+        # Prepend optional summary tokens
+        if self.use_summary_tokens:
+            sum_toks = self.summary_tokens.expand(B, -1, -1)
+            x = torch.cat([sum_toks, x], dim=1)
+
+        # Prepend optional player status features
+        if self.use_player_status_obs:
+            player_status = flat[:, -64:].view(B, 2, 32)
+            status_emb = self.proj_player_status(player_status)
+            player_indices = torch.arange(2, device=flat.device, dtype=torch.long)
+            status_emb = status_emb + self.emb_player_index(player_indices).unsqueeze(0)
+            x = torch.cat([status_emb, x], dim=1)
+
         # Prepend [GLOBAL_CTX] token
         global_token = self.global_ctx_proj(context).unsqueeze(1)
         x = torch.cat([global_token, x], dim=1)
 
-        # Padding mask
+        # Padding mask construction
         entity_mask = (team_id != 0)
-        global_mask = torch.ones(x.shape[0], 1, device=x.device, dtype=torch.bool)
-        pad_mask = torch.cat([global_mask, entity_mask], dim=1).unsqueeze(1).unsqueeze(2)
+        masks = []
+        if self.use_player_status_obs:
+            masks.append(torch.ones(B, 2, device=flat.device, dtype=torch.bool))
+        if self.use_summary_tokens:
+            num_sum = 5 if self.use_enemy_board_obs else 4
+            masks.append(torch.ones(B, num_sum, device=flat.device, dtype=torch.bool))
+        masks.append(entity_mask)
+        full_entity_mask = torch.cat(masks, dim=1)
+
+        global_mask = torch.ones(B, 1, device=flat.device, dtype=torch.bool)
+        pad_mask = torch.cat([global_mask, full_entity_mask], dim=1).unsqueeze(1).unsqueeze(2)
 
         for block in self.blocks:
             x = block(x, mask=pad_mask)
@@ -328,7 +386,23 @@ class HSTransformerAgent(nn.Module):
         critic head only, not shared representations. Prevents value-target
         noise from corrupting the actor's view of the board.
         """
-        features = self._encode(obs)
+        if self.use_memory:
+            # obs shape: [B, K, obs_dim]
+            B, K, obs_dim = obs.shape
+            flat_obs = obs.reshape(B * K, obs_dim)
+            features = self._encode(flat_obs)
+            features = features.reshape(B, K, self.d_model)
+
+            # Causal self-attention over sequence of length K
+            causal_mask = torch.tril(torch.ones(K, K, device=obs.device, dtype=torch.bool)).view(1, 1, K, K)
+            for block in self.temporal_blocks:
+                features = block(features, mask=causal_mask)
+
+            # Select last timestep
+            features = features[:, -1, :]
+        else:
+            features = self._encode(obs)
+
         return self.actor(features), self.critic(features.detach())
 
     def get_action_and_value(
@@ -340,7 +414,7 @@ class HSTransformerAgent(nn.Module):
         """PPO interface: returns (action, log_prob, entropy, value, value_logits).
 
         Args:
-            obs: [B, 1036] flat observations
+            obs: flat observations ([B, obs_dim] or [B, K, obs_dim] if use_memory is True)
             action_mask: [B, 34] bool mask (True = legal)
             action: [B] actions to evaluate (None = sample new)
         """
@@ -359,5 +433,17 @@ class HSTransformerAgent(nn.Module):
 
     def get_value(self, obs: torch.Tensor) -> torch.Tensor:
         """Returns scalar value [B] for GAE bootstrap."""
-        features = self._encode(obs)
+        if self.use_memory:
+            B, K, obs_dim = obs.shape
+            flat_obs = obs.reshape(B * K, obs_dim)
+            features = self._encode(flat_obs)
+            features = features.reshape(B, K, self.d_model)
+
+            causal_mask = torch.tril(torch.ones(K, K, device=obs.device, dtype=torch.bool)).view(1, 1, K, K)
+            for block in self.temporal_blocks:
+                features = block(features, mask=causal_mask)
+
+            features = features[:, -1, :]
+        else:
+            features = self._encode(obs)
         return decode_value(self.critic(features), self.bins)

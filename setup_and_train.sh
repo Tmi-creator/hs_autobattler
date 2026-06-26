@@ -45,11 +45,15 @@ else
     N_ENVS=$N_CORES
 fi
 
+# Set Wandb API key for automatic logging
+export WANDB_API_KEY="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"
+
 echo ">>> [4/4] Starting PPO Training..."
 echo "    - Parallel environments (envs): $N_ENVS"
 echo "    - High-Capacity Architecture Enabled: d_model=256, n_heads=8, n_layers=6"
 echo "    - Memory Stack Enabled: size=8"
 echo "    - Symmetrical Obs: Enemy Board Snapshot & Player Status History"
+echo "    - Wandb Logging: Enabled (Project: hs_autobattler)"
 
 # Run PPO training, allowing additional args override via "$@"
 python scripts/train_ppo.py \
@@ -63,4 +67,5 @@ python scripts/train_ppo.py \
     --use-player-status-obs \
     --use-summary-tokens \
     --use-memory \
+    --wandb \
     "$@"

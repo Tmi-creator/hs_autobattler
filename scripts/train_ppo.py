@@ -536,16 +536,43 @@ def main():
                 )
 
             if run is not None:
+                # Calculate explained variance
+                y_pred = val_buf.cpu().numpy().flatten()
+                y_true = returns.cpu().numpy().flatten()
+                var_y = np.var(y_true)
+                ev = 1.0 - np.var(y_true - y_pred) / var_y if var_y > 1e-8 else 0.0
+
+                # Calculate action category percentages
+                actions_np = act_buf.cpu().numpy()
+                percent_end_turn = np.mean(actions_np == 0)
+                percent_roll = np.mean(actions_np == 1)
+                percent_buy = np.mean((actions_np >= 2) & (actions_np <= 8))
+                percent_sell = np.mean((actions_np >= 9) & (actions_np <= 15))
+                percent_play = np.mean((actions_np >= 16) & (actions_np <= 25))
+                percent_swap = np.mean((actions_np >= 26) & (actions_np <= 31))
+                percent_upgrade = np.mean(actions_np == 32)
+                percent_freeze = np.mean(actions_np == 33)
+
                 log_dict = {
                     "charts/fps": fps,
                     "charts/avg_reward": avg_reward,
+                    "charts/avg_value": val_buf.mean().item(),
                     "losses/policy": np.mean(pg_losses),
                     "losses/value": np.mean(vf_losses),
                     "losses/entropy": np.mean(ent_losses),
                     "losses/approx_kl": approx_kl,
                     "losses/clipfrac": np.mean(clipfracs),
+                    "losses/explained_variance": ev,
                     "config/ent_coef": ent_coef,
                     "config/lr": optimizer.param_groups[0]["lr"],
+                    "actions/percent_end_turn": percent_end_turn,
+                    "actions/percent_roll": percent_roll,
+                    "actions/percent_buy": percent_buy,
+                    "actions/percent_sell": percent_sell,
+                    "actions/percent_play": percent_play,
+                    "actions/percent_swap": percent_swap,
+                    "actions/percent_upgrade": percent_upgrade,
+                    "actions/percent_freeze": percent_freeze,
                 }
                 if n_eps > 0:
                     log_dict.update({

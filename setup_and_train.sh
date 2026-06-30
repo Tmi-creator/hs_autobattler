@@ -23,11 +23,19 @@ else
     echo ">>> [1/4] Non-Debian system detected. Please ensure gcc/g++ and cmake are installed."
 fi
 
-# 2. Python package setup
-echo ">>> [2/4] Installing Python requirements..."
-pip install --upgrade pip
-pip install pybind11
-pip install -e .
+# 2. Python package setup with uv
+echo ">>> [2/4] Setting up virtual environment with uv..."
+if ! command -v uv &> /dev/null; then
+    echo "    - uv not found, installing via pip..."
+    pip install uv --quiet
+fi
+
+uv venv .venv
+source .venv/bin/activate
+
+echo ">>> Installing Python requirements..."
+uv pip install pybind11
+uv pip install -e .
 
 # 3. C++ Combat Engine compilation
 echo ">>> [3/4] Generating C++ effects & compiling engine..."

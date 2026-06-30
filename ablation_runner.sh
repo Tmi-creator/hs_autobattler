@@ -18,10 +18,19 @@ echo "=========================================================="
 # Export Wandb key for automated beautiful charting
 export WANDB_API_KEY="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"
 
-# 1. System & Python dependency installation
-echo ">>> [1/4] Checking dependencies..."
-pip install pybind11 --quiet
-pip install -e . --quiet
+# 1. System & Python dependency installation with uv
+echo ">>> [1/4] Setting up virtual environment with uv..."
+if ! command -v uv &> /dev/null; then
+    echo "    - uv not found, installing via pip..."
+    pip install uv --quiet
+fi
+
+uv venv .venv
+source .venv/bin/activate
+
+echo ">>> Installing Python requirements..."
+uv pip install pybind11
+uv pip install -e .
 
 # 2. Compile C++ engine
 echo ">>> [2/4] Compiling accelerated C++ combat engine..."

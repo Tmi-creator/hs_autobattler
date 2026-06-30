@@ -32,7 +32,10 @@ pip install -e .
 # 3. C++ Combat Engine compilation
 echo ">>> [3/4] Generating C++ effects & compiling engine..."
 python scripts/generate_cpp_effects.py
-cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake -S cpp -B cpp/build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPYTHON_EXECUTABLE="$(which python)" \
+      -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
 cmake --build cpp/build --config Release -j$(nproc)
 
 # 4. Run PPO Training

@@ -26,7 +26,10 @@ pip install -e . --quiet
 # 2. Compile C++ engine
 echo ">>> [2/4] Compiling accelerated C++ combat engine..."
 python scripts/generate_cpp_effects.py
-cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake -S cpp -B cpp/build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPYTHON_EXECUTABLE="$(which python)" \
+      -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
 cmake --build cpp/build --config Release -j$(nproc)
 
 # 3. Behavior Cloning pre-train dataset generation (if needed for the genetics run)

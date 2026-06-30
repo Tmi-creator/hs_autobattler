@@ -10,8 +10,14 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import os
+import multiprocessing
+
+# Hides GPU from all spawned environment subprocesses to prevent CUDA context allocations
+if multiprocessing.parent_process() is not None:
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+import argparse
 import random
 import sys
 import time
@@ -240,10 +246,6 @@ def main():
             print(f"[ghost] initialized empty pool at {args.ghost_pool_path}")
 
     # Envs (Async = env.step parallelized with model inference, +50-100% FPS)
-    # Temporarily hide GPUs so spawned subprocesses inherit CUDA_VISIBLE_DEVICES="" and do not allocate VRAM
-    cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
     envs = gymnasium.vector.AsyncVectorEnv(
         [
             make_env(
@@ -261,9 +263,6 @@ def main():
             for i in range(args.n_envs)
         ]
     )
-
-    # Restore CUDA_VISIBLE_DEVICES for the main training process
-    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible
     n_actions = 34
     obs_dim = envs.single_observation_space.shape[0]
 

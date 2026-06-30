@@ -67,12 +67,12 @@ cmake --build cpp/build --config Release -j$(nproc)
 # 4. Behavior Cloning pre-train dataset generation (if needed for the genetics run)
 echo ">>> [4/5] Checking BC/Genetics dataset..."
 mkdir -p artifacts/bc
-if [ ! -f artifacts/bc/bc_pretrain.pt ]; then
+if [ ! -f artifacts/bc/bc_pretrain_full.pt ]; then
     echo "    - BC pretrain checkpoint not found. Collecting and training BC model first..."
-    python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artifacts/best.npz --out artifacts/bc/bc_dataset.npz
-    python scripts/bc_train.py --dataset artifacts/bc/bc_dataset.npz --out artifacts/bc/bc_pretrain.pt --epochs 15
+    python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artifacts/best.npz --out artifacts/bc/bc_dataset_full.npz --use-enemy-board-obs --use-player-status-obs
+    python scripts/bc_train.py --dataset artifacts/bc/bc_dataset_full.npz --out artifacts/bc/bc_pretrain_full.pt --epochs 15 $ARCH_FLAGS
 else
-    echo "    - Found existing BC pretrain checkpoint at artifacts/bc/bc_pretrain.pt"
+    echo "    - Found existing BC pretrain checkpoint at artifacts/bc/bc_pretrain_full.pt"
 fi
 
 # 4. Determine environment scaling
@@ -111,7 +111,7 @@ PID1=$!
 CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
     --total-timesteps 10000000 \
-    --resume artifacts/bc/bc_pretrain.pt \
+    --resume artifacts/bc/bc_pretrain_full.pt \
     $ARCH_FLAGS \
     --wandb \
     --run-name "full_bc_genetics" &

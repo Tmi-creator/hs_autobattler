@@ -18,6 +18,9 @@ echo "=========================================================="
 # Export Wandb key for automated beautiful charting
 export WANDB_API_KEY="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"
 
+# Export CUDA and NVIDIA library paths to prevent CUDA driver loading failures in docker/virtualized environments
+export LD_LIBRARY_PATH="/usr/local/cuda/compat:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
+
 # 1. System & Python dependency installation with uv
 echo ">>> [1/4] Setting up virtual environment with uv..."
 if ! command -v uv &> /dev/null; then

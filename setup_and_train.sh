@@ -10,6 +10,9 @@
 # Exit immediately if any command fails
 set -e
 
+# Export CUDA and NVIDIA library paths to prevent CUDA driver loading failures in docker/virtualized environments
+export LD_LIBRARY_PATH="/usr/local/cuda/compat:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
+
 echo "============================================="
 echo "  Hearthstone Battlegrounds RL Auto-Setup    "
 echo "============================================="

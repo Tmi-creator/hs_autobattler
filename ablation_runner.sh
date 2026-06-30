@@ -23,6 +23,9 @@ export WANDB_API_KEY="wandb_v1_9ngtFSJssNRvuDcjrjTKbsTlA74_gBhoa469Df3KEzlKMfGPu
 CLEANED_LD_PATH=$(echo "$LD_LIBRARY_PATH" | tr ':' '\n' | grep -v "cuda/compat" | tr '\n' ':' | sed 's/:$//')
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:$CLEANED_LD_PATH"
 
+# Prevent PyTorch VRAM fragmentation and optimize memory allocation
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+
 # 1. System & Python dependency installation with uv
 echo ">>> [1/5] Setting up virtual environment with uv..."
 if ! command -v uv &> /dev/null; then
@@ -89,7 +92,7 @@ echo "    - Total experiments: 6 (running in 3 concurrent rounds on GPU 0 and GP
 echo "    - Charts will be synced to Wandb project: hs_autobattler"
 
 # Shared model architecture parameters for "Full" runs (with periodic checkpoint save every 25 updates)
-ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory --save-interval 25 --n-minibatches 32"
+ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory --save-interval 25 --n-minibatches 32 --n-steps 512"
 
 # -------------------------------------------------------------------------
 # ROUND 1: Full Scratch vs. Full BC (Genetics Pre-trained)
@@ -136,6 +139,7 @@ CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --d-model 256 --n-heads 8 --n-layers 6 \
     --save-interval 25 \
     --n-minibatches 32 \
+    --n-steps 512 \
     --wandb \
     --run-name "base_scratch" &
 PID3=$!
@@ -148,6 +152,7 @@ CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --use-enemy-board-obs --use-player-status-obs --use-summary-tokens \
     --save-interval 25 \
     --n-minibatches 32 \
+    --n-steps 512 \
     --wandb \
     --run-name "ablation_no_memory" &
 PID4=$!
@@ -171,6 +176,7 @@ CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --use-player-status-obs --use-summary-tokens --use-memory \
     --save-interval 25 \
     --n-minibatches 32 \
+    --n-steps 512 \
     --wandb \
     --run-name "ablation_no_enemy_board" &
 PID5=$!
@@ -183,6 +189,7 @@ CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --use-enemy-board-obs --use-summary-tokens --use-memory \
     --save-interval 25 \
     --n-minibatches 32 \
+    --n-steps 512 \
     --wandb \
     --run-name "ablation_no_status" &
 PID6=$!

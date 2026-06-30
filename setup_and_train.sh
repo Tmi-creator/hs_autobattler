@@ -15,6 +15,9 @@ set -e
 CLEANED_LD_PATH=$(echo "$LD_LIBRARY_PATH" | tr ':' '\n' | grep -v "cuda/compat" | tr '\n' ':' | sed 's/:$//')
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:$CLEANED_LD_PATH"
 
+# Prevent PyTorch VRAM fragmentation and optimize memory allocation
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+
 echo "============================================="
 echo "  Hearthstone Battlegrounds RL Auto-Setup    "
 echo "============================================="
@@ -102,5 +105,6 @@ python scripts/train_ppo.py \
     --use-summary-tokens \
     --use-memory \
     --n-minibatches 32 \
+    --n-steps 512 \
     --wandb \
     "$@"

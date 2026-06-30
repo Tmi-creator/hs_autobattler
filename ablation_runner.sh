@@ -33,9 +33,10 @@ source .venv/bin/activate
 
 echo ">>> Installing Python requirements..."
 uv pip install pybind11
-# Install PyTorch compiled with CUDA 11.8 to match older server GPU drivers
-uv pip install --force-reinstall --no-cache torch --index-url https://download.pytorch.org/whl/cu118
-uv pip install -e .
+# Install the project and dependencies, allowing it to search the CUDA 12.1 index
+uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cu121
+# Force reinstall PyTorch compiled with CUDA 12.1 to match the cluster's driver (found version 12010)
+uv pip install --force-reinstall --no-cache torch --index-url https://download.pytorch.org/whl/cu121
 
 # 2. Verify CUDA availability
 echo ">>> [2/5] Checking CUDA availability..."

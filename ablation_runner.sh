@@ -53,8 +53,8 @@ echo "    - CPU cores: $N_CORES (assigning n-envs=$N_ENVS per parallel run)"
 echo "    - Total experiments: 6 (running in 3 concurrent rounds on GPU 0 and GPU 1)"
 echo "    - Charts will be synced to Wandb project: hs_autobattler"
 
-# Shared model architecture parameters for "Full" runs
-ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory"
+# Shared model architecture parameters for "Full" runs (with periodic checkpoint save every 25 updates)
+ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory --save-interval 25"
 
 # -------------------------------------------------------------------------
 # ROUND 1: Full Scratch vs. Full BC (Genetics Pre-trained)
@@ -63,19 +63,19 @@ echo "=========================================================="
 echo " ROUND 1: Full Scratch vs. Full BC (Genetics)             "
 echo "=========================================================="
 
-# Run 1 on GPU 0: Full architecture from scratch
+# Run 1 on GPU 0: Full architecture from scratch (10M steps)
 CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
-    --total-timesteps 20000000 \
+    --total-timesteps 10000000 \
     $ARCH_FLAGS \
     --wandb \
     --run-name "full_scratch" &
 PID1=$!
 
-# Run 2 on GPU 1: Full architecture initialized with BC from ES Bot
+# Run 2 on GPU 1: Full architecture initialized with BC from ES Bot (10M steps)
 CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
-    --total-timesteps 20000000 \
+    --total-timesteps 10000000 \
     --resume artifacts/bc/bc_pretrain.pt \
     $ARCH_FLAGS \
     --wandb \
@@ -97,8 +97,9 @@ echo "=========================================================="
 # Run 3 on GPU 0: Base PPO (no ST, no M, no EB, no PS)
 CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
-    --total-timesteps 20000000 \
+    --total-timesteps 10000000 \
     --d-model 256 --n-heads 8 --n-layers 6 \
+    --save-interval 25 \
     --wandb \
     --run-name "base_scratch" &
 PID3=$!
@@ -106,9 +107,10 @@ PID3=$!
 # Run 4 on GPU 1: Full minus Memory (ST + EB + PS active, Memory off)
 CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
-    --total-timesteps 20000000 \
+    --total-timesteps 10000000 \
     --d-model 256 --n-heads 8 --n-layers 6 \
     --use-enemy-board-obs --use-player-status-obs --use-summary-tokens \
+    --save-interval 25 \
     --wandb \
     --run-name "ablation_no_memory" &
 PID4=$!
@@ -127,9 +129,10 @@ echo "=========================================================="
 # Run 5 on GPU 0: Full minus Enemy Board snapshot (ST + M + PS active)
 CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
-    --total-timesteps 20000000 \
+    --total-timesteps 10000000 \
     --d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 \
     --use-player-status-obs --use-summary-tokens --use-memory \
+    --save-interval 25 \
     --wandb \
     --run-name "ablation_no_enemy_board" &
 PID5=$!
@@ -137,9 +140,10 @@ PID5=$!
 # Run 6 on GPU 1: Full minus Player Status history (ST + M + EB active)
 CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
-    --total-timesteps 20000000 \
+    --total-timesteps 10000000 \
     --d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 \
     --use-enemy-board-obs --use-summary-tokens --use-memory \
+    --save-interval 25 \
     --wandb \
     --run-name "ablation_no_status" &
 PID6=$!

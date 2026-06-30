@@ -620,6 +620,13 @@ def main():
                 "args": vars(args),
             }, ckpt_path)
             print(f"  [save] {ckpt_path}")
+            if run is not None:
+                try:
+                    import wandb
+                    wandb.save(str(ckpt_path), base_path=str(out_dir))
+                    print(f"  [wandb] uploaded {ckpt_path} to Wandb cloud")
+                except Exception as e:
+                    print(f"  [wandb] failed to upload checkpoint: {e}")
             if args.ghost_self_play and main_ghost_pool is not None:
                 main_ghost_pool.save(args.ghost_pool_path)
                 print(f"  [save] saved ghost pool ({main_ghost_pool.size} games) to {args.ghost_pool_path}")
@@ -633,6 +640,13 @@ def main():
         "args": vars(args),
     }, final_path)
     print(f"[done] {global_step:,} steps, saved to {final_path}")
+    if run is not None:
+        try:
+            import wandb
+            wandb.save(str(final_path), base_path=str(out_dir))
+            print(f"[wandb] uploaded final.pt to Wandb cloud")
+        except Exception as e:
+            print(f"[wandb] failed to upload final.pt: {e}")
     if args.ghost_self_play and main_ghost_pool is not None:
         main_ghost_pool.save(args.ghost_pool_path)
         print(f"[done] saved ghost pool ({main_ghost_pool.size} games) to {args.ghost_pool_path}")

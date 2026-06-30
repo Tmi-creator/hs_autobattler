@@ -118,6 +118,8 @@ def make_env(
     use_player_status_obs: bool = False,
 ):
     def thunk():
+        import os
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
         import sys
         from pathlib import Path
         ROOT = Path(__file__).resolve().parent.parent

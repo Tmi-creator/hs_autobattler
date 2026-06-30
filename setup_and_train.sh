@@ -82,7 +82,7 @@ fi
 # Set Wandb API key for automatic logging
 export WANDB_API_KEY="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"
 
-echo ">>> [4/4] Starting PPO Training..."
+echo ">>> [5/5] Starting PPO Training..."
 echo "    - Parallel environments (envs): $N_ENVS"
 echo "    - High-Capacity Architecture Enabled: d_model=256, n_heads=8, n_layers=6"
 echo "    - Memory Stack Enabled: size=8"
@@ -101,5 +101,6 @@ python scripts/train_ppo.py \
     --use-player-status-obs \
     --use-summary-tokens \
     --use-memory \
+    --n-minibatches 32 \
     --wandb \
     "$@"

@@ -22,7 +22,7 @@ export WANDB_API_KEY="wandb_v1_9ngtFSJssNRvuDcjrjTKbsTlA74_gBhoa469Df3KEzlKMfGPu
 export LD_LIBRARY_PATH="/usr/local/cuda/compat:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
 
 # 1. System & Python dependency installation with uv
-echo ">>> [1/4] Setting up virtual environment with uv..."
+echo ">>> [1/5] Setting up virtual environment with uv..."
 if ! command -v uv &> /dev/null; then
     echo "    - uv not found, installing via pip..."
     pip install uv --quiet
@@ -37,8 +37,23 @@ uv pip install pybind11
 uv pip install --force-reinstall --no-cache torch --index-url https://download.pytorch.org/whl/cu118
 uv pip install -e .
 
-# 2. Compile C++ engine
-echo ">>> [2/4] Compiling accelerated C++ combat engine..."
+# 2. Verify CUDA availability
+echo ">>> [2/5] Checking CUDA availability..."
+CUDA_OK=$(python -c "import torch; print(torch.cuda.is_available())")
+if [ "$CUDA_OK" != "True" ]; then
+    echo "=========================================================="
+    echo "  CRITICAL ERROR: PyTorch cannot initialize CUDA!"
+    echo "  - torch.cuda.is_available() returned False."
+    echo "  - Please inspect the output of:"
+    echo "    python -c 'import torch; torch.cuda.init()'"
+    echo "  - Make sure your NVIDIA drivers are active and accessible."
+    echo "=========================================================="
+    exit 1
+fi
+echo "    - CUDA is available! Found GPU devices."
+
+# 3. Compile C++ engine
+echo ">>> [3/5] Compiling accelerated C++ combat engine..."
 python scripts/generate_cpp_effects.py
 cmake -S cpp -B cpp/build \
       -DCMAKE_BUILD_TYPE=Release \
@@ -46,8 +61,8 @@ cmake -S cpp -B cpp/build \
       -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
 cmake --build cpp/build --config Release -j$(nproc)
 
-# 3. Behavior Cloning pre-train dataset generation (if needed for the genetics run)
-echo ">>> [3/4] Checking BC/Genetics dataset..."
+# 4. Behavior Cloning pre-train dataset generation (if needed for the genetics run)
+echo ">>> [4/5] Checking BC/Genetics dataset..."
 mkdir -p artifacts/bc
 if [ ! -f artifacts/bc/bc_pretrain.pt ]; then
     echo "    - BC pretrain checkpoint not found. Collecting and training BC model first..."
@@ -65,7 +80,7 @@ if [ "$N_ENVS" -lt 4 ]; then
     N_ENVS=4
 fi
 
-echo ">>> [4/4] Starting Ablation matrix..."
+echo ">>> [5/5] Starting Ablation matrix..."
 echo "    - CPU cores: $N_CORES (assigning n-envs=$N_ENVS per parallel run)"
 echo "    - Total experiments: 6 (running in 3 concurrent rounds on GPU 0 and GPU 1)"
 echo "    - Charts will be synced to Wandb project: hs_autobattler"

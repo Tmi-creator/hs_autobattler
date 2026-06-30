@@ -19,15 +19,15 @@ echo "============================================="
 
 # 1. System Dependencies (GCC/G++, CMake)
 if [ -f /etc/debian_version ]; then
-    echo ">>> [1/4] Installing system dependencies (gcc, g++, cmake)..."
+    echo ">>> [1/5] Installing system dependencies (gcc, g++, cmake)..."
     sudo apt-get update -y
     sudo apt-get install -y build-essential cmake python3-dev
 else
-    echo ">>> [1/4] Non-Debian system detected. Please ensure gcc/g++ and cmake are installed."
+    echo ">>> [1/5] Non-Debian system detected. Please ensure gcc/g++ and cmake are installed."
 fi
 
 # 2. Python package setup with uv
-echo ">>> [2/4] Setting up virtual environment with uv..."
+echo ">>> [2/5] Setting up virtual environment with uv..."
 if ! command -v uv &> /dev/null; then
     echo "    - uv not found, installing via pip..."
     pip install uv --quiet
@@ -42,8 +42,23 @@ uv pip install pybind11
 uv pip install --force-reinstall --no-cache torch --index-url https://download.pytorch.org/whl/cu118
 uv pip install -e .
 
-# 3. C++ Combat Engine compilation
-echo ">>> [3/4] Generating C++ effects & compiling engine..."
+# 3. Verify CUDA availability
+echo ">>> [3/5] Checking CUDA availability..."
+CUDA_OK=$(python -c "import torch; print(torch.cuda.is_available())")
+if [ "$CUDA_OK" != "True" ]; then
+    echo "=========================================================="
+    echo "  CRITICAL ERROR: PyTorch cannot initialize CUDA!"
+    echo "  - torch.cuda.is_available() returned False."
+    echo "  - Please inspect the output of:"
+    echo "    python -c 'import torch; torch.cuda.init()'"
+    echo "  - Make sure your NVIDIA drivers are active and accessible."
+    echo "=========================================================="
+    exit 1
+fi
+echo "    - CUDA is available! Found GPU devices."
+
+# 4. C++ Combat Engine compilation
+echo ">>> [4/5] Generating C++ effects & compiling engine..."
 python scripts/generate_cpp_effects.py
 cmake -S cpp -B cpp/build \
       -DCMAKE_BUILD_TYPE=Release \
@@ -51,7 +66,7 @@ cmake -S cpp -B cpp/build \
       -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
 cmake --build cpp/build --config Release -j$(nproc)
 
-# 4. Run PPO Training
+# 5. Run PPO Training
 # Automatically detect CPU cores to maximize parallelism
 N_CORES=$(nproc)
 # Ensure at least 8 envs, up to CPU core count

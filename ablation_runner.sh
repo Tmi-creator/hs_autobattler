@@ -19,7 +19,9 @@ echo "=========================================================="
 export WANDB_API_KEY="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"
 
 # Export CUDA and NVIDIA library paths to prevent CUDA driver loading failures in docker/virtualized environments
-export LD_LIBRARY_PATH="/usr/local/cuda/compat:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
+# We filter out any /usr/local/cuda/compat folder because it shadows the host's actual 12.6 driver with an older 12.1 driver, causing CUDA Error 803 (driver mismatch).
+CLEANED_LD_PATH=$(echo "$LD_LIBRARY_PATH" | tr ':' '\n' | grep -v "cuda/compat" | tr '\n' ':' | sed 's/:$//')
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:$CLEANED_LD_PATH"
 
 # 1. System & Python dependency installation with uv
 echo ">>> [1/5] Setting up virtual environment with uv..."

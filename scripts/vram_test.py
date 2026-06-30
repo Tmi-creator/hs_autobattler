@@ -15,9 +15,7 @@ def worker_thunk_before():
     time.sleep(8)
 
 def worker_thunk_after():
-    # Clear CUDA_VISIBLE_DEVICES (our fix)
-    import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    # CUDA_VISIBLE_DEVICES was already cleared in parent process at spawn time
     import torch
     # Initialize CUDA context (should remain CPU-only and not touch VRAM)
     _ = torch.cuda.is_available()
@@ -71,12 +69,18 @@ if __name__ == "__main__":
     # ----------------------------------------------------
     # Case 2: AFTER (with isolation)
     # ----------------------------------------------------
-    print("\n>>> Starting Case 2: Spawning 12 subprocesses WITH isolation (CUDA_VISIBLE_DEVICES='')...")
+    # Spawning subprocesses WITH parent environment isolation
+    cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
     processes_after = []
     for i in range(12):
         p = multiprocessing.Process(target=worker_thunk_after)
         p.start()
         processes_after.append(p)
+
+    # Restore GPU for the parent process
+    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible
         
     time.sleep(5)
     print_gpu_memory("VRAM usage DURING Case 2 (With isolation, 12 envs)")

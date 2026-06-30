@@ -35,8 +35,8 @@ source .venv/bin/activate
 
 echo ">>> Installing Python requirements..."
 uv pip install pybind11
-# Install PyTorch compiled with CUDA 12.1 to match older server GPU drivers
-uv pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch compiled with CUDA 11.8 to match older server GPU drivers
+uv pip install torch --index-url https://download.pytorch.org/whl/cu118
 uv pip install -e .
 
 # 3. C++ Combat Engine compilation

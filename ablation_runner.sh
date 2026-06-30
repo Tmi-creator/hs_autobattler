@@ -58,6 +58,12 @@ if [ "$CUDA_OK" != "True" ]; then
 fi
 echo "    - CUDA is available! Found GPU devices."
 
+# Model architecture configuration (shared between pretraining and PPO)
+ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory"
+
+# PPO-specific training hyperparameter configurations
+PPO_FLAGS="--save-interval 25 --n-minibatches 32 --n-steps 512"
+
 # 3. Compile C++ engine
 echo ">>> [3/5] Compiling accelerated C++ combat engine..."
 python scripts/generate_cpp_effects.py
@@ -70,12 +76,12 @@ cmake --build cpp/build --config Release -j$(nproc)
 # 4. Behavior Cloning pre-train dataset generation (if needed for the genetics run)
 echo ">>> [4/5] Checking BC/Genetics dataset..."
 mkdir -p artifacts/bc
-if [ ! -f artifacts/bc/bc_pretrain_v2.pt ]; then
+if [ ! -f artifacts/bc/bc_pretrain_v3.pt ]; then
     echo "    - BC pretrain checkpoint not found. Collecting and training BC model first..."
-    python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artifacts/best.npz --out artifacts/bc/bc_dataset_v2.npz --use-enemy-board-obs --use-player-status-obs
-    python scripts/bc_train.py --dataset artifacts/bc/bc_dataset_v2.npz --out artifacts/bc/bc_pretrain_v2.pt --epochs 15 $ARCH_FLAGS
+    python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artifacts/best.npz --out artifacts/bc/bc_dataset_v3.npz --use-enemy-board-obs --use-player-status-obs
+    python scripts/bc_train.py --dataset artifacts/bc/bc_dataset_v3.npz --out artifacts/bc/bc_pretrain_v3.pt --epochs 15 $ARCH_FLAGS
 else
-    echo "    - Found existing BC pretrain checkpoint at artifacts/bc/bc_pretrain_v2.pt"
+    echo "    - Found existing BC pretrain checkpoint at artifacts/bc/bc_pretrain_v3.pt"
 fi
 
 # 4. Determine environment scaling
@@ -92,7 +98,7 @@ echo "    - Total experiments: 6 (running in 3 concurrent rounds on GPU 0 and GP
 echo "    - Charts will be synced to Wandb project: hs_autobattler"
 
 # Shared model architecture parameters for "Full" runs (with periodic checkpoint save every 25 updates)
-ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory --save-interval 25 --n-minibatches 32 --n-steps 512"
+# (Defined at the top of the script)
 
 # -------------------------------------------------------------------------
 # ROUND 1: Full Scratch vs. Full BC (Genetics Pre-trained)
@@ -105,7 +111,7 @@ echo "=========================================================="
 CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
     --total-timesteps 10000000 \
-    $ARCH_FLAGS \
+    $ARCH_FLAGS $PPO_FLAGS \
     --wandb \
     --run-name "full_scratch" &
 PID1=$!
@@ -114,8 +120,8 @@ PID1=$!
 CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --n-envs "$N_ENVS" \
     --total-timesteps 10000000 \
-    --resume artifacts/bc/bc_pretrain_v2.pt \
-    $ARCH_FLAGS \
+    --resume artifacts/bc/bc_pretrain_v3.pt \
+    $ARCH_FLAGS $PPO_FLAGS \
     --wandb \
     --run-name "full_bc_genetics" &
 PID2=$!

@@ -296,7 +296,7 @@ def main():
             except (ValueError, KeyError) as e:
                 print(f"[resume] optimizer load failed ({e}), keeping fresh optimizer")
         else:
-            print(f"[resume] loaded model-only from {args.resume} (BC pretrain → fresh optimizer)")
+            print(f"[resume] loaded model-only from {args.resume} (BC pretrain -> fresh optimizer)")
         global_step = ckpt.get("global_step", 0)
 
     # Rollout storage

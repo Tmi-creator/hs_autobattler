@@ -387,6 +387,9 @@ class HSTransformerAgent(nn.Module):
         noise from corrupting the actor's view of the board.
         """
         if self.use_memory:
+            if obs.dim() == 2:
+                # Replicate current state to fill history context K
+                obs = obs.unsqueeze(1).repeat(1, self.memory_size, 1)
             # obs shape: [B, K, obs_dim]
             B, K, obs_dim = obs.shape
             flat_obs = obs.reshape(B * K, obs_dim)
@@ -434,6 +437,9 @@ class HSTransformerAgent(nn.Module):
     def get_value(self, obs: torch.Tensor) -> torch.Tensor:
         """Returns scalar value [B] for GAE bootstrap."""
         if self.use_memory:
+            if obs.dim() == 2:
+                # Replicate current state to fill history context K
+                obs = obs.unsqueeze(1).repeat(1, self.memory_size, 1)
             B, K, obs_dim = obs.shape
             flat_obs = obs.reshape(B * K, obs_dim)
             features = self._encode(flat_obs)

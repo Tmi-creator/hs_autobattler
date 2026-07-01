@@ -45,6 +45,10 @@ struct alignas(8) Unit {
     // Avenge counter (for avenge-mechanic cards)
     int8_t avenge_counter = 0;
 
+    // Killer UID (tracks who killed this unit)
+    int32_t killer_uid = 0;
+
+
     // Attached effects (3 scopes, fixed-size)
     uint8_t num_perm = 0, num_turn = 0, num_combat = 0;
     std::array<AttachedEffect, GameConst::MAX_ATTACHED> attached_perm{};

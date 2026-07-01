@@ -171,12 +171,18 @@ def main():
     p.add_argument("--max-tier", type=int, default=6)
     p.add_argument("--out", default="artifacts/bc_dataset.npz")
     p.add_argument("--log-every", type=int, default=50)
+    p.add_argument("--use-enemy-board-obs", action="store_true")
+    p.add_argument("--use-player-status-obs", action="store_true")
     args = p.parse_args()
 
     weights = np.load(args.weights)["weights"].astype(np.float32)
     print(f"[weights] shape={weights.shape} from {args.weights}")
 
-    env = HearthstoneEnv(max_tier=args.max_tier)
+    env = HearthstoneEnv(
+        max_tier=args.max_tier,
+        use_enemy_board_obs=args.use_enemy_board_obs,
+        use_player_status_obs=args.use_player_status_obs,
+    )
 
     all_obs, all_masks, all_acts, all_bp = [], [], [], []
     t0 = time.time()

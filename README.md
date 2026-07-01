@@ -11,23 +11,26 @@ pretraining data, and a CleanRL-style PPO loop.
 Game Engine (Python tavern + Python/C++ combat)
     |
 Gymnasium Environment
-  - flat Box(1036) observation
+  - Dynamic observation space (1036 base, up to 1366 floats)
   - 34 discrete tavern actions
-  - dynamic legal-action masks
+  - Dynamic legal-action masks
     |
 HSTransformerAgent (scripts/model.py)
   - DecomposedEncoder for card id / continuous / binary / type features
+  - Optional zone-specific Summary Tokens (Board, Hand, Store, Discover, Enemy Board)
+  - Optional player status projection & player index embeddings
   - FiLM global context modulation
   - GTrXL gated residual blocks
+  - Optional temporal causal transformer memory blocks (DTQN)
   - PMA multi-seed aggregation
-  - actor logits + symlog two-hot categorical critic
+  - Actor logits + symlog two-hot categorical critic
     |
 CleanRL-style PPO (scripts/train_ppo.py)
-  - AsyncVectorEnv
-  - masked categorical policy
-  - entropy decay
-  - target_kl early stopping
-  - optional resume from BC checkpoint
+  - AsyncVectorEnv with rolling history queue buffer for DTQN memory
+  - Masked categorical policy
+  - Entropy decay
+  - Target_kl early stopping
+  - Optional resume from BC checkpoint
 ```
 
 Older SB3 files still exist for reference and compatibility, but they are no
@@ -40,6 +43,11 @@ longer the primary training route.
 * **Standalone transformer agent** in `scripts/model.py`, with no SB3 dependency.
 * **Categorical critic** using DreamerV3-style symlog two-hot targets over 255 bins.
 * **Critic-detached encoder path** so value loss updates the critic head without corrupting actor representations.
+* **Optional Architectural Extensions**:
+  * **Summary Tokens**: Zone-specific learnable `[CLS]` tokens to aggregate spatial context during self-attention.
+  * **DTQN Temporal Memory**: Stacks observations temporally over $K$ steps, processed via causal temporal transformer blocks to capture match history.
+  * **Last Combat Enemy Board**: Stores and encodes a 7-slot snapshot of the opponent's board from the last combat phase into the observation space (+266 floats).
+  * **Player Status History**: Tracks and encodes action/status features (triples, win/loss streak, upgrade turns, current and cumulative minion type compositions) for both players (+64 floats).
 * **ES Bot v2** in `src/hearthstone/env/es_bot.py`: 23 evolved weights, Hall of Fame support in `scripts/evolve_bot.py`, and saved weights expected at `artifacts/es_kaggle/artifacts/best.npz`.
 * **Behavior cloning infrastructure** via `scripts/bc_collect.py` and `scripts/bc_train.py`.
 * **Kaggle PPO submission flow** in `scripts/kaggle_submit_ppo.py`, with optional BC collection/train before PPO.
@@ -74,7 +82,7 @@ longer the primary training route.
 * `kaggle_submit_ppo.py` - self-contained Kaggle kernel generator for BC + PPO.
 * `evolve_bot.py` - `(mu+lambda)` ES trainer for `es_bot.py`.
 * `generate_cpp_effects.py` - generate C++ effects from `CardDef`.
-* `trans.py`, `categorical_critic.py`, `train_transformer.py` - legacy SB3-era transformer/PPO path.
+* `legacy/` - legacy SB3-era training files (trans, categorical_critic, train, evaluate_pvp, visualize_attention), integration tests, and the archived Python combat simulator.
 
 ### `cpp/` - C++ Combat Engine
 
@@ -118,11 +126,23 @@ python scripts/bc_collect.py --episodes 5000 --weights artifacts/es_kaggle/artif
 # Train BC actor checkpoint
 python scripts/bc_train.py --epochs 15 --batch-size 512
 
-# Fine-tune with PPO from BC checkpoint
-python scripts/train_ppo.py --resume artifacts/bc/bc_pretrain.pt --total-timesteps 5000000
+# Fine-tune with PPO from BC checkpoint (with architectural extensions)
+python scripts/train_ppo.py \
+  --resume artifacts/bc/bc_pretrain.pt \
+  --total-timesteps 5000000 \
+  --use-enemy-board-obs \
+  --use-player-status-obs \
+  --use-summary-tokens \
+  --use-memory \
+  --memory-size 4
 
-# Submit BC + PPO pipeline to Kaggle
-python scripts/kaggle_submit_ppo.py
+# Submit BC + PPO pipeline to Kaggle (with architectural extensions)
+python scripts/kaggle_submit_ppo.py \
+  --use-enemy-board-obs \
+  --use-player-status-obs \
+  --use-summary-tokens \
+  --use-memory \
+  --memory-size 4
 ```
 
 ## Tests
@@ -143,13 +163,14 @@ legacy SB3 path.
 - [x] CardDef-based card database and generated C++ effects.
 - [x] Python engine with optional rewritten C++ combat acceleration (~800x faster than pure Python combat in benchmarks).
 - [x] Gymnasium environment with 34 actions and action masks.
-- [x] Standalone Set Transformer actor-critic in `scripts/model.py`.
-- [x] CleanRL-style PPO in `scripts/train_ppo.py`.
+- [x] Dynamic observation spaces supporting enemy board snapshot and player status history.
+- [x] Standalone Set Transformer actor-critic in `scripts/model.py` with support for Summary Tokens, Player Status, and DTQN temporal memory.
+- [x] CleanRL-style PPO in `scripts/train_ppo.py` with support for rolling temporal history buffers.
 - [x] AsyncVectorEnv rollout collection.
 - [x] Symlog two-hot categorical critic.
 - [x] Critic-detached encoder path and `target_kl=0.03`.
 - [x] ES bot evolution and BC data/training scripts.
-- [x] Kaggle BC + PPO submission script.
+- [x] Kaggle BC + PPO submission script supporting all architectural flags.
 
 **Next:**
 

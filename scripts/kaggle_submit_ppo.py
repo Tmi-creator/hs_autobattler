@@ -102,6 +102,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--bc-epochs", type=int, default=15)
     p.add_argument("--bc-batch-size", type=int, default=512)
     p.add_argument("--bc-lr", type=float, default=3e-4)
+    # Architecture Options
+    p.add_argument("--use-pos-embeddings", action="store_true",
+                   help="Enable learnable positional embeddings for entity slots")
+    p.add_argument("--no-gating", action="store_true",
+                   help="Disable GTrXL gating layers (fallback to standard residual)")
+    p.add_argument("--use-summary-tokens", action="store_true",
+                   help="Use zone-specific summary tokens in model")
+    p.add_argument("--use-memory", action="store_true",
+                   help="Enable temporal causal transformer memory (DTQN)")
+    p.add_argument("--memory-size", type=int, default=4,
+                   help="DTQN memory history context size (K)")
+    p.add_argument("--use-enemy-board-obs", action="store_true",
+                   help="Enable 7-slot snapshot observation of the opponent board")
+    p.add_argument("--use-player-status-obs", action="store_true",
+                   help="Enable 32-float player status features (upgrade turns, minion types composition, etc.)")
     # Submit
     p.add_argument("--dry-run", action="store_true")
     return p
@@ -136,6 +151,13 @@ def create_kernel(args: argparse.Namespace) -> Path:
         "bc_epochs": args.bc_epochs,
         "bc_batch_size": args.bc_batch_size,
         "bc_lr": args.bc_lr,
+        "use_pos_embeddings": args.use_pos_embeddings,
+        "no_gating": args.no_gating,
+        "use_summary_tokens": args.use_summary_tokens,
+        "use_memory": args.use_memory,
+        "memory_size": args.memory_size,
+        "use_enemy_board_obs": args.use_enemy_board_obs,
+        "use_player_status_obs": args.use_player_status_obs,
     }
     config_json = json.dumps(config)
 
@@ -293,6 +315,20 @@ if __name__ == "__main__":
     ]
     if CFG["use_bc"] and os.path.exists(BC_CKPT):
         ppo_cmd.extend(["--resume", BC_CKPT])
+    if CFG.get("use_pos_embeddings"):
+        ppo_cmd.append("--use-pos-embeddings")
+    if CFG.get("no_gating"):
+        ppo_cmd.append("--no-gating")
+    if CFG.get("use_summary_tokens"):
+        ppo_cmd.append("--use-summary-tokens")
+    if CFG.get("use_memory"):
+        ppo_cmd.append("--use-memory")
+    if CFG.get("memory_size"):
+        ppo_cmd.extend(["--memory-size", str(CFG["memory_size"])])
+    if CFG.get("use_enemy_board_obs"):
+        ppo_cmd.append("--use-enemy-board-obs")
+    if CFG.get("use_player_status_obs"):
+        ppo_cmd.append("--use-player-status-obs")
     run(ppo_cmd)
     print("[DONE]")
 '''

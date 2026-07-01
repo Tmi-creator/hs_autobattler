@@ -43,18 +43,6 @@ static inline void fire_damage_event(CombatState& state, EventType t,
     process_event(state, e);
 }
 
-// Event с формой {source_uid, source_side, source_slot} — для событий,
-// относящихся к одному юниту без явной цели. Сейчас: DIVINE_SHIELD_LOST.
-static inline void fire_unit_event(CombatState& state, EventType t,
-                                   int32_t uid, int8_t side, int8_t slot) {
-    if (!has_any_subscribers(state, t)) return;
-    Event e{};
-    e.event_type = t;
-    e.source_uid = uid;
-    e.source_side = side;
-    e.source_slot = slot;
-    process_event(state, e);
-}
 
 // Event с полными позициями обеих сторон: ATTACK_DECLARED, AFTER_ATTACK.
 static inline void fire_attack_event(CombatState& state, EventType t,
@@ -112,11 +100,11 @@ static BattleResult check_end(CombatState &state) {
     }
     if (!b0_alive) {
         // Side 1 wins
-        int16_t neg_damage = -state.boards[1].damage;
+        int16_t neg_damage = -(state.boards[1].damage + state.boards[1].tavern_tier);
         return {BattleOutcome::LOSE, neg_damage};
     }
     // Side 0 wins
-    int16_t damage = state.boards[0].damage;
+    int16_t damage = state.boards[0].damage + state.boards[0].tavern_tier;
     return {BattleOutcome::WIN, damage};
 }
 
@@ -148,12 +136,13 @@ static void handle_reborn(CombatState &state, EventQueue &queue, const Unit &dea
     if (insert_slot > board.count) insert_slot = board.count;
     board.insert_at(insert_slot, reborn_unit);
 
-    // Emit MINION_SUMMONED
+    // Emit MINION_SUMMONED (meta = 1 indicates Reborn summon)
     Event e{};
     e.event_type = EventType::MINION_SUMMONED;
     e.source_uid = reborn_unit.uid;
     e.source_side = side;
     e.source_slot = insert_slot;
+    e.meta = 1;
     queue.push(e);
 }
 
@@ -225,6 +214,8 @@ static void cleanup_dead(CombatState &state) {
             death_event.source_side = snap.side;
             death_event.source_slot = snap.slot;
             death_event.snapshot = snap;
+            death_event.meta = unit.killer_uid;
+
 
             int before_count = board.count;
 
@@ -300,10 +291,12 @@ static void apply_damage(Unit &source, Victim *targets, int num_targets, CombatS
         // Если hp ушло в ноль — помечаем слот как труп. cleanup_dead потом
         // подберёт его через dead_slot_mask за O(1) без скана борда.
         if (victim.get_hp() <= 0) {
+            victim.killer_uid = source.uid;
             state.has_pending_deaths = true;
             state.boards[targets[v].side].dead_slot_mask |=
                 static_cast<uint8_t>(1u << targets[v].idx);
         }
+
 
         // Damage events. fire_damage_event проверит has_any_subscribers внутри
         // и пропустит построение Event если никто не слушает.

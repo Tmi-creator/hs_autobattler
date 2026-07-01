@@ -117,7 +117,7 @@ namespace GameConst {
 
     // Event system
     constexpr int MAX_EVENT_QUEUE       = 512;  // BFS queue per process_event() call
-    constexpr int MAX_EFFECT_ENTRIES    = 512;  // Global effect table size
+    constexpr int MAX_EFFECT_ENTRIES    = 128;  // Global effect table size
     constexpr int MAX_TRIGGERS_PER_EVENT = 64;  // Max triggers for one event
     constexpr int MAX_TRIGGERS_PER_CARD  = 4;   // Max trigger defs per card/effect
     constexpr int MAX_SYSTEM_TRIGGERS    = 16;  // Max system triggers per event type

@@ -47,8 +47,8 @@
 **Current caveats:**
 
 - The active reward in `HearthstoneEnv.step()` is still action penalty + round outcome + terminal reward. MC Oracle methods exist and cache winrate, but dense oracle reward is not wired into the current CleanRL reward path.
-- Legacy SB3-era files and the Python combat simulator have been moved to the `legacy/` directory. They are useful as references, not the main training path.
-- Full repository test collection now passes 100% cleanly without requiring any legacy `stable_baselines3` or `sb3_contrib` dependencies.
+- `scripts/trans.py`, `scripts/categorical_critic.py`, and `scripts/train_transformer.py` are legacy SB3-era files. They are useful as references, not the main training path.
+- Full repository test collection reaches `scripts/test_trans_integration.py`, which requires the legacy `stable_baselines3` dependency.
 - BC scripts are implemented, but the main doc still treats the Kaggle BC run and PPO-from-BC comparison as pending experiment work.
 
 **Next steps:**

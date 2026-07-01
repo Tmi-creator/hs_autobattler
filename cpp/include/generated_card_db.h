@@ -61,21 +61,4 @@ inline constexpr TagBitset base_tags(int16_t card_id) {
     }
 }
 
-// Avenge threshold lookup. Returns 0 if card has no Avenge effect.
-inline constexpr int8_t avenge_threshold(int16_t card_id) {
-    switch (card_id) {
-        case 218: return 4;
-        case 301: return 1;
-        case 302: return 3;
-        case 422: return 3;
-        case 426: return 3;
-        case 506: return 2;
-        case 508: return 1;
-        case 509: return 1;
-        case 520: return 3;
-        case 615: return 4;
-        default: return 0;
-    }
-}
-
 } // namespace CardDB

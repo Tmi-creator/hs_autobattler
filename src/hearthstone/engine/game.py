@@ -95,7 +95,10 @@ class Game:
         """
         p0, p1 = self.players[0], self.players[1]
 
-        result, damage = self.combat.resolve_combat(p0, p1)
+        if get_cpp_engine():
+            result, damage = self.combat.resolve_combat_fast(p0, p1)
+        else:
+            result, damage = self.combat.resolve_combat(p0, p1)
 
         damage_val = abs(damage)
 

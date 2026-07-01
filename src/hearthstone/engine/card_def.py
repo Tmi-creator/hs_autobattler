@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .enums import CardIDs, EffectIDs, MechanicType, SpellIDs, Tags, UnitType
 
@@ -846,136 +846,1966 @@ class CardDef:
 # ALL_CARDS — single source of truth for every card / token
 # ---------------------------------------------------------------------------
 
-def _coerce_type(val, expected_type):
-    import enum
-    from typing import get_args, get_origin, Union, List, Set, Dict
-    if val is None:
-        return None
-    
-    # Handle Union (e.g. Optional[X] / X | None)
-    origin = get_origin(expected_type)
-    if origin is Union:
-        args = get_args(expected_type)
-        for arg in args:
-            if arg is not type(None):
-                try:
-                    return _coerce_type(val, arg)
-                except Exception:
-                    pass
-        return val
-        
-    # Handle List/Set/Sequence
-    if origin in (list, set, List, Set):
-        arg = get_args(expected_type)[0]
-        coerced = [_coerce_type(item, arg) for item in val]
-        return set(coerced) if origin is set else coerced
-        
-    # Handle Dict
-    if origin in (dict, Dict):
-        args = get_args(expected_type)
-        key_type, val_type = args[0], args[1]
-        return {
-            _coerce_type(k, key_type): _coerce_type(v, val_type)
-            for k, v in val.items()
-        }
-        
-    # Handle specific Enum first!
-    if isinstance(expected_type, enum.EnumMeta):
-        try:
-            return expected_type[val]
-        except KeyError:
-            try:
-                return expected_type(val)
-            except ValueError:
-                pass
-
-    # Auto-convert string representation of card/spell IDs to Enums if they match
-    # (used for fields annotated as str but holding CardIDs/SpellIDs in python memory)
-    if isinstance(val, str):
-        if val in CardIDs.__members__:
-            return CardIDs[val]
-        for member in CardIDs:
-            if member.value == val:
-                return member
-        if val in SpellIDs.__members__:
-            return SpellIDs[val]
-        for member in SpellIDs:
-            if member.value == val:
-                return member
-                
-    # Default fallback
-    try:
-        return expected_type(val)
-    except Exception:
-        return val
-
-def _get_all_subclasses(cls):
-    subclasses = set(cls.__subclasses__())
-    return subclasses.union([s for c in subclasses for s in _get_all_subclasses(c)])
-
-def load_cards_from_json(path) -> List[CardDef]:
-    import json
-    from dataclasses import fields
-    from typing import get_type_hints
-    
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    
-    effect_classes = {c.__name__: c for c in _get_all_subclasses(EffectDef)}
-    # Cache resolved type hints for each effect class to resolve postponed annotations
-    resolved_class_types = {}
-    for cname, c in effect_classes.items():
-        try:
-            resolved_class_types[c] = get_type_hints(c)
-        except Exception:
-            resolved_class_types[c] = {}
-            
-    cards = []
-    for item in data:
-        effects = []
-        for eff_data in item.get("effects", []):
-            eff_data_copy = dict(eff_data)
-            eff_type = eff_data_copy.pop("type")
-            klass = effect_classes[eff_type]
-            
-            # Coerce fields of the effect dataclass
-            constructor_args = {}
-            resolved_types = resolved_class_types.get(klass, {})
-            for f in fields(klass):
-                if f.name in eff_data_copy:
-                    expected_type = resolved_types.get(f.name, f.type)
-                    constructor_args[f.name] = _coerce_type(eff_data_copy[f.name], expected_type)
-            effects.append(klass(**constructor_args))
-            
-        # Parse multiplier if present
-        multiplier = None
-        if "multiplier" in item and item["multiplier"] is not None:
-            m_data = item["multiplier"]
-            multiplier = MultiplierDef(
-                event_type_name=m_data["event_type_name"],
-                self_only=m_data.get("self_only", True),
-                extra_stacks=m_data.get("extra_stacks", 1)
+ALL_CARDS: List[CardDef] = [
+    # -----------------------------------------------------------------------
+    # TIER 1 — 21 cards (patch 234747)
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.ANNOY_O_TRON,
+        "Annoy-o-Tron",
+        1,
+        1,
+        2,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD, Tags.TAUNT},
+    ),
+    CardDef(
+        CardIDs.AUREATE_LAUREATE,
+        "Aureate Laureate",
+        1,
+        1,
+        1,
+        [UnitType.PIRATE],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[BattlecryMakeGolden()],
+    ),
+    CardDef(
+        CardIDs.CORD_PULLER,
+        "Cord Puller",
+        1,
+        1,
+        1,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.MICROBOT, count=1)],
+    ),
+    CardDef(
+        CardIDs.CRACKLING_CYCLONE,
+        "Crackling Cyclone",
+        1,
+        2,
+        1,
+        [UnitType.ELEMENTAL],
+        tags={Tags.DIVINE_SHIELD, Tags.WINDFURY},
+    ),
+    CardDef(
+        CardIDs.DUNE_DWELLER,
+        "Dune Dweller",
+        1,
+        3,
+        2,
+        [UnitType.ELEMENTAL],
+        effects=[BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.FLIGHTY_SCOUT,
+        "Flighty Scout",
+        1,
+        3,
+        3,
+        [UnitType.MURLOC],
+        effects=[StartOfCombatFromHand()],
+    ),
+    CardDef(
+        CardIDs.HARMLESS_BONEHEAD,
+        "Harmless Bonehead",
+        1,
+        1,
+        1,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.SKELETON, count=2)],
+    ),
+    CardDef(
+        CardIDs.MANASABER,
+        "Manasaber",
+        1,
+        4,
+        1,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.CUBLING, count=2)],
+    ),
+    CardDef(
+        CardIDs.MINTED_CORSAIR,
+        "Minted Corsair",
+        1,
+        1,
+        3,
+        [UnitType.PIRATE],
+        effects=[SellAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.MISFIT_DRAGONLING,
+        "Misfit Dragonling",
+        1,
+        2,
+        1,
+        [UnitType.DRAGON],
+        # SoC: Gain stats equal to your Tier
+        effects=[StartOfCombatBuffSelfByTier()],
+    ),
+    CardDef(
+        CardIDs.OMINOUS_SEER,
+        "Ominous Seer",
+        1,
+        2,
+        1,
+        [UnitType.DEMON, UnitType.NAGA],
+        effects=[BattlecrySpellDiscount(amount=1)],
+    ),
+    CardDef(
+        CardIDs.PICKY_EATER,
+        "Picky Eater",
+        1,
+        1,
+        1,
+        [UnitType.DEMON],
+        effects=[ConsumeShopUnit()],
+    ),
+    CardDef(
+        CardIDs.RAZORFEN_GEOMANCER,
+        "Razorfen Geomancer",
+        1,
+        2,
+        1,
+        [UnitType.QUILBOAR],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=2)],
+    ),
+    CardDef(
+        CardIDs.RISEN_RIDER,
+        "Risen Rider",
+        1,
+        2,
+        1,
+        [UnitType.UNDEAD],
+        tags={Tags.TAUNT, Tags.REBORN},
+    ),
+    CardDef(
+        CardIDs.RIVER_SKIPPER,
+        "River Skipper",
+        1,
+        1,
+        1,
+        [UnitType.MURLOC],
+        effects=[SellGetRandomUnit(tier=1)],
+    ),
+    CardDef(
+        CardIDs.ROT_HIDE_GNOLL,
+        "Rot Hide Gnoll",
+        1,
+        1,
+        4,
+        [UnitType.UNDEAD],
+        # +1 Atk per friendly death this combat — combat trigger
+        effects=[OnFriendlyDeathBuff(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.SURF_N_SURF,
+        "Surf n' Surf",
+        1,
+        1,
+        1,
+        [UnitType.NAGA, UnitType.BEAST],
+        # Spellcraft: DR summon 3/2 Crab — shop-phase spellcraft
+    ),
+    CardDef(
+        CardIDs.SWAMPSTRIKER,
+        "Swampstriker",
+        1,
+        1,
+        5,
+        [UnitType.MURLOC],
+        tags={Tags.WINDFURY},
+        effects=[
+            OnFriendlyPlayType(
+                trigger_type=UnitType.MURLOC,
+                atk=1,
+                hp=0,
+                exclude_self=True,
             )
-
-        # Construct CardDef
-        card = CardDef(
-            card_id=_coerce_type(item["card_id"], CardIDs),
-            name=item["name"],
-            tier=item["tier"],
-            atk=item["atk"],
-            hp=item["hp"],
-            types=_coerce_type(item.get("types", []), List[UnitType]),
-            tags=_coerce_type(item.get("tags", []), Set[Tags]),
-            effects=effects,
-            multiplier=multiplier,
-            is_token=item.get("is_token", False),
-            deathrattle=item.get("deathrattle", False)
-        )
-        cards.append(card)
-    return cards
-
-from pathlib import Path
-ALL_CARDS: List[CardDef] = load_cards_from_json(Path(__file__).resolve().parents[3] / "data" / "cards.json")
+        ],
+    ),
+    CardDef(
+        CardIDs.TUSKED_CAMPER,
+        "Tusked Camper",
+        1,
+        2,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[RallyBuff(use_blood_gem=True)],
+    ),
+    CardDef(
+        CardIDs.TWILIGHT_HATCHLING,
+        "Twilight Hatchling",
+        1,
+        1,
+        1,
+        [UnitType.DRAGON],
+        deathrattle=True,
+        effects=[
+            DeathrattleSummonWithTag(
+                token_id=CardIDs.TWILIGHT_WHELP,
+                count=1,
+                tag=Tags.IMMEDIATE_ATTACK,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.WRATH_WEAVER,
+        "Wrath Weaver",
+        1,
+        1,
+        4,
+        [UnitType.DEMON],
+        effects=[
+            OnFriendlyPlayTypeDamageHero(
+                trigger_type=UnitType.DEMON,
+                hero_dmg=1,
+                atk=2,
+                hp=1,
+                exclude_self=True,
+            )
+        ],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 2
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.FREEDEALING_GAMBLER,
+        "Freedealing Gambler",
+        2,
+        3,
+        3,
+        [],
+        effects=[SellForGold(amount=3)],
+    ),
+    CardDef(
+        CardIDs.SHELL_COLLECTOR,
+        "Shell Collector",
+        2,
+        4,
+        3,
+        [],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.SEWER_RAT,
+        "Sewer Rat",
+        2,
+        3,
+        2,
+        [],
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.TURTLE, count=1)],
+    ),
+    CardDef(
+        CardIDs.MOON_BACON_JAZZER,
+        "Moon-Bacon Jazzer",
+        2,
+        2,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[BattlecryModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=0, hp=1)],
+    ),
+    CardDef(
+        CardIDs.MECHAGNOME_INTERPRETER,
+        "Mechagnome Interpreter",
+        2,
+        2,
+        3,
+        [UnitType.MECH],
+        effects=[
+            OnFriendlyPlayType(
+                trigger_type=UnitType.MECH,
+                atk=2,
+                hp=1,
+                exclude_self=False,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.BRIARBACK_BOOKIE,
+        "Briarback Bookie",
+        2,
+        3,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[EndOfTurnAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=1)],
+    ),
+    CardDef(
+        CardIDs.HUMMING_BIRD,
+        "Humming Bird",
+        2,
+        1,
+        4,
+        [UnitType.BEAST],
+        effects=[StartOfCombatBuffFriendlyType(trigger_type=UnitType.BEAST, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.NERUBIAN_DEATHSWARMER,
+        "Nerubian Deathswarmer",
+        2,
+        1,
+        4,
+        [UnitType.UNDEAD],
+        effects=[BattlecryBuffAllByType(trigger_type=UnitType.UNDEAD, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.OOZELING_GLADIATOR,
+        "Oozeling Gladiator",
+        2,
+        2,
+        2,
+        [],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.SLIMY_SHIELD, count=2)],
+    ),
+    CardDef(
+        CardIDs.PROPHET_OF_THE_BOAR,
+        "Prophet of the Boar",
+        2,
+        2,
+        3,
+        [],
+        tags={Tags.TAUNT},
+        effects=[
+            OnFriendlyPlayTypeAddSpell(
+                trigger_type=UnitType.QUILBOAR,
+                spell_id=SpellIDs.BLOOD_GEM,
+                count=1,
+                exclude_self=True,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.SALTSCALE_HONCHO,
+        "Saltscale Honcho",
+        2,
+        5,
+        2,
+        [UnitType.MURLOC],
+        effects=[OnSummonedTypeBuffRandomOther(trigger_type=UnitType.MURLOC, atk=0, hp=2)],
+    ),
+    CardDef(
+        CardIDs.SELLEMENTAL,
+        "Sellemental",
+        2,
+        3,
+        3,
+        [UnitType.ELEMENTAL],
+        effects=[SellAddUnit(card_id=CardIDs.WATER_DROPLET)],
+    ),
+    CardDef(
+        CardIDs.SLEEPY_SUPPORTER,
+        "Sleepy Supporter",
+        2,
+        3,
+        4,
+        [UnitType.DRAGON],
+        effects=[RallyBuffRandomFriendlyType(trigger_type=UnitType.DRAGON, atk=2, hp=3)],
+    ),
+    CardDef(
+        CardIDs.TAD,
+        "Tad",
+        2,
+        2,
+        2,
+        [UnitType.MURLOC],
+        effects=[SellGetRandomUnitByType(unit_type=UnitType.MURLOC)],
+    ),
+    CardDef(
+        CardIDs.MIND_MUCK,
+        "Mind Muck",
+        2,
+        3,
+        2,
+        [UnitType.DEMON],
+        effects=[ConsumeShopUnitForRandomFriendly(trigger_type=UnitType.DEMON)],
+    ),
+    CardDef(
+        CardIDs.EMBALMING_EXPERT,
+        "Embalming Expert",
+        2,
+        3,
+        2,
+        [UnitType.UNDEAD],
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=0, give_reborn=True)],
+    ),
+    CardDef(
+        CardIDs.QUILLED_CABBIE,
+        "Quilled Cabbie",
+        2,
+        2,
+        5,
+        [UnitType.QUILBOAR],
+        effects=[
+            OnTavernRefreshBuffRightmostShop(atk=0, hp=0, give_reborn=False, use_blood_gem=True)
+        ],
+    ),
+    CardDef(
+        CardIDs.GHOSTLY_YMIRJAR,
+        "Ghostly Ymirjar",
+        2,
+        2,
+        5,
+        [UnitType.UNDEAD],
+        effects=[
+            AvengeEffect(
+                threshold=4,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="free_refresh",
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.FIRE_BALLER,
+        "Fire Baller",
+        2,
+        4,
+        3,
+        [UnitType.ELEMENTAL],
+        effects=[SellBuffBoardScaling(scaling_key="baller", atk_per=1, hp_per=0)],
+    ),
+    CardDef(
+        CardIDs.SNOW_BALLER,
+        "Snow Baller",
+        2,
+        3,
+        4,
+        [UnitType.ELEMENTAL],
+        effects=[SellBuffBoardScaling(scaling_key="baller", atk_per=0, hp_per=1)],
+    ),
+    CardDef(
+        CardIDs.IRATE_ROOSTER,
+        "Irate Rooster",
+        2,
+        3,
+        4,
+        [UnitType.BEAST],
+        effects=[StartOfCombatDamageAndBuffAdjacent(damage=1, atk=4, hp=0)],
+    ),
+    CardDef(
+        CardIDs.SOUL_REWINDER,
+        "Soul Rewinder",
+        2,
+        4,
+        1,
+        [UnitType.DEMON],
+        effects=[OnHeroDamagedHealAndBuffSelf(hp=1)],
+    ),
+    CardDef(
+        CardIDs.SURFING_SYLVAR,
+        "Surfing Sylvar",
+        2,
+        1,
+        2,
+        [UnitType.PIRATE],
+        effects=[EndOfTurnBuffAdjacentPerGolden(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.PATIENT_SCOUT,
+        "Patient Scout",
+        2,
+        1,
+        1,
+        [],
+        effects=[SellDiscover(base_tier=1, scaling_key="patient_scout")],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 3
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.BIRD_BUDDY,
+        "Bird Buddy",
+        3,
+        3,
+        3,
+        [UnitType.BEAST],
+        effects=[
+            AvengeEffect(
+                threshold=1,
+                buff_atk=1,
+                buff_hp=1,
+                buff_scope="combat",
+                buff_target="friendly_type",
+                target_type=UnitType.BEAST,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.BUDDING_GREENTHUMB,
+        "Budding Greenthumb",
+        3,
+        2,
+        4,
+        [UnitType.ELEMENTAL],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=2,
+                buff_hp=2,
+                buff_scope="perm",
+                buff_target="adjacent",
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.ANNOY_O_MODULE,
+        "Annoy-o-Module",
+        3,
+        2,
+        4,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD, Tags.TAUNT, Tags.MAGNETIC},
+    ),
+    CardDef(
+        CardIDs.DEADLY_SPORE,
+        "Deadly Spore",
+        3,
+        1,
+        1,
+        [],
+        tags={Tags.VENOMOUS},
+    ),
+    CardDef(
+        CardIDs.CADAVER_CARETAKER,
+        "Cadaver Caretaker",
+        3,
+        3,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleSummon(token_id=CardIDs.SKELETON, count=3)],
+    ),
+    CardDef(
+        CardIDs.BRINY_BOOTLEGGER,
+        "Briny Bootlegger",
+        3,
+        4,
+        2,
+        [UnitType.PIRATE],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.HANDLESS_FORSAKEN,
+        "Handless Forsaken",
+        3,
+        2,
+        1,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleSummonWithTag(token_id=CardIDs.HAND_TOKEN, count=1, tag=Tags.REBORN)],
+    ),
+    CardDef(
+        CardIDs.GREEDY_SNAKETONGUE,
+        "Greedy Snaketongue",
+        3,
+        2,
+        4,
+        [UnitType.NAGA],
+        effects=[RallyAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)],
+    ),
+    CardDef(
+        CardIDs.ROADBOAR,
+        "Roadboar",
+        3,
+        3,
+        4,
+        [UnitType.QUILBOAR],
+        effects=[RallyAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=2)],
+    ),
+    CardDef(
+        CardIDs.GOLDGRUBBER,
+        "Goldgrubber",
+        3,
+        3,
+        2,
+        [UnitType.PIRATE],
+        effects=[EndOfTurnBuffSelfPerGolden(atk_per=3, hp_per=2)],
+    ),
+    CardDef(
+        CardIDs.GEMSPLITTER,
+        "Gemsplitter",
+        3,
+        2,
+        1,
+        [UnitType.QUILBOAR],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnDivineShieldLostAddSpell(spell_id=SpellIDs.BLOOD_GEM, count=1)],
+    ),
+    CardDef(
+        CardIDs.CANOPY_SWINGER,
+        "Canopy Swinger",
+        3,
+        4,
+        5,
+        [UnitType.MURLOC],
+        effects=[BattlecryBuffAllByTypeIncludeHand(trigger_type=UnitType.MURLOC, atk=4, hp=0)],
+    ),
+    CardDef(
+        CardIDs.HOT_SPRINGER,
+        "Hot Springer",
+        3,
+        5,
+        4,
+        [UnitType.MURLOC],
+        effects=[BattlecryBuffAllByTypeIncludeHand(trigger_type=UnitType.MURLOC, atk=0, hp=4)],
+    ),
+    CardDef(
+        CardIDs.RAMPAGER,
+        "Rampager",
+        3,
+        8,
+        8,
+        [UnitType.BEAST],
+        effects=[RallyDamageOwnBoard(damage=1)],
+    ),
+    CardDef(
+        CardIDs.FELEMENTAL,
+        "Felemental",
+        3,
+        3,
+        3,
+        [UnitType.ELEMENTAL, UnitType.DEMON],
+        effects=[
+            CustomEffect()  # wired in build_trigger_registry via _make_felemental_bc
+        ],
+    ),
+    CardDef(
+        CardIDs.PRICKLY_PIPER,
+        "Prickly Piper",
+        3,
+        5,
+        1,
+        [UnitType.QUILBOAR],
+        deathrattle=True,
+        effects=[DeathrattleModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.AMBER_GUARDIAN,
+        "Amber Guardian",
+        3,
+        3,
+        2,
+        [UnitType.DRAGON],
+        tags={Tags.TAUNT},
+        effects=[
+            StartOfCombatBuffRandomFriendlyTypeAndDS(trigger_type=UnitType.DRAGON, atk=2, hp=2)
+        ],
+    ),
+    CardDef(
+        CardIDs.HARDY_ORCA,
+        "Hardy Orca",
+        3,
+        1,
+        6,
+        [UnitType.BEAST],
+        tags={Tags.TAUNT},
+        effects=[OnSelfDamagedBuffBoard(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.COLDLIGHT_DIVER,
+        "Coldlight Diver",
+        3,
+        1,
+        1,
+        [UnitType.MURLOC],
+        deathrattle=True,
+        effects=[
+            BattlecryAddSpell(
+                spell_id=SpellIDs.TAVERN_COIN, count=1
+            ),  # placeholder for random T1 spell
+            DeathrattleAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.JELLY_BELLY,
+        "Jelly Belly",
+        3,
+        2,
+        3,
+        [UnitType.UNDEAD],
+        effects=[OnFriendlyRebornBuffSelf(atk=2, hp=3)],
+    ),
+    CardDef(
+        CardIDs.ANUBARAK_NERUBIAN_KING,
+        "Anub'arak, Nerubian King",
+        3,
+        3,
+        2,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleBuffFriendlyTypeGlobal(trigger_type=UnitType.UNDEAD, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.ARANASI_ALCHEMIST,
+        "Aranasi Alchemist",
+        3,
+        1,
+        2,
+        [UnitType.DEMON, UnitType.NAGA],
+        tags={Tags.TAUNT, Tags.REBORN},
+        deathrattle=True,
+        effects=[DeathrattleBuffShop(atk=0, hp=1)],
+    ),
+    CardDef(
+        CardIDs.BASSGILL,
+        "Bassgill",
+        3,
+        5,
+        2,
+        [UnitType.MURLOC],
+        deathrattle=True,
+        effects=[DeathrattleBuffHandRandom(atk=5, hp=5)],
+    ),
+    CardDef(
+        CardIDs.BRIARBACK_DRUMMER,
+        "Briarback Drummer",
+        3,
+        5,
+        2,
+        [UnitType.QUILBOAR],
+        effects=[BattlecryAddSpell(spell_id=SpellIDs.BLOOD_GEM_BARRAGE, count=1)],
+    ),
+    CardDef(
+        CardIDs.DEFLECT_O_BOT,
+        "Deflect-o-Bot",
+        3,
+        3,
+        2,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[
+            OnFriendlySummonedTypeBuff(
+                trigger_type=UnitType.MECH,
+                atk=2,
+                hp=0,
+                exclude_self=True,
+                combat_buff=True,
+                gain_divine_shield=True,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.PEGGY_STURDYBONE,
+        "Peggy Sturdybone",
+        3,
+        2,
+        1,
+        [UnitType.PIRATE, UnitType.UNDEAD],
+        effects=[
+            # When a card added to hand, buff another friendly pirate
+            # Model as: on friendly PIRATE play, buff another pirate +2/+1
+            OnFriendlyPlayType(trigger_type=UnitType.PIRATE, atk=2, hp=1, exclude_self=False)
+        ],
+    ),
+    CardDef(
+        CardIDs.PREHISTORIC_TINKERER,
+        "Prehistoric Tinkerer",
+        3,
+        4,
+        2,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=2, give_reborn=False)],
+    ),
+    CardDef(
+        CardIDs.ROARING_RECRUITER,
+        "Roaring Recruiter",
+        3,
+        2,
+        8,
+        [UnitType.DRAGON],
+        effects=[OnFriendlyAttackBuffSelf(trigger_type=UnitType.DRAGON, atk=3, hp=1)],
+    ),
+    CardDef(
+        CardIDs.SCOURFIN,
+        "Scourfin",
+        3,
+        3,
+        3,
+        [UnitType.MURLOC],
+        deathrattle=True,
+        effects=[DeathrattleBuffHandRandom(atk=5, hp=5)],
+    ),
+    CardDef(
+        CardIDs.TARDY_TRAVELER,
+        "Tardy Traveler",
+        3,
+        3,
+        4,
+        [],
+        effects=[
+            SellAddSpell(spell_id=SpellIDs.TAVERN_COIN, count=1)  # simplified: get a coin
+        ],
+    ),
+    CardDef(
+        CardIDs.TECHNICAL_ELEMENT,
+        "Technical Element",
+        3,
+        5,
+        6,
+        [UnitType.MECH, UnitType.ELEMENTAL],
+        tags={Tags.MAGNETIC},
+    ),
+    CardDef(
+        CardIDs.THE_GLAD_IATOR,
+        "The Glad-iator",
+        3,
+        3,
+        3,
+        [],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnSpellCastBuffSelf(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.TIMECAPN_HOOKTAIL,
+        "Timecap'n Hooktail",
+        3,
+        1,
+        4,
+        [UnitType.PIRATE, UnitType.DRAGON],
+        effects=[OnSpellCastBuffSelf(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.UNDERHANDED_DEALER,
+        "Underhanded Dealer",
+        3,
+        3,
+        3,
+        [UnitType.DEMON],
+        effects=[OnGainGoldBuffSelf(atk=1, hp=2)],
+    ),
+    CardDef(
+        CardIDs.WAVELING,
+        "Waveling",
+        3,
+        6,
+        1,
+        [UnitType.ELEMENTAL],
+        deathrattle=True,
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=2, give_reborn=False)],
+    ),
+    CardDef(
+        CardIDs.WHEELED_CREWMATE,
+        "Wheeled Crewmate",
+        3,
+        6,
+        3,
+        [UnitType.MECH],
+        deathrattle=True,
+        effects=[
+            BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=0, hp=0)
+            # Actually this reduces tavern upgrade cost; model as no-op for now
+        ],
+    ),
+    CardDef(
+        CardIDs.WILDFIRE_ELEMENTAL,
+        "Wildfire Elemental",
+        3,
+        6,
+        3,
+        [UnitType.ELEMENTAL],
+        tags={Tags.CLEAVE},
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 4
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.ACCORD_O_TRON,
+        "Accord-o-Tron",
+        4,
+        5,
+        5,
+        [UnitType.MECH],
+        tags={Tags.MAGNETIC},
+        effects=[StartOfCombatGainGold(amount=1)],
+    ),
+    CardDef(
+        CardIDs.BLADE_COLLECTOR,
+        "Blade Collector",
+        4,
+        3,
+        2,
+        [],
+        tags={Tags.CLEAVE},
+    ),
+    CardDef(
+        CardIDs.BONKER,
+        "Bonker",
+        4,
+        2,
+        7,
+        [UnitType.QUILBOAR],
+        effects=[RallyBuffAllOthersByType(trigger_type=UnitType.ALL, count=2)],
+    ),
+    CardDef(
+        CardIDs.DEVOUT_HELLCALLER,
+        "Devout Hellcaller",
+        4,
+        2,
+        2,
+        [UnitType.DEMON],
+        effects=[
+            OnFriendlyDeathBuff(atk=1, hp=2)  # simplified: any friendly death
+        ],
+    ),
+    CardDef(
+        CardIDs.EN_DJINN_BLAZER,
+        "En-Djinn Blazer",
+        4,
+        4,
+        4,
+        [UnitType.ELEMENTAL],
+        effects=[OnTavernRefreshBuffRightmostShop(atk=2, hp=2, give_reborn=False)],
+    ),
+    CardDef(
+        CardIDs.FRIENDLY_GEIST,
+        "Friendly Geist",
+        4,
+        6,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.GEOMAGUS_ROOGUG,
+        "Geomagus Roogug",
+        4,
+        4,
+        6,
+        [UnitType.QUILBOAR],
+        tags={Tags.DIVINE_SHIELD},
+    ),
+    CardDef(
+        CardIDs.GREASE_BOT,
+        "Grease Bot",
+        4,
+        2,
+        4,
+        [UnitType.MECH],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[OnDivineShieldLostBuffUnit(atk=2, hp=2)],
+    ),
+    CardDef(
+        CardIDs.HEROIC_UNDERDOG,
+        "Heroic Underdog",
+        4,
+        1,
+        10,
+        [],
+        tags={Tags.STEALTH},
+        effects=[
+            RallyBuff(atk=1, hp=0)  # simplified: gain +1 atk when attacks
+        ],
+    ),
+    CardDef(
+        CardIDs.HUMON_GOZZ,
+        "Humon'gozz",
+        4,
+        5,
+        5,
+        [],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[BattlecryModifyMechanic(mechanic=MechanicType.ELEMENTAL_BUFF, atk=1, hp=2)],
+    ),
+    CardDef(
+        CardIDs.INDUSTRIOUS_DECKHAND,
+        "Industrious Deckhand",
+        4,
+        3,
+        5,
+        [UnitType.PIRATE],
+        effects=[StartOfCombatGainGold(amount=2)],
+    ),
+    CardDef(
+        CardIDs.KING_BAGURGLE,
+        "King Bagurgle",
+        4,
+        3,
+        4,
+        [UnitType.MURLOC],
+        effects=[BattlecryBuffAllByTypeIncludeHand(trigger_type=UnitType.MURLOC, atk=2, hp=3)],
+    ),
+    CardDef(
+        CardIDs.MARQUEE_TICKER,
+        "Marquee Ticker",
+        4,
+        1,
+        5,
+        [],
+        effects=[EndOfTurnAddRandomSpell()],
+    ),
+    CardDef(
+        CardIDs.PRIZED_PROMO_DRAKE,
+        "Prized Promo-Drake",
+        4,
+        1,
+        1,
+        [UnitType.DRAGON],
+        effects=[StartOfCombatBuffAllFriendlyType(trigger_type=UnitType.DRAGON, atk=4, hp=4)],
+    ),
+    CardDef(
+        CardIDs.PROSTHETIC_HAND,
+        "Prosthetic Hand",
+        4,
+        3,
+        1,
+        [UnitType.MECH, UnitType.UNDEAD],
+        tags={Tags.MAGNETIC, Tags.REBORN},
+    ),
+    CardDef(
+        CardIDs.RAZORFEN_FLAPPER,
+        "Razorfen Flapper",
+        4,
+        5,
+        3,
+        [UnitType.QUILBOAR],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.BLOOD_GEM_BARRAGE, count=1)],
+    ),
+    CardDef(
+        CardIDs.REFRESHING_ANOMALY,
+        "Refreshing Anomaly",
+        4,
+        4,
+        5,
+        [UnitType.ELEMENTAL],
+        effects=[BattlecryGainFreeRefreshes(count=2)],
+    ),
+    CardDef(
+        CardIDs.SILENT_ENFORCER,
+        "Silent Enforcer",
+        4,
+        6,
+        2,
+        [UnitType.DEMON],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[DeathrattleDamageAllMinions(damage=2)],
+    ),
+    CardDef(
+        CardIDs.SIN_DOREI_STRAIGHT_SHOT,
+        "Sin'dorei Straight Shot",
+        4,
+        3,
+        4,
+        [],
+        tags={Tags.DIVINE_SHIELD, Tags.WINDFURY},
+    ),
+    CardDef(
+        CardIDs.SLY_RAPTOR,
+        "Sly Raptor",
+        4,
+        1,
+        4,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[
+            DeathrattleSummon(token_id=CardIDs.SKELETON, count=1)  # simplified: summon 8/8 beast
+        ],
+    ),
+    CardDef(
+        CardIDs.SOULSPLITTER,
+        "Soulsplitter",
+        4,
+        4,
+        2,
+        [UnitType.UNDEAD],
+        tags={Tags.REBORN},
+        effects=[StartOfCombatGiveFriendlyTypeReborn(trigger_type=UnitType.UNDEAD)],
+    ),
+    CardDef(
+        CardIDs.SPIRIT_DRAKE,
+        "Spirit Drake",
+        4,
+        1,
+        8,
+        [UnitType.DRAGON],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="add_spell",
+                target_type=None,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.TAVERN_TEMPEST,
+        "Tavern Tempest",
+        4,
+        2,
+        2,
+        [UnitType.ELEMENTAL],
+        effects=[BattlecryAddRandomUnit(unit_type=UnitType.ELEMENTAL)],
+    ),
+    CardDef(
+        CardIDs.TUNNEL_BLASTER,
+        "Tunnel Blaster",
+        4,
+        3,
+        7,
+        [UnitType.UNDEAD],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[DeathrattleDamageAllMinions(damage=3)],
+    ),
+    CardDef(
+        CardIDs.WANNABE_GARGOYLE,
+        "Wannabe Gargoyle",
+        4,
+        9,
+        1,
+        [UnitType.UNDEAD],
+        tags={Tags.REBORN},
+    ),
+    CardDef(
+        CardIDs.WITCHWING_NESTMATRON,
+        "Witchwing Nestmatron",
+        4,
+        3,
+        5,
+        [UnitType.DRAGON],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="add_unit",
+                target_type=None,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.TRENCH_FIGHTER,
+        "Trench Fighter",
+        4,
+        6,
+        6,
+        [UnitType.NAGA],
+        effects=[EndOfTurnAddSpell(spell_id=SpellIDs.GEM_CONFISCATION, count=1)],
+    ),
+    CardDef(
+        CardIDs.GUNPOWDER_COURIER,
+        "Gunpowder Courier",
+        4,
+        2,
+        6,
+        [UnitType.PIRATE],
+        effects=[
+            OnGainGoldBuffSelf(atk=2, hp=0)  # simplified: gain +2 atk when gaining gold
+        ],
+    ),
+    # --- remaining T4 cards ---
+    CardDef(
+        CardIDs.BREAM_COUNTER,
+        "Bream Counter",
+        4,
+        4,
+        4,
+        [UnitType.MURLOC],
+        effects=[OnFriendlyPlayTypeBuffSelfInHand(trigger_type=UnitType.MURLOC, atk=4, hp=4)],
+    ),
+    CardDef(
+        CardIDs.DAGGERSPINE_THRASHER,
+        "Daggerspine Thrasher",
+        4,
+        3,
+        5,
+        [UnitType.NAGA],
+        # Whenever you cast a spell, gain Divine Shield, Windfury, or Venomous — complex random; model as OnSpellCastBuffSelf
+        effects=[OnSpellCastBuffSelf(atk=1, hp=0)],
+    ),
+    CardDef(
+        CardIDs.MONSTROUS_MACAW,
+        "Monstrous Macaw",
+        4,
+        5,
+        4,
+        [UnitType.BEAST],
+        # Rally: Trigger left-most Deathrattle — complex; model as simple rally buff
+        effects=[RallyBuff(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.PLANKWALKER,
+        "Plankwalker",
+        4,
+        6,
+        4,
+        [UnitType.NAGA],
+        effects=[OnSpellCastBuffBoard(atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.RYLAK_METALHEAD,
+        "Rylak Metalhead",
+        4,
+        5,
+        3,
+        [UnitType.MECH],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        # DR: Trigger battlecry of adjacent minion — complex; model as buff
+        effects=[DeathrattleBuffAllFriendlies(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.SUNKEN_ADVOCATE,
+        "Sunken Advocate",
+        4,
+        2,
+        7,
+        [UnitType.NAGA],
+        effects=[RallyBuffFriendlyTypeAtk(trigger_type=UnitType.NAGA, atk=1)],
+    ),
+    CardDef(
+        CardIDs.TORTOLLAN_BLUE_SHELL,
+        "Tortollan Blue Shell",
+        4,
+        3,
+        6,
+        [],
+        effects=[SellForGoldConditional(amount=5)],
+    ),
+    CardDef(
+        CardIDs.TRIGORE_THE_LASHER,
+        "Trigore the Lasher",
+        4,
+        9,
+        3,
+        [UnitType.BEAST],
+        effects=[OnFriendlyBeastDamagedBuffSelf(hp=2)],
+    ),
+    CardDef(
+        CardIDs.FLAMING_ENFORCER,
+        "Flaming Enforcer",
+        4,
+        4,
+        5,
+        [UnitType.ELEMENTAL],
+        effects=[
+            # EoT: consume highest-Health tavern minion — model as EndOfTurnBuffSelf
+            EndOfTurnBuffSelf(atk=2, hp=2)
+        ],
+    ),
+    CardDef(
+        CardIDs.ICHORON_THE_PROTECTOR,
+        "Ichoron the Protector",
+        4,
+        3,
+        1,
+        [UnitType.ELEMENTAL],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[
+            # Whenever you play an Elemental, give it DS until next turn — model as OnFriendlyPlayType buff
+            OnFriendlyPlayType(trigger_type=UnitType.ELEMENTAL, atk=0, hp=1, exclude_self=True)
+        ],
+    ),
+    CardDef(
+        CardIDs.PERSISTENT_POET,
+        "Persistent Poet",
+        4,
+        2,
+        3,
+        [UnitType.DRAGON],
+        tags={Tags.DIVINE_SHIELD},
+        # Adjacent Dragons keep bonus keywords — aura-like; model as keyword-only
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 5
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.BRANN_BRONZEBEARD,
+        "Brann Bronzebeard",
+        5,
+        2,
+        4,
+        [],
+        multiplier=MultiplierDef(event_type_name="MINION_PLAYED", self_only=True, extra_stacks=1),
+    ),
+    CardDef(
+        CardIDs.TITUS_RIVENDARE,
+        "Titus Rivendare",
+        5,
+        1,
+        7,
+        [],
+        multiplier=MultiplierDef(event_type_name="MINION_DIED", self_only=True, extra_stacks=1),
+    ),
+    CardDef(
+        CardIDs.DRAKKARI_ENCHANTER,
+        "Drakkari Enchanter",
+        5,
+        1,
+        5,
+        [],
+        multiplier=MultiplierDef(event_type_name="END_OF_TURN", self_only=False, extra_stacks=1),
+    ),
+    CardDef(
+        CardIDs.GENTLE_DJINNI,
+        "Gentle Djinni",
+        5,
+        4,
+        5,
+        [UnitType.ELEMENTAL],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[BattlecryAddRandomUnit(unit_type=UnitType.ELEMENTAL)],
+    ),
+    CardDef(
+        CardIDs.INDOMITABLE_MOUNT,
+        "Indomitable Mount",
+        5,
+        3,
+        6,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[BattlecryAddRandomUnit(unit_type=UnitType.BEAST, tier=4)],
+    ),
+    CardDef(
+        CardIDs.CHAMPION_OF_THE_PRIMUS,
+        "Champion of the Primus",
+        5,
+        2,
+        10,
+        [UnitType.UNDEAD],
+        effects=[
+            AvengeBuffFriendlyTypeGlobal(threshold=2, trigger_type=UnitType.UNDEAD, atk=1, hp=0)
+        ],
+    ),
+    CardDef(
+        CardIDs.CORRUPTED_MYRMIDON,
+        "Corrupted Myrmidon",
+        5,
+        3,
+        3,
+        [UnitType.DEMON],
+        effects=[
+            StartOfCombatBuffSelf(atk=3, hp=3)  # simplified: doubles own stats
+        ],
+    ),
+    CardDef(
+        CardIDs.SILITHID_BURROWER,
+        "Silithid Burrower",
+        5,
+        5,
+        4,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[
+            DeathrattleBuffFriendlyTypeGlobal(trigger_type=UnitType.BEAST, atk=1, hp=1),
+            AvengeEffect(threshold=1, buff_atk=1, buff_hp=1, buff_scope="perm", buff_target="self"),
+        ],
+    ),
+    CardDef(
+        CardIDs.GHOUL_OF_THE_FEAST,
+        "Ghoul of the Feast",
+        5,
+        2,
+        7,
+        [UnitType.UNDEAD],
+        effects=[
+            AvengeEffect(
+                threshold=1,
+                buff_atk=2,
+                buff_hp=2,
+                buff_scope="perm",
+                buff_target="friendly_type",
+                target_type=None,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.TWILIGHT_WATCHER,
+        "Twilight Watcher",
+        5,
+        3,
+        7,
+        [UnitType.DRAGON],
+        effects=[OnFriendlyAttackBuffTriggerSelf(trigger_type=UnitType.DRAGON, atk=1, hp=3)],
+    ),
+    CardDef(
+        CardIDs.UNFORGIVING_TREANT,
+        "Unforgiving Treant",
+        5,
+        3,
+        12,
+        [],
+        tags={Tags.TAUNT},
+        effects=[OnSelfDamagedBuffBoard(atk=2, hp=0)],
+    ),
+    CardDef(
+        CardIDs.NOMI_KITCHEN_NIGHTMARE,
+        "Nomi, Kitchen Nightmare",
+        5,
+        4,
+        4,
+        [],
+        effects=[
+            # After you play an Elemental, give Elementals in tavern +2/+2 — model as OnFriendlyPlayType buff shop
+            OnFriendlyPlayType(trigger_type=UnitType.ELEMENTAL, atk=2, hp=2, exclude_self=False)
+        ],
+    ),
+    CardDef(
+        CardIDs.BILE_SPITTER,
+        "Bile Spitter",
+        5,
+        1,
+        10,
+        [UnitType.MURLOC],
+        tags={Tags.VENOMOUS},
+        effects=[
+            RallyBuffRandomFriendlyType(trigger_type=UnitType.MURLOC, atk=0, hp=0)
+            # Rally: give another Murloc Venomous — simplified as no-buff rally
+        ],
+    ),
+    CardDef(
+        CardIDs.RAZORFEN_VINEWEAVER,
+        "Razorfen Vineweaver",
+        5,
+        5,
+        5,
+        [UnitType.QUILBOAR],
+        effects=[
+            RallyBuff(use_blood_gem=True)  # plays 3 blood gems on itself
+        ],
+    ),
+    CardDef(
+        CardIDs.CARAPACE_RAISER,
+        "Carapace Raiser",
+        5,
+        6,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.HAUNTED_CARAPACE, count=1)],
+    ),
+    CardDef(
+        CardIDs.SHADOWDANCER,
+        "Shadowdancer",
+        5,
+        5,
+        4,
+        [],
+        tags={Tags.TAUNT},
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.STAFF_OF_ENRICHMENT, count=1)],
+    ),
+    CardDef(
+        CardIDs.FIRESCALE_HOARDER,
+        "Firescale Hoarder",
+        5,
+        5,
+        5,
+        [UnitType.DRAGON],
+        deathrattle=True,
+        effects=[
+            BattlecryAddSpell(spell_id=SpellIDs.SHINY_RING, count=1),
+            DeathrattleAddSpell(spell_id=SpellIDs.SHINY_RING, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.SPIKED_SAVIOR,
+        "Spiked Savior",
+        5,
+        8,
+        2,
+        [UnitType.UNDEAD],
+        tags={Tags.TAUNT, Tags.REBORN},
+        deathrattle=True,
+        effects=[DeathrattleGiveFriendliesScaling(buff_atk=1, buff_hp=1, self_damage=1)],
+    ),
+    CardDef(
+        CardIDs.LEEROY_THE_RECKLESS,
+        "Leeroy the Reckless",
+        5,
+        6,
+        2,
+        [],
+        deathrattle=True,
+        effects=[DeathrattleDestroyKiller()],
+    ),
+    CardDef(
+        CardIDs.STUNTDRAKE,
+        "Stuntdrake",
+        5,
+        14,
+        5,
+        [UnitType.DRAGON],
+        effects=[
+            AvengeEffect(
+                threshold=3,
+                buff_atk=14,
+                buff_hp=5,
+                buff_scope="perm",
+                buff_target="random_friendly_type",
+                target_type=UnitType.DRAGON,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.WINTERGRASP_GHOUL,
+        "Wintergrasp Ghoul",
+        5,
+        5,
+        3,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[DeathrattleAddSpell(spell_id=SpellIDs.TOMB_TURNING, count=1)],
+    ),
+    CardDef(
+        CardIDs.IRIDESCENT_SKYBLAZER,
+        "Iridescent Skyblazer",
+        5,
+        3,
+        7,
+        [UnitType.DRAGON],
+        effects=[OnFriendlyBeastDamagedBuffOther(atk=1, hp=1)],
+    ),
+    CardDef(
+        CardIDs.NIUZAO,
+        "Niuzao",
+        5,
+        7,
+        6,
+        [UnitType.BEAST],
+        effects=[RallyDealDamageEqualToAtk()],
+    ),
+    CardDef(
+        CardIDs.TWILIGHT_BROODMOTHER,
+        "Twilight Broodmother",
+        5,
+        7,
+        4,
+        [UnitType.DRAGON],
+        deathrattle=True,
+        effects=[DeathrattleSummonTauntToken(token_id=CardIDs.TWILIGHT_WHELP, count=2)],
+    ),
+    CardDef(
+        CardIDs.COSTUME_ENTHUSIAST,
+        "Costume Enthusiast",
+        5,
+        4,
+        5,
+        [],
+        tags={Tags.DIVINE_SHIELD},
+        effects=[StartOfCombatBuffSelfByHighestAllyAtk()],
+    ),
+    CardDef(
+        CardIDs.ELITE_NAVIGATOR,
+        "Elite Navigator",
+        5,
+        5,
+        5,
+        [UnitType.PIRATE],
+        effects=[BattlecryMakeGoldenFriendlyByTier(max_tier=4)],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 6
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.GOLDRINN_THE_GREAT_WOLF,
+        "Goldrinn, the Great Wolf",
+        6,
+        8,
+        8,
+        [UnitType.BEAST],
+        deathrattle=True,
+        effects=[DeathrattleBuffAllFriendliesGlobal(trigger_type=UnitType.BEAST, atk=8, hp=8)],
+    ),
+    CardDef(
+        CardIDs.CHARLGA,
+        "Charlga",
+        6,
+        3,
+        3,
+        [UnitType.QUILBOAR],
+        effects=[
+            EndOfTurnBuffBoardByType(trigger_type=UnitType.ALL, atk=0, hp=0)
+            # EoT plays 2 Blood Gems on all other minions — model as EndOfTurnAddSpell x2
+        ],
+    ),
+    CardDef(
+        CardIDs.SLITHERSPEAR_LORD_OF_GAINS,
+        "Slitherspear, Lord of Gains",
+        6,
+        4,
+        5,
+        [UnitType.NAGA],
+        effects=[EndOfTurnBuffFriendlyTypeNaga(atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.LORD_OF_THE_RUINS,
+        "Lord of the Ruins",
+        6,
+        5,
+        6,
+        [UnitType.DEMON],
+        effects=[OnFriendlyDemonDamageBuff(atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.FAMISHED_FELBAT,
+        "Famished Felbat",
+        6,
+        9,
+        5,
+        [UnitType.DEMON],
+        effects=[EndOfTurnConsumeTavernForDemon()],
+    ),
+    CardDef(
+        CardIDs.SHIP_MASTER_EUDORA,
+        "Ship Master Eudora",
+        6,
+        10,
+        5,
+        [UnitType.PIRATE],
+        deathrattle=True,
+        effects=[DeathrattleBuffAllFriendlies(atk=8, hp=8)],
+    ),
+    CardDef(
+        CardIDs.AVALANCHE_CALLER,
+        "Avalanche Caller",
+        6,
+        6,
+        5,
+        [UnitType.ELEMENTAL],
+        effects=[EndOfTurnAddSpell(spell_id=SpellIDs.MOUNTING_AVALANCHE, count=1)],
+    ),
+    CardDef(
+        CardIDs.ULTRAVIOLET_ASCENDANT,
+        "Ultraviolet Ascendant",
+        6,
+        6,
+        3,
+        [UnitType.ELEMENTAL],
+        effects=[
+            StartOfCombatBuffFriendlyTypeScaling(trigger_type=UnitType.ELEMENTAL, atk=3, hp=2)
+        ],
+    ),
+    CardDef(
+        CardIDs.IGNITION_SPECIALIST,
+        "Ignition Specialist",
+        6,
+        8,
+        8,
+        [],
+        effects=[
+            EndOfTurnAddRandomSpell(),
+            EndOfTurnAddRandomSpell(),  # gets 2 random spells
+        ],
+    ),
+    CardDef(
+        CardIDs.FAUNA_WHISPERER,
+        "Fauna Whisperer",
+        6,
+        4,
+        9,
+        [UnitType.BEAST],
+        effects=[
+            EndOfTurnBuffAdjacent(atk=3, hp=3)  # simplified: Natural Blessing on adjacent
+        ],
+    ),
+    CardDef(
+        CardIDs.YOUNG_MURK_EYE,
+        "Young Murk-Eye",
+        6,
+        9,
+        6,
+        [UnitType.MURLOC],
+        effects=[EndOfTurnTriggerAdjacentBattlecry()],
+    ),
+    CardDef(
+        CardIDs.FIRE_FORGED_EVOKER,
+        "Fire-forged Evoker",
+        6,
+        8,
+        5,
+        [UnitType.DRAGON],
+        effects=[StartOfCombatBuffFriendlyType(trigger_type=UnitType.DRAGON, atk=2, hp=1)],
+    ),
+    CardDef(
+        CardIDs.SANGUINE_REFINER,
+        "Sanguine Refiner",
+        6,
+        3,
+        10,
+        [UnitType.QUILBOAR],
+        effects=[
+            # Rally: Blood Gems give extra +1/+1 — model as BattlecryModifyMechanic
+            RallyBuff(use_blood_gem=True)
+        ],
+    ),
+    CardDef(
+        CardIDs.BLOODSNOUT_WARLORD,
+        "Bloodsnout Warlord",
+        6,
+        5,
+        5,
+        [UnitType.QUILBOAR],
+        effects=[
+            # Whenever a friendly Rally minion attacks, plays 3 Blood Gems — simplified
+            RallyBuffAllOthersByType(trigger_type=UnitType.ALL, count=3)
+        ],
+    ),
+    CardDef(
+        CardIDs.DEATHLY_STRIKER,
+        "Deathly Striker",
+        6,
+        8,
+        8,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[
+            AvengeEffect(
+                threshold=4,
+                buff_atk=0,
+                buff_hp=0,
+                buff_scope="perm",
+                buff_target="add_unit",
+                target_type=UnitType.UNDEAD,
+            )
+        ],
+    ),
+    CardDef(
+        CardIDs.WHIRLING_LASS_O_MATIC,
+        "Whirling Lass-o-Matic",
+        6,
+        6,
+        3,
+        [],
+        tags={Tags.DIVINE_SHIELD, Tags.WINDFURY},
+        effects=[
+            RallyAddSpell(spell_id=SpellIDs.TRIPLET_REWARD, count=1)  # random tavern spell
+        ],
+    ),
+    CardDef(
+        CardIDs.ARCHAEDAS,
+        "Archaedas",
+        6,
+        10,
+        10,
+        [],
+        effects=[BattlecryAddRandomUnit(unit_type=None, tier=5)],
+    ),
+    CardDef(
+        CardIDs.NIGHTMARE_PAR_TEA_GUEST,
+        "Nightmare Par-tea Guest",
+        6,
+        6,
+        6,
+        [],
+        deathrattle=True,
+        effects=[
+            BattlecryAddSpell(spell_id=SpellIDs.MISPLACED_TEA_SET, count=1),
+            DeathrattleAddSpell(spell_id=SpellIDs.MISPLACED_TEA_SET, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.SUNDERED_MATRIARCH,
+        "Sundered Matriarch",
+        6,
+        7,
+        4,
+        [UnitType.DRAGON],
+        effects=[OnSpellCastBuffBoard(atk=0, hp=2)],
+    ),
+    CardDef(
+        CardIDs.PRIMITIVE_PAINTER,
+        "Primitive Painter",
+        6,
+        3,
+        8,
+        [UnitType.MURLOC],
+        effects=[
+            # After playing a card from T3 or below, give Murlocs +1/+2 — simplified
+            OnFriendlyPlayType(trigger_type=UnitType.MURLOC, atk=1, hp=2, exclude_self=False)
+        ],
+    ),
+    # -----------------------------------------------------------------------
+    # TIER 7
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.CAPTAIN_SANDERS,
+        "Captain Sanders",
+        7,
+        9,
+        9,
+        [UnitType.PIRATE],
+        effects=[BattlecryMakeGoldenFriendlyByTier(max_tier=6)],
+    ),
+    CardDef(
+        CardIDs.HIGHKEEPER_RA,
+        "Highkeeper Ra",
+        7,
+        6,
+        6,
+        [],
+        effects=[
+            BattlecryAddRandomUnit(unit_type=None, tier=6),
+            DeathrattleAddSpell(spell_id=SpellIDs.TRIPLET_REWARD, count=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.THE_LAST_ONE_STANDING,
+        "The Last One Standing",
+        7,
+        12,
+        12,
+        [],
+        effects=[
+            # Rally: give a friendly minion of each type +12/+12 — simplified as big rally buff
+            RallyBuff(atk=12, hp=12)
+        ],
+    ),
+    CardDef(
+        CardIDs.SANGUINE_CHAMPION,
+        "Sanguine Champion",
+        7,
+        18,
+        3,
+        [],
+        effects=[
+            BattlecryModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=1, hp=1),
+            DeathrattleModifyMechanic(mechanic=MechanicType.BLOOD_GEM, atk=1, hp=1),
+        ],
+    ),
+    CardDef(
+        CardIDs.PSYCHUS,
+        "Psychus",
+        7,
+        1,
+        1,
+        [],
+        effects=[StartOfCombatBuffSelfByHighestBoardAtk()],
+    ),
+    CardDef(
+        CardIDs.OBSIDIAN_RAVAGER,
+        "Obsidian Ravager",
+        7,
+        7,
+        7,
+        [],
+        effects=[RallyDealDamageEqualToAtk()],
+    ),
+    CardDef(
+        CardIDs.STITCHED_SALVAGER,
+        "Stitched Salvager",
+        7,
+        16,
+        4,
+        [UnitType.UNDEAD],
+        deathrattle=True,
+        effects=[
+            # SoC: Destroy left minion, DR: summon exact copy — complex; model as DR buff
+            DeathrattleBuffAllFriendlies(atk=4, hp=4)
+        ],
+    ),
+    CardDef(
+        CardIDs.FUTUREFIN,
+        "Futurefin",
+        7,
+        7,
+        13,
+        [UnitType.MURLOC],
+        effects=[
+            # EoT: give stats to left-most warband minion — model as EoT buff adjacent
+            EndOfTurnBuffAdjacent(atk=7, hp=13)
+        ],
+    ),
+    # -----------------------------------------------------------------------
+    # TOKENS
+    # -----------------------------------------------------------------------
+    CardDef(
+        CardIDs.MICROBOT,
+        "Microbot",
+        1,
+        1,
+        1,
+        [UnitType.MECH],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.SKELETON,
+        "Skeleton",
+        1,
+        1,
+        1,
+        [UnitType.UNDEAD],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.CUBLING,
+        "Cubling",
+        1,
+        0,
+        1,
+        [UnitType.BEAST],
+        tags={Tags.TAUNT},
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.TWILIGHT_WHELP,
+        "Twilight Whelp",
+        1,
+        3,
+        3,
+        [UnitType.DRAGON],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.CRAB_TOKEN,
+        "Crab",
+        1,
+        3,
+        2,
+        [UnitType.BEAST],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.TURTLE,
+        "Turtle",
+        2,
+        2,
+        3,
+        [],
+        tags={Tags.TAUNT},
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.WATER_DROPLET,
+        "Water Droplet",
+        2,
+        3,
+        3,
+        [UnitType.ELEMENTAL],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.HAND_TOKEN,
+        "Hand",
+        1,
+        2,
+        1,
+        [UnitType.UNDEAD],
+        is_token=True,
+    ),
+    CardDef(
+        CardIDs.GOLEM_TOKEN,
+        "Golem",
+        6,
+        6,
+        6,
+        [],
+        is_token=True,
+    ),
+]
 
 
 # ---------------------------------------------------------------------------

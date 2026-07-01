@@ -10,14 +10,8 @@ Usage:
 
 from __future__ import annotations
 
-import os
-import multiprocessing
-
-# Hides GPU from all spawned environment subprocesses to prevent CUDA context allocations
-if multiprocessing.parent_process() is not None:
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
 import argparse
+import os
 import random
 import sys
 import time
@@ -33,7 +27,6 @@ import torch.nn.functional as F
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
-sys.path.insert(0, str(ROOT / "cpp" / "build"))
 
 from model import (
     HSTransformerAgent,
@@ -71,13 +64,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--d-model", type=int, default=128)
     p.add_argument("--n-heads", type=int, default=4)
     p.add_argument("--n-layers", type=int, default=4)
-    p.add_argument("--use-pos-embeddings", action="store_true", help="use learnable positional embeddings for entity slots")
-    p.add_argument("--no-gating", action="store_true", help="disable GTrXL gating layers (fallback to standard residual)")
-    p.add_argument("--use-summary-tokens", action="store_true", help="use zone-specific summary tokens in model")
-    p.add_argument("--use-memory", action="store_true", help="enable temporal causal transformer memory (DTQN)")
-    p.add_argument("--memory-size", type=int, default=4, help="DTQN memory history context size (K)")
-    p.add_argument("--use-enemy-board-obs", action="store_true", help="enable 7-slot snapshot observation of the opponent board")
-    p.add_argument("--use-player-status-obs", action="store_true", help="enable 32-float player status features (upgrade turns, minion types composition, etc.)")
     # Env
     p.add_argument("--max-tier", type=int, default=6)
     p.add_argument("--seed", type=int, default=42)
@@ -94,14 +80,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out-dir", default="artifacts/ppo")
     # Resume
     p.add_argument("--resume", default=None, help="path to checkpoint .pt")
-    # Ghost Self-Play
-    p.add_argument("--ghost-self-play", action="store_true", help="enable ghost self-play")
-    p.add_argument("--ghost-ratio", type=float, default=0.8, help="ratio of ghost self-play vs bot")
-    p.add_argument("--ghost-pool-size", type=int, default=2000, help="max games in ghost pool")
-    p.add_argument("--ghost-pool-path", default="artifacts/ppo/ghost_pool.pkl", help="path to save/load ghost pool")
-    # MC Oracle Reward
-    p.add_argument("--use-oracle-reward", action="store_true", help="use dense MC Oracle reward")
-    p.add_argument("--oracle-reward-scale", type=float, default=10.0, help="scale of dense MC Oracle reward")
     return p.parse_args()
 
 
@@ -109,39 +87,9 @@ def parse_args() -> argparse.Namespace:
 # Environment
 # ============================================================
 
-from hearthstone.env.ghost_pool import GhostPool
-
-def make_env(
-    rank: int,
-    seed: int,
-    max_tier: int,
-    use_ghost: bool = False,
-    ghost_ratio: float = 0.8,
-    ghost_pool: GhostPool | None = None,
-    use_oracle_reward: bool = False,
-    oracle_reward_scale: float = 10.0,
-    use_enemy_board_obs: bool = False,
-    use_player_status_obs: bool = False,
-):
+def make_env(rank: int, seed: int, max_tier: int):
     def thunk():
-        import sys
-        from pathlib import Path
-        ROOT = Path(__file__).resolve().parent.parent
-        sys.path.insert(0, str(ROOT / "src"))
-        sys.path.insert(0, str(ROOT / "cpp" / "build"))
-
-        env = HearthstoneEnv(
-            max_tier=max_tier,
-            use_oracle_reward=use_oracle_reward,
-            oracle_reward_scale=oracle_reward_scale,
-            use_enemy_board_obs=use_enemy_board_obs,
-            use_player_status_obs=use_player_status_obs,
-        )
-        if ghost_pool is not None:
-            env.set_ghost_pool(ghost_pool)
-            if use_ghost:
-                env.enable_ghost_mode()
-                env._ghost_ratio = ghost_ratio
+        env = HearthstoneEnv(max_tier=max_tier)
         env.reset(seed=seed + rank)
         return env
 
@@ -235,33 +183,9 @@ def main():
             config=vars(args),
         )
 
-    # Ghost self-play pool
-    main_ghost_pool = None
-    if args.ghost_self_play:
-        main_ghost_pool = GhostPool(max_games=args.ghost_pool_size)
-        loaded = main_ghost_pool.load(args.ghost_pool_path)
-        if loaded > 0:
-            print(f"[ghost] loaded {loaded} trajectories from {args.ghost_pool_path}")
-        else:
-            print(f"[ghost] initialized empty pool at {args.ghost_pool_path}")
-
     # Envs (Async = env.step parallelized with model inference, +50-100% FPS)
     envs = gymnasium.vector.AsyncVectorEnv(
-        [
-            make_env(
-                i,
-                args.seed,
-                args.max_tier,
-                use_ghost=args.ghost_self_play,
-                ghost_ratio=args.ghost_ratio,
-                ghost_pool=main_ghost_pool,
-                use_oracle_reward=args.use_oracle_reward,
-                oracle_reward_scale=args.oracle_reward_scale,
-                use_enemy_board_obs=args.use_enemy_board_obs,
-                use_player_status_obs=args.use_player_status_obs,
-            )
-            for i in range(args.n_envs)
-        ]
+        [make_env(i, args.seed, args.max_tier) for i in range(args.n_envs)]
     )
     n_actions = 34
     obs_dim = envs.single_observation_space.shape[0]
@@ -276,13 +200,6 @@ def main():
         n_heads=args.n_heads,
         n_layers=args.n_layers,
         num_card_ids=num_card_ids,
-        use_pos_embeddings=args.use_pos_embeddings,
-        use_gating=not args.no_gating,
-        use_summary_tokens=args.use_summary_tokens,
-        use_memory=args.use_memory,
-        memory_size=args.memory_size,
-        use_enemy_board_obs=args.use_enemy_board_obs,
-        use_player_status_obs=args.use_player_status_obs,
     ).to(device)
 
     n_params = sum(p.numel() for p in agent.parameters())
@@ -302,7 +219,7 @@ def main():
             except (ValueError, KeyError) as e:
                 print(f"[resume] optimizer load failed ({e}), keeping fresh optimizer")
         else:
-            print(f"[resume] loaded model-only from {args.resume} (BC pretrain -> fresh optimizer)")
+            print(f"[resume] loaded model-only from {args.resume} (BC pretrain → fresh optimizer)")
         global_step = ckpt.get("global_step", 0)
 
     # Rollout storage
@@ -311,10 +228,7 @@ def main():
     n_updates = args.total_timesteps // batch_size
     print(f"[train] batch={batch_size} minibatch={minibatch_size} updates={n_updates}")
 
-    if args.use_memory:
-        obs_buf = torch.zeros((args.n_steps, args.n_envs, args.memory_size, obs_dim), device=device)
-    else:
-        obs_buf = torch.zeros((args.n_steps, args.n_envs, obs_dim), device=device)
+    obs_buf = torch.zeros((args.n_steps, args.n_envs, obs_dim), device=device)
     act_buf = torch.zeros((args.n_steps, args.n_envs), dtype=torch.long, device=device)
     logp_buf = torch.zeros((args.n_steps, args.n_envs), device=device)
     rew_buf = torch.zeros((args.n_steps, args.n_envs), device=device)
@@ -328,33 +242,10 @@ def main():
     next_obs = torch.tensor(next_obs_np, dtype=torch.float32, device=device)
     next_done = torch.zeros(args.n_envs, device=device)
 
-    if args.use_memory:
-        history_queue = torch.zeros((args.n_envs, args.memory_size, obs_dim), device=device)
-        history_queue[:, :] = next_obs.unsqueeze(1)
-
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     start_time = time.time()
-
-    # Running buffers for episode statistics
-    ep_stats_buffers = {
-        "reward": [],
-        "length": [],
-        "turns": [],
-        "win": [],
-        "final_hp": [],
-        "enemy_final_hp": [],
-        "final_tier": [],
-        "final_board_power": [],
-        "spells_bought": [],
-        "spells_played": [],
-        "minions_bought": [],
-        "minions_sold": [],
-        "rolls": [],
-        "upgrades": [],
-        "use_ghost": [],
-    }
 
     for update in range(1, n_updates + 1):
         # --- Entropy decay ---
@@ -367,17 +258,14 @@ def main():
         for step in range(args.n_steps):
             global_step += args.n_envs
 
-            if args.use_memory:
-                obs_buf[step] = history_queue
-            else:
-                obs_buf[step] = next_obs
+            obs_buf[step] = next_obs
             done_buf[step] = next_done
             action_mask = get_action_masks(envs).to(device)
             mask_buf[step] = action_mask
 
             with torch.no_grad():
                 action, logprob, _, value, v_logits = agent.get_action_and_value(
-                    history_queue if args.use_memory else next_obs, action_mask
+                    next_obs, action_mask
                 )
             act_buf[step] = action
             logp_buf[step] = logprob
@@ -392,48 +280,15 @@ def main():
             next_obs = torch.tensor(next_obs_np, dtype=torch.float32, device=device)
             next_done = torch.tensor(done_np, dtype=torch.float32, device=device)
 
-            if args.use_memory:
-                for i in range(args.n_envs):
-                    if done_np[i]:
-                        # Reset history for env i to the new starting observation
-                        history_queue[i, :] = next_obs[i].unsqueeze(0)
-                    else:
-                        # Shift left and append the new observation
-                        history_queue[i] = torch.cat([history_queue[i, 1:], next_obs[i].unsqueeze(0)], dim=0)
-
-            # Extract episode statistics if any environment finished
-            if isinstance(infos, dict):
-                if "_episode_stats" in infos:
-                    completed_indices = np.where(infos["_episode_stats"])[0]
-                    for idx in completed_indices:
-                        for k in ep_stats_buffers.keys():
-                            if k in infos["episode_stats"]:
-                                ep_stats_buffers[k].append(infos["episode_stats"][k][idx])
-                elif "final_info" in infos:
-                    for info in infos["final_info"]:
-                        if isinstance(info, dict) and "episode_stats" in info:
-                            for k, v in info["episode_stats"].items():
-                                if k in ep_stats_buffers:
-                                    ep_stats_buffers[k].append(v)
-            elif isinstance(infos, (list, tuple)):
-                for info in infos:
-                    if isinstance(info, dict) and "episode_stats" in info:
-                        for k, v in info["episode_stats"].items():
-                            if k in ep_stats_buffers:
-                                ep_stats_buffers[k].append(v)
-
         # --- GAE ---
         with torch.no_grad():
-            next_value = agent.get_value(history_queue if args.use_memory else next_obs)
+            next_value = agent.get_value(next_obs)
         advantages, returns = compute_gae(
             rew_buf, val_buf, done_buf, next_value, args.gamma, args.gae_lambda
         )
 
         # --- Flatten ---
-        if args.use_memory:
-            b_obs = obs_buf.reshape(-1, args.memory_size, obs_dim)
-        else:
-            b_obs = obs_buf.reshape(-1, obs_dim)
+        b_obs = obs_buf.reshape(-1, obs_dim)
         b_actions = act_buf.reshape(-1)
         b_logprobs = logp_buf.reshape(-1)
         b_advantages = advantages.reshape(-1)
@@ -499,18 +354,6 @@ def main():
             if args.target_kl is not None and approx_kl > 1.5 * args.target_kl:
                 break
 
-        # --- Sync Ghost Pool trajectories across env workers ---
-        if args.ghost_self_play and main_ghost_pool is not None:
-            all_trajectories = envs.call("get_ghost_trajectories")
-            new_added = 0
-            for traj_list in all_trajectories:
-                for traj in traj_list:
-                    if traj not in main_ghost_pool.trajectories:
-                        main_ghost_pool.trajectories.append(traj)
-                        new_added += 1
-            if new_added > 0:
-                envs.call("set_ghost_trajectories", list(main_ghost_pool.trajectories))
-
         # --- Logging ---
         if update % args.log_interval == 0:
             elapsed = time.time() - start_time
@@ -526,83 +369,18 @@ def main():
                 f"avg_r={avg_reward:.3f}"
             )
 
-            # Print episode stats if any completed
-            n_eps = len(ep_stats_buffers["win"])
-            if n_eps > 0:
-                avg_win = np.mean(ep_stats_buffers["win"])
-                avg_turns = np.mean(ep_stats_buffers["turns"])
-                avg_tier = np.mean(ep_stats_buffers["final_tier"])
-                avg_power = np.mean(ep_stats_buffers["final_board_power"])
-                avg_sp_bought = np.mean(ep_stats_buffers["spells_bought"])
-                avg_sp_played = np.mean(ep_stats_buffers["spells_played"])
-                print(
-                    f"  [episodes (N={n_eps})] winrate={avg_win:+.2f} "
-                    f"turns={avg_turns:.1f} tier={avg_tier:.1f} power={avg_power:.1f} "
-                    f"spells_bought={avg_sp_bought:.1f} spells_played={avg_sp_played:.1f}"
-                )
-
             if run is not None:
-                # Calculate explained variance
-                y_pred = val_buf.cpu().numpy().flatten()
-                y_true = returns.cpu().numpy().flatten()
-                var_y = np.var(y_true)
-                ev = 1.0 - np.var(y_true - y_pred) / var_y if var_y > 1e-8 else 0.0
-
-                # Calculate action category percentages
-                actions_np = act_buf.cpu().numpy()
-                percent_end_turn = np.mean(actions_np == 0)
-                percent_roll = np.mean(actions_np == 1)
-                percent_buy = np.mean((actions_np >= 2) & (actions_np <= 8))
-                percent_sell = np.mean((actions_np >= 9) & (actions_np <= 15))
-                percent_play = np.mean((actions_np >= 16) & (actions_np <= 25))
-                percent_swap = np.mean((actions_np >= 26) & (actions_np <= 31))
-                percent_upgrade = np.mean(actions_np == 32)
-                percent_freeze = np.mean(actions_np == 33)
-
-                log_dict = {
+                run.log({
                     "charts/fps": fps,
                     "charts/avg_reward": avg_reward,
-                    "charts/avg_value": val_buf.mean().item(),
                     "losses/policy": np.mean(pg_losses),
                     "losses/value": np.mean(vf_losses),
                     "losses/entropy": np.mean(ent_losses),
                     "losses/approx_kl": approx_kl,
                     "losses/clipfrac": np.mean(clipfracs),
-                    "losses/explained_variance": ev,
                     "config/ent_coef": ent_coef,
                     "config/lr": optimizer.param_groups[0]["lr"],
-                    "actions/percent_end_turn": percent_end_turn,
-                    "actions/percent_roll": percent_roll,
-                    "actions/percent_buy": percent_buy,
-                    "actions/percent_sell": percent_sell,
-                    "actions/percent_play": percent_play,
-                    "actions/percent_swap": percent_swap,
-                    "actions/percent_upgrade": percent_upgrade,
-                    "actions/percent_freeze": percent_freeze,
-                }
-                if n_eps > 0:
-                    log_dict.update({
-                        "episodes/reward": np.mean(ep_stats_buffers["reward"]),
-                        "episodes/length": np.mean(ep_stats_buffers["length"]),
-                        "episodes/turns": np.mean(ep_stats_buffers["turns"]),
-                        "episodes/win_rate_outcome": np.mean(ep_stats_buffers["win"]),
-                        "episodes/final_hp": np.mean(ep_stats_buffers["final_hp"]),
-                        "episodes/enemy_final_hp": np.mean(ep_stats_buffers["enemy_final_hp"]),
-                        "episodes/final_tier": np.mean(ep_stats_buffers["final_tier"]),
-                        "episodes/final_board_power": np.mean(ep_stats_buffers["final_board_power"]),
-                        "episodes/spells_bought": np.mean(ep_stats_buffers["spells_bought"]),
-                        "episodes/spells_played": np.mean(ep_stats_buffers["spells_played"]),
-                        "episodes/minions_bought": np.mean(ep_stats_buffers["minions_bought"]),
-                        "episodes/minions_sold": np.mean(ep_stats_buffers["minions_sold"]),
-                        "episodes/rolls": np.mean(ep_stats_buffers["rolls"]),
-                        "episodes/upgrades": np.mean(ep_stats_buffers["upgrades"]),
-                        "episodes/use_ghost_ratio": np.mean(ep_stats_buffers["use_ghost"]),
-                    })
-                run.log(log_dict, step=global_step)
-
-            # Clear buffers
-            for k in ep_stats_buffers.keys():
-                ep_stats_buffers[k].clear()
+                }, step=global_step)
 
         # --- Eval ---
         if update % args.eval_interval == 0:
@@ -626,16 +404,6 @@ def main():
                 "args": vars(args),
             }, ckpt_path)
             print(f"  [save] {ckpt_path}")
-            if run is not None:
-                try:
-                    import wandb
-                    wandb.save(str(ckpt_path), base_path=str(out_dir))
-                    print(f"  [wandb] uploaded {ckpt_path} to Wandb cloud")
-                except Exception as e:
-                    print(f"  [wandb] failed to upload checkpoint: {e}")
-            if args.ghost_self_play and main_ghost_pool is not None:
-                main_ghost_pool.save(args.ghost_pool_path)
-                print(f"  [save] saved ghost pool ({main_ghost_pool.size} games) to {args.ghost_pool_path}")
 
     # Final save
     final_path = out_dir / "final.pt"
@@ -646,16 +414,6 @@ def main():
         "args": vars(args),
     }, final_path)
     print(f"[done] {global_step:,} steps, saved to {final_path}")
-    if run is not None:
-        try:
-            import wandb
-            wandb.save(str(final_path), base_path=str(out_dir))
-            print(f"[wandb] uploaded final.pt to Wandb cloud")
-        except Exception as e:
-            print(f"[wandb] failed to upload final.pt: {e}")
-    if args.ghost_self_play and main_ghost_pool is not None:
-        main_ghost_pool.save(args.ghost_pool_path)
-        print(f"[done] saved ghost pool ({main_ghost_pool.size} games) to {args.ghost_pool_path}")
 
     if run is not None:
         run.finish()

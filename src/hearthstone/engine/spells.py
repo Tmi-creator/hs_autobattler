@@ -286,22 +286,6 @@ def _make_attach_effect_handler(spell_id: str):
     return _handler
 
 
-def _make_set_stats_20_20_handler(spell_id: str):
-    """Spell effect: SET_STATS_20_20 — sets targeted minion's stats to 20/20."""
-    def _handler(ctx: EffectContext, event: Event, trigger_uid: int) -> None:
-        if not event.target:
-            return
-        unit = ctx.resolve_unit(EntityRef(event.target.uid))
-        if not unit:
-            return
-        unit.perm_atk_add = 20 - unit.base_atk
-        unit.perm_hp_add = 20 - unit.base_hp
-        unit.recalc_stats()
-        unit.restore_stats()
-
-    return _handler
-
-
 def _make_attach_crab_dr_handler(spell_id: str):
     """Spell effect: ATTACH_CRAB_DR — legacy alias kept for SURF_SPELLCRAFT."""
     return _make_attach_effect_handler(spell_id)
@@ -326,7 +310,6 @@ EFFECT_FACTORIES = {
     "ATTACH_CRAB_DR": _make_attach_crab_dr_handler,
     "BUFF_ALL_FRIENDLY": _make_buff_board_handler,       # alias: buff all board
     "BUFF_ALL_BY_TYPE": _make_buff_board_type_handler,   # alias: buff board by type
-    "SET_STATS_20_20": _make_set_stats_20_20_handler,
 }
 
 #: Effect codes whose spells require a board target.
@@ -334,7 +317,6 @@ _TARGET_REQUIRED_EFFECTS: Set[str] = {
     "BUFF_MINION",
     "ATTACH_EFFECT",
     "ATTACH_CRAB_DR",
-    "SET_STATS_20_20",
 }
 
 

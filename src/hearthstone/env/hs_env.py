@@ -34,26 +34,6 @@ MAX_SPELL_DISCOUNT = 10.0
 MAX_CARDS_IN_GAME = 500
 
 
-def count_goldens(player: Player) -> int:
-    cnt = 0
-    for u in player.board:
-        if u.is_golden:
-            cnt += 1
-    for hc in player.hand:
-        if hc.unit and hc.unit.is_golden:
-            cnt += 1
-    return cnt
-
-
-def get_minion_types_composition(player: Player, all_types: list[UnitType]) -> list[float]:
-    counts = [0.0] * len(all_types)
-    for u in player.board:
-        for i, t in enumerate(all_types):
-            if t in u.types:
-                counts[i] += 1.0
-    return counts
-
-
 class HearthstoneEnv(gym.Env[np.ndarray, int]):
     """
     RL Environment for Hearthstone Battlegrounds.
@@ -69,23 +49,10 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     26: 0<->1, 27: 1<->2 ... 31: 5<->6
     """
 
-    def __init__(
-        self,
-        max_tier: int = 6,
-        auto_position: bool = True,
-        use_oracle_reward: bool = False,
-        oracle_reward_scale: float = 10.0,
-        use_enemy_board_obs: bool = False,
-        use_player_status_obs: bool = False,
-    ) -> None:
+    def __init__(self, max_tier: int = 6) -> None:
         super(HearthstoneEnv, self).__init__()
 
         self._max_tier = max_tier
-        self.auto_position = auto_position
-        self.use_oracle_reward = use_oracle_reward
-        self.oracle_reward_scale = oracle_reward_scale
-        self.use_enemy_board_obs = use_enemy_board_obs
-        self.use_player_status_obs = use_player_status_obs
 
         all_ids = sorted(list(CARD_DB.keys()) + list(SPELL_DB.keys()))
 
@@ -119,11 +86,11 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self._oracle_n_combats: int = 20
         self._oracle_cached_wr: float = 0.5
         self._oracle_seed: int = random.getrandbits(32)
-        self._oracle_ghost_flat: list | None = None  # cached C++ flat list for ghost board
+        self._oracle_ghost_cpp: list | None = None  # cached C++ tuples for ghost board
         self._oracle_ghost_tier: int = 1
 
         self.all_types = list(UnitType)
-        self.num_types = len(self.all_types)  # 12
+        self.num_types = len(self.all_types)  # 11
 
         # --- Вектор сущности (35 float) ---
         # [0] Is Present
@@ -150,7 +117,8 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self.entity_features = 26 + self.num_types
 
         # Размер вектора наблюдения:
-        # Global(7) + Board(7*38) + Hand(10*38) + Store(7*38) + Discover(3*38) + Enemy(3) = 1036
+        # Global(7) + Board(7*37) + Hand(10*37) + Store(7*37) + Discover(3*37) + Enemy(3)
+        # 7 + 259 + 370 + 259 + 111 + 3 = 1009
         total_obs_size = (
             7
             + (7 * self.entity_features)
@@ -160,14 +128,8 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
             + 3
         )
 
-        if self.use_enemy_board_obs:
-            total_obs_size += 7 * self.entity_features
-
-        if self.use_player_status_obs:
-            total_obs_size += 2 * 32  # 2 players * 32 status features
-
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(total_obs_size,), dtype=np.float32
+            low=0, high=MAX_CARDS_IN_GAME, shape=(total_obs_size,), dtype=np.float32
         )
 
         # Pre-allocated buffers (avoid per-step allocations)
@@ -182,20 +144,6 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self._off_store = 7 + (7 + 10) * self.entity_features
         self._off_discover = 7 + (7 + 10 + 7) * self.entity_features
         self._off_enemy = 7 + (7 + 10 + 7 + 3) * self.entity_features
-
-        next_offset = 7 + (7 + 10 + 7 + 3) * self.entity_features + 3
-
-        if self.use_enemy_board_obs:
-            self._off_enemy_board = next_offset
-            next_offset += 7 * self.entity_features
-        else:
-            self._off_enemy_board = -1
-
-        if self.use_player_status_obs:
-            self._off_player_status = next_offset
-            next_offset += 64
-        else:
-            self._off_player_status = -1
 
         # Pre-compute trigger info per card_id (avoids per-entity lookup)
         self._trigger_cache: dict[str, tuple[bool, bool, bool, bool, bool]] = {}
@@ -228,19 +176,6 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         """Set shared ghost pool (called once at env creation)."""
         self.ghost_pool = pool
 
-    def get_ghost_trajectories(self) -> list:
-        """Get copy of trajectories from the local ghost pool."""
-        if self.ghost_pool is not None:
-            return list(self.ghost_pool.trajectories)
-        return []
-
-    def set_ghost_trajectories(self, trajectories: list) -> None:
-        """Update local ghost pool with trajectories from main process."""
-        if self.ghost_pool is not None:
-            self.ghost_pool.trajectories.clear()
-            for traj in trajectories:
-                self.ghost_pool.trajectories.append(traj)
-
     def enable_ghost_mode(self) -> None:
         """Enable ghost self-play (called by CurriculumCallback)."""
         self._use_ghost = True
@@ -269,24 +204,6 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         self.is_targeting = False
         self.pending_spell_hand_index = None
 
-        # History & Player Status Tracking
-        self.last_combat_board = [[], []]
-        self._triples = [0] * len(self.game.players)
-        self._streak = [0] * len(self.game.players)
-        self._upgrade_turns = [[0.0] * 5 for _ in range(len(self.game.players))]
-        self._cumulative_types = [[0.0] * len(self.all_types) for _ in range(len(self.game.players))]
-        self._last_goldens = [count_goldens(p) for p in self.game.players]
-        self._last_tier = [p.tavern_tier for p in self.game.players]
-
-        # Statistics trackers
-        self.stats_reward = 0.0
-        self.stats_spells_bought = 0
-        self.stats_spells_played = 0
-        self.stats_minions_bought = 0
-        self.stats_minions_sold = 0
-        self.stats_rolls = 0
-        self.stats_upgrades = 0
-
         # Sample ghost trajectory for this episode
         self._ghost_trajectory = None
         if (
@@ -300,7 +217,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         # Reset MC Oracle state
         self._oracle_cached_wr = 0.5
         self._oracle_seed = random.getrandbits(32)
-        self._oracle_ghost_flat = None
+        self._oracle_ghost_cpp = None
 
         return self._get_obs(), {}
 
@@ -322,39 +239,6 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         truncated = (self.game.turn_count > 50) or (self.steps_taken >= self.max_steps_per_episode)
 
         player = self.game.players[self.my_player_id]
-
-        def make_transition_result(obs, rew, is_done, is_trunc):
-            self.stats_reward += rew
-            inf = {}
-            if is_done or is_trunc:
-                p0_hp = player.health
-                p1_hp = self.game.players[self.enemy_id].health
-                if p0_hp > 0 and p1_hp <= 0:
-                    win = 1
-                elif p0_hp <= 0 and p1_hp > 0:
-                    win = -1
-                else:
-                    win = 0
-
-                inf["episode_stats"] = {
-                    "reward": self.stats_reward,
-                    "length": self.steps_taken,
-                    "turns": self.game.turn_count,
-                    "win": win,
-                    "final_hp": p0_hp,
-                    "enemy_final_hp": p1_hp,
-                    "final_tier": player.tavern_tier,
-                    "final_board_power": self._calculate_board_power(player),
-                    "spells_bought": self.stats_spells_bought,
-                    "spells_played": self.stats_spells_played,
-                    "minions_bought": self.stats_minions_bought,
-                    "minions_sold": self.stats_minions_sold,
-                    "rolls": self.stats_rolls,
-                    "upgrades": self.stats_upgrades,
-                    "use_ghost": int(self._ghost_trajectory is not None)
-                }
-            return obs, rew, is_done, is_trunc, inf
-
         is_discovering = player.is_discovering
         # === ACTION MAPPING ===
         action_type: str = "UNKNOWN"
@@ -445,79 +329,25 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         # Engine run
 
-        # Pre-track properties for statistics
-        bought_spell = False
-        bought_minion = False
-        played_spell = False
-
-        if action_type == "BUY":
-            idx = kwargs.get("index", -1)
-            if 0 <= idx < len(player.store):
-                item = player.store[idx]
-                if item.spell:
-                    bought_spell = True
-                elif item.unit:
-                    bought_minion = True
-        elif action_type == "PLAY":
-            idx = kwargs.get("hand_index", -1)
-            if 0 <= idx < len(player.hand):
-                card = player.hand[idx]
-                if card.spell:
-                    played_spell = True
-
         if action_type == "WAIT_FOR_TARGET":
-            return make_transition_result(self._get_obs(), 0.0, False, truncated)
+            return self._get_obs(), 0.0, False, truncated, {}
 
         elif action_type == "CANCEL_CAST":
-            return make_transition_result(self._get_obs(), 0.0, False, truncated)
+            return self._get_obs(), 0.0, False, truncated, {}
 
         success, done, _ = self.game.step(self.my_player_id, action_type, **kwargs)
 
         if not success:
-            return make_transition_result(self._get_obs(), 0.0, self.game.game_over, truncated)
-
-        # Update triples & upgrades on success
-        for p_idx, p in enumerate(self.game.players):
-            current_goldens = count_goldens(p)
-            diff = current_goldens - self._last_goldens[p_idx]
-            if diff > 0:
-                self._triples[p_idx] += diff
-            self._last_goldens[p_idx] = current_goldens
-
-            current_tier = p.tavern_tier
-            last_t = self._last_tier[p_idx]
-            if current_tier > last_t:
-                for t in range(last_t + 1, current_tier + 1):
-                    if 2 <= t <= 6:
-                        self._upgrade_turns[p_idx][t - 2] = float(self.game.turn_count)
-                self._last_tier[p_idx] = current_tier
-
-        # Update stats on success
-        if bought_spell:
-            self.stats_spells_bought += 1
-        if bought_minion:
-            self.stats_minions_bought += 1
-        if played_spell:
-            self.stats_spells_played += 1
-        if action_type == "SELL":
-            self.stats_minions_sold += 1
-        if action_type == "ROLL":
-            self.stats_rolls += 1
-        if action_type == "UPGRADE":
-            self.stats_upgrades += 1
+            return self._get_obs(), 0.0, self.game.game_over, truncated, {}
 
         # === REWARD: Round Outcome + Action Penalty + Terminal ===
         reward: float = -0.005  # action penalty
-
-        if self.use_oracle_reward and action_type != "END_TURN":
-            reward += self._oracle_reward(player)
 
         if action_type == "END_TURN":
             reward = 0.0  # END_TURN itself is free
             self.actions_in_turn = 0
 
-            if self.auto_position:
-                self._auto_position_board(player)
+            self._auto_position_board(player)
 
             if self.ghost_pool is not None:
                 self.ghost_pool.record_turn(self._env_id, self.game.turn_count, player)
@@ -530,43 +360,6 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
             damage_dealt = p1_hp_before - p1_hp_after
             damage_taken = p0_hp_before - p0_hp_after
-
-            # Save the board snapshots right after play_enemy_turn completes (combat resolved, board is pre-combat since combat copies were used)
-            self.last_combat_board = [
-                [u.combat_copy() for u in p.board]
-                for p in self.game.players
-            ]
-
-            # Update cumulative minion types
-            for p_idx, p in enumerate(self.game.players):
-                comp = get_minion_types_composition(p, self.all_types)
-                for i in range(len(self.all_types)):
-                    self._cumulative_types[p_idx][i] += comp[i]
-
-            # Update streaks for both players
-            if damage_dealt > damage_taken:  # Player 0 won
-                if self._streak[0] > 0:
-                    self._streak[0] += 1
-                else:
-                    self._streak[0] = 1
-
-                if self._streak[1] < 0:
-                    self._streak[1] -= 1
-                else:
-                    self._streak[1] = -1
-            elif damage_taken > damage_dealt:  # Player 1 won
-                if self._streak[1] > 0:
-                    self._streak[1] += 1
-                else:
-                    self._streak[1] = 1
-
-                if self._streak[0] < 0:
-                    self._streak[0] -= 1
-                else:
-                    self._streak[0] = -1
-            else:  # Draw
-                self._streak[0] = 0
-                self._streak[1] = 0
 
             # Round outcome: +1/-1
             if damage_dealt > damage_taken:
@@ -586,7 +379,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
                 self._oracle_prepare_ghost()
                 self._oracle_cached_wr = self._oracle_eval_winrate(player)
 
-        return make_transition_result(self._get_obs(), reward, done, truncated)
+        return self._get_obs(), reward, done, truncated, {}
 
     def _auto_position_board(self, player: Player) -> None:
         """
@@ -663,45 +456,40 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
     # MC Oracle: use C++ combat engine as dense reward signal (PBRS)
     # ================================================================
 
-    def _board_to_flat(self, board: List[Unit]) -> list[int]:
-        """Convert a list of Units to a flat list of integers for C++ bindings."""
-        flat = []
-        for u in board:
-            cpp_types = 0
-            for t in u.types:
-                cpp_types |= TYPE_TO_BIT.get(t, 0)
-            cpp_tags = 0
-            for tag in u.tags:
-                cpp_tags |= TAG_TO_BIT.get(tag, 0)
-            flat.extend([
-                CARD_ID_MAP.get(u.card_id, 0),
-                u.cur_atk,
-                u.cur_hp,
-                cpp_types,
-                cpp_tags,
-                u.tier,
-                int(u.is_golden)
-            ])
-        return flat
+    @staticmethod
+    def _unit_to_cpp(unit: Unit) -> tuple:
+        """Convert Unit → C++ tuple. Mirrors CombatManager._unit_to_cpp."""
+        cpp_types = 0
+        for t in unit.types:
+            cpp_types |= TYPE_TO_BIT.get(t, 0)
+        cpp_tags = 0
+        for tag in unit.tags:
+            cpp_tags |= TAG_TO_BIT.get(tag, 0)
+        return (
+            CARD_ID_MAP.get(unit.card_id, 0),
+            unit.cur_atk, unit.cur_hp,
+            cpp_types, cpp_tags,
+            unit.tier, unit.is_golden,
+        )
 
     def _oracle_prepare_ghost(self) -> None:
-        """Cache flat representation of the current ghost board (called once per turn)."""
+        """Cache C++ tuples for the current ghost board (called once per turn)."""
         enemy = self.game.players[self.enemy_id]
         if enemy.board:
-            self._oracle_ghost_flat = self._board_to_flat(enemy.board)
+            self._oracle_ghost_cpp = [self._unit_to_cpp(u) for u in enemy.board]
             self._oracle_ghost_tier = enemy.tavern_tier
         else:
-            self._oracle_ghost_flat = None
+            self._oracle_ghost_cpp = None
 
     def _oracle_eval_winrate(self, player: Player) -> float:
-        """Run N combats via C++ engine using flat lists, return winrate [0, 1]."""
+        """Run N combats via C++ engine, return winrate [0, 1]."""
         cpp = get_cpp_engine()
-        if cpp is None or not player.board or self._oracle_ghost_flat is None:
+        if cpp is None or not player.board or self._oracle_ghost_cpp is None:
             return 0.5
 
-        side0 = self._board_to_flat(player.board)
-        results = cpp.fast_combat_batch_flat(
-            side0, self._oracle_ghost_flat,
+        side0 = [self._unit_to_cpp(u) for u in player.board]
+        results = cpp.fast_combat_batch(
+            side0, self._oracle_ghost_cpp,
             self._oracle_seed, self._oracle_n_combats,
             tavern_tier_0=player.tavern_tier,
             tavern_tier_1=self._oracle_ghost_tier,
@@ -716,7 +504,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         wr_after = self._oracle_eval_winrate(player)
         delta = wr_after - self._oracle_cached_wr
         self._oracle_cached_wr = wr_after
-        return delta * self.oracle_reward_scale
+        return delta * 10.0
 
     def _play_enemy_turn(self) -> None:
         p_idx = self.enemy_id
@@ -913,39 +701,7 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
         buf[off + 1] = e.tavern_tier / MAX_TIER
         buf[off + 2] = len(e.board) / 7.0
 
-        # 4. Optional: Last Combat Enemy Board (7 * entity_features)
-        if self.use_enemy_board_obs:
-            enemy_last_board = self.last_combat_board[e_id]
-            self._encode_zone_fast(enemy_last_board, buf, self._off_enemy_board, 7, "ENEMY_BOARD")
-
-        # 5. Optional: Player Status History (2 players * 32 features = 64 floats)
-        if self.use_player_status_obs:
-            off_status = self._off_player_status
-            self._encode_player_status(p_id, buf, off_status)
-            self._encode_player_status(e_id, buf, off_status + 32)
-
         return buf
-
-    def _encode_player_status(self, p_idx: int, buf: np.ndarray, off: int) -> None:
-        p = self.game.players[p_idx]
-        buf[off + 0] = p.health / 30.0
-        buf[off + 1] = p.tavern_tier / 6.0
-        buf[off + 2] = len(p.board) / 7.0
-        buf[off + 3] = self._triples[p_idx] / 10.0
-        buf[off + 4] = self._streak[p_idx] / 10.0
-
-        # upgrade turns (5 values)
-        for i in range(5):
-            buf[off + 5 + i] = self._upgrade_turns[p_idx][i] / 20.0
-
-        # current minion types composition (11 values)
-        comp = get_minion_types_composition(p, self.all_types)
-        for i in range(11):
-            buf[off + 10 + i] = comp[i] / 7.0
-
-        # cumulative minion types composition (11 values)
-        for i in range(11):
-            buf[off + 21 + i] = self._cumulative_types[p_idx][i] / 20.0
 
     def _encode_zone_fast(
         self,
@@ -1128,10 +884,8 @@ class HearthstoneEnv(gym.Env[np.ndarray, int]):
 
         # SWAP (26-31)
         for i in range(6):
-            if self.auto_position:
-                masks[26 + i] = False  # positioning handled by auto_position / positioning module
-            else:
-                masks[26 + i] = (i + 1 < len(player.board))
+            masks[26 + i] = False  # positioning handled by auto_position / positioning module
+            # masks[26 + i] = (i + 1 < len(player.board))
 
         # UPGRADE (32) — disabled if tavern already at max_tier
         masks[32] = (

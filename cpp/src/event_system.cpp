@@ -2,11 +2,9 @@
 // Mirrors Python: EventManager.process_event(), collect_triggers(), order_triggers()
 
 #include "event_system.h"
-#include "generated_card_db.h"
 #include "profiler.h"
 #include <algorithm>
 #include <tuple>
-
 
 // ============================================================
 // Global effect table + direct-index lookup.
@@ -145,11 +143,8 @@ void recalculate_subscribers(CombatBoard& board) {
     board.damage = 0;
 
     for (int i = 0; i < board.count; ++i) {
-        Unit& u = board.units[i];
+        const Unit& u = board.units[i];
         const uint8_t bit = static_cast<uint8_t>(1u << i);
-
-        // Initialize avenge counter from database
-        u.avenge_counter = CardDB::avenge_threshold(u.card_id);
 
         // subscribers
         uint32_t um = compute_unit_event_mask(u);
@@ -166,7 +161,6 @@ void recalculate_subscribers(CombatBoard& board) {
         board.damage += static_cast<uint8_t>(u.tier);
     }
 }
-
 
 // ============================================================
 // collect_unit_triggers — collect triggers for a SINGLE unit

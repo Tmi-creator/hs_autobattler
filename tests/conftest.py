@@ -17,20 +17,6 @@ from hearthstone.engine.event_system import EventManager
 from hearthstone.engine.game import Game
 from hearthstone.engine.tavern import TavernManager
 
-import os
-import sys
-
-sys.path.insert(0, "cpp/build")
-if sys.platform == "win32":
-    try:
-        os.add_dll_directory(r"C:\msys64\mingw64\bin")
-    except (OSError, AttributeError):
-        pass
-
-if os.environ.get("FORCE_CPP_COMBAT") == "1":
-    print("\n[TESTS] Redirecting CombatManager.resolve_combat -> resolve_combat_fast")
-    CombatManager.resolve_combat = CombatManager.resolve_combat_fast
-
 # ---------------------------------------------------------------------------
 #  Core fixtures
 # ---------------------------------------------------------------------------

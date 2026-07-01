@@ -37,22 +37,16 @@ TAG_TO_BIT: dict[Tags, int] = {
 #   - Token IDs ("102t", "103t")  → 900 + sequential index
 # Unknown / unmatchable → excluded (will map to 0 at lookup).
 # =============================================================
+_next_token_id = 901
 CARD_ID_MAP: dict[str, int] = {}
 for _card in CardIDs:
     _val: str = _card.value
-    if _val.startswith("t"):
-        # Token format: "t001" -> 901, matching generate_cpp_effects.py logic
-        try:
-            cpp_id = 900 + int(_val[1:])
-            CARD_ID_MAP[_card] = cpp_id
-            CARD_ID_MAP[_card.value] = cpp_id
-        except ValueError:
-            pass
+    if _val.endswith("t"):
+        CARD_ID_MAP[_card] = _next_token_id
+        _next_token_id += 1
     else:
         try:
-            cpp_id = int(_val)
-            CARD_ID_MAP[_card] = cpp_id
-            CARD_ID_MAP[_card.value] = cpp_id
+            CARD_ID_MAP[_card] = int(_val)
         except ValueError:
             pass  # skip non-numeric, non-token IDs
 
@@ -75,26 +69,6 @@ def get_cpp_engine():
     if _cpp_engine is not None:
         return _cpp_engine
 
-    import os
-    import sys
-    from pathlib import Path
-    root = Path(__file__).resolve().parent.parent.parent.parent
-    cpp_build_dir = root / "cpp" / "build"
-    if cpp_build_dir.exists():
-        cpp_build_path = str(cpp_build_dir)
-        if cpp_build_path not in sys.path:
-            sys.path.insert(0, cpp_build_path)
-        if hasattr(os, "add_dll_directory"):
-            try:
-                os.add_dll_directory(cpp_build_path)
-            except Exception:
-                pass
-            if sys.platform == "win32":
-                try:
-                    os.add_dll_directory(r"C:\msys64\mingw64\bin")
-                except Exception:
-                    pass
-
     try:
         import hs_engine_cpp  # type: ignore[import-not-found]
         if not _effects_registered:
@@ -107,9 +81,9 @@ def get_cpp_engine():
                 f"(CombatState = {hs_engine_cpp.get_state_size()} bytes)"
             )
             _cpp_init_done = True
-    except ImportError as e:
+    except ImportError:
         if not _cpp_init_done:
-            print(f"[C++] Engine not found — falling back to Python combat: {e}")
+            print("[C++] Engine not found — falling back to Python combat")
             _cpp_init_done = True
 
     return _cpp_engine

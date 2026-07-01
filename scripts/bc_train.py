@@ -49,13 +49,6 @@ def parse_args():
     p.add_argument("--d-model", type=int, default=128)
     p.add_argument("--n-heads", type=int, default=4)
     p.add_argument("--n-layers", type=int, default=4)
-    p.add_argument("--use-pos-embeddings", action="store_true")
-    p.add_argument("--no-gating", action="store_true")
-    p.add_argument("--use-summary-tokens", action="store_true")
-    p.add_argument("--use-memory", action="store_true")
-    p.add_argument("--memory-size", type=int, default=4)
-    p.add_argument("--use-enemy-board-obs", action="store_true")
-    p.add_argument("--use-player-status-obs", action="store_true")
     p.add_argument("--max-tier", type=int, default=6)
     # Logging
     p.add_argument("--wandb", action="store_true")
@@ -108,11 +101,7 @@ def main():
     print(f"[split] train={len(train_ds):,} val={len(val_ds):,}")
 
     # ---- Need num_card_ids from env (must match RL training!) ----
-    tmp_env = HearthstoneEnv(
-        max_tier=args.max_tier,
-        use_enemy_board_obs=args.use_enemy_board_obs,
-        use_player_status_obs=args.use_player_status_obs,
-    )
+    tmp_env = HearthstoneEnv(max_tier=args.max_tier)
     num_card_ids = tmp_env.num_card_ids
     del tmp_env
     print(f"[env] num_card_ids={num_card_ids}")
@@ -124,13 +113,6 @@ def main():
         n_heads=args.n_heads,
         n_layers=args.n_layers,
         num_card_ids=num_card_ids,
-        use_pos_embeddings=args.use_pos_embeddings,
-        use_gating=not args.no_gating,
-        use_summary_tokens=args.use_summary_tokens,
-        use_memory=args.use_memory,
-        memory_size=args.memory_size,
-        use_enemy_board_obs=args.use_enemy_board_obs,
-        use_player_status_obs=args.use_player_status_obs,
     ).to(device)
     n_params = sum(p.numel() for p in agent.parameters())
     print(f"[model] {n_params:,} params")

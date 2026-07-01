@@ -7,11 +7,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(HS_PROFILE_COMBAT "Enable TSC profiler counters in the combat hot path" OFF)
 
 # Find pybind11 (installed via pip)
-if(NOT PYTHON_EXECUTABLE)
-    set(PYTHON_EXECUTABLE "python")
-endif()
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -m pybind11 --cmakedir
+    COMMAND python -m pybind11 --cmakedir
     OUTPUT_VARIABLE pybind11_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )

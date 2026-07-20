@@ -62,7 +62,7 @@ echo "    - CUDA is available! Found GPU devices."
 ARCH_FLAGS="--d-model 256 --n-heads 8 --n-layers 6 --memory-size 8 --use-enemy-board-obs --use-player-status-obs --use-summary-tokens --use-memory"
 
 # PPO-specific training hyperparameter configurations
-PPO_FLAGS="--save-interval 25 --n-minibatches 32 --n-steps 512"
+PPO_FLAGS="--save-interval 25 --n-minibatches 32 --n-steps 256"
 
 # 3. Compile C++ engine
 echo ">>> [3/5] Compiling accelerated C++ combat engine..."
@@ -86,11 +86,7 @@ fi
 
 # 4. Determine environment scaling
 N_CORES=$(nproc)
-# Each of the 2 concurrent training runs gets half of the available CPU cores (min 4)
-N_ENVS=$(( N_CORES / 2 ))
-if [ "$N_ENVS" -lt 4 ]; then
-    N_ENVS=4
-fi
+N_ENVS="${N_ENVS:-16}"
 
 echo ">>> [5/5] Starting Ablation matrix..."
 echo "    - CPU cores: $N_CORES (assigning n-envs=$N_ENVS per parallel run)"
@@ -145,7 +141,7 @@ CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --d-model 256 --n-heads 8 --n-layers 6 \
     --save-interval 25 \
     --n-minibatches 32 \
-    --n-steps 512 \
+    --n-steps 256 \
     --wandb \
     --run-name "base_scratch" &
 PID3=$!
@@ -158,7 +154,7 @@ CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --use-enemy-board-obs --use-player-status-obs --use-summary-tokens \
     --save-interval 25 \
     --n-minibatches 32 \
-    --n-steps 512 \
+    --n-steps 256 \
     --wandb \
     --run-name "ablation_no_memory" &
 PID4=$!
@@ -182,7 +178,7 @@ CUDA_VISIBLE_DEVICES=0 python scripts/train_ppo.py \
     --use-player-status-obs --use-summary-tokens --use-memory \
     --save-interval 25 \
     --n-minibatches 32 \
-    --n-steps 512 \
+    --n-steps 256 \
     --wandb \
     --run-name "ablation_no_enemy_board" &
 PID5=$!
@@ -195,7 +191,7 @@ CUDA_VISIBLE_DEVICES=1 python scripts/train_ppo.py \
     --use-enemy-board-obs --use-summary-tokens --use-memory \
     --save-interval 25 \
     --n-minibatches 32 \
-    --n-steps 512 \
+    --n-steps 256 \
     --wandb \
     --run-name "ablation_no_status" &
 PID6=$!

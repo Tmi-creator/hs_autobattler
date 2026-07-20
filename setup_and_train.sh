@@ -75,12 +75,7 @@ cmake --build cpp/build --config Release -j$(nproc)
 # 5. Run PPO Training
 # Automatically detect CPU cores to maximize parallelism
 N_CORES=$(nproc)
-# Ensure at least 8 envs, up to CPU core count
-if [ "$N_CORES" -lt 8 ]; then
-    N_ENVS=8
-else
-    N_ENVS=$N_CORES
-fi
+N_ENVS="${N_ENVS:-16}"
 
 # Set Wandb API key for automatic logging
 export WANDB_API_KEY="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"
@@ -105,6 +100,6 @@ python scripts/train_ppo.py \
     --use-summary-tokens \
     --use-memory \
     --n-minibatches 32 \
-    --n-steps 512 \
+    --n-steps 256 \
     --wandb \
     "$@"

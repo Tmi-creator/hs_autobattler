@@ -309,7 +309,24 @@ def main():
     batch_size = args.n_envs * args.n_steps
     minibatch_size = batch_size // args.n_minibatches
     n_updates = args.total_timesteps // batch_size
-    print(f"[train] batch={batch_size} minibatch={minibatch_size} updates={n_updates}")
+    
+    encoder_batch = minibatch_size
+    if args.use_memory:
+        encoder_batch *= args.memory_size
+
+    print(
+        f"[train] rollout_batch={batch_size:,} "
+        f"minibatch={minibatch_size:,} "
+        f"encoder_batch={encoder_batch:,} "
+        f"updates={n_updates:,}"
+    )
+
+    if encoder_batch > 2048:
+        raise ValueError(
+            f"Encoder batch {encoder_batch} is too large. "
+            "Reduce n_envs, n_steps, or memory_size, "
+            "or increase n_minibatches."
+        )
 
     if args.use_memory:
         obs_buf = torch.zeros((args.n_steps, args.n_envs, args.memory_size, obs_dim), device=device)
@@ -320,7 +337,6 @@ def main():
     rew_buf = torch.zeros((args.n_steps, args.n_envs), device=device)
     done_buf = torch.zeros((args.n_steps, args.n_envs), device=device)
     val_buf = torch.zeros((args.n_steps, args.n_envs), device=device)
-    vlogit_buf = torch.zeros((args.n_steps, args.n_envs, 255), device=device)
     mask_buf = torch.zeros((args.n_steps, args.n_envs, n_actions), dtype=torch.bool, device=device)
 
     # Init envs
@@ -376,13 +392,12 @@ def main():
             mask_buf[step] = action_mask
 
             with torch.no_grad():
-                action, logprob, _, value, v_logits = agent.get_action_and_value(
+                action, logprob, _, value, _ = agent.get_action_and_value(
                     history_queue if args.use_memory else next_obs, action_mask
                 )
             act_buf[step] = action
             logp_buf[step] = logprob
             val_buf[step] = value
-            vlogit_buf[step] = v_logits
 
             next_obs_np, reward_np, terminated, truncated, infos = envs.step(
                 action.cpu().numpy()
@@ -454,37 +469,42 @@ def main():
                 end = start + minibatch_size
                 mb = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue, new_vlogits = agent.get_action_and_value(
-                    b_obs[mb], b_masks[mb], b_actions[mb]
-                )
-
-                logratio = newlogprob - b_logprobs[mb]
-                ratio = logratio.exp()
-
-                # Approx KL for early stopping
-                with torch.no_grad():
-                    approx_kl = ((ratio - 1) - logratio).mean().item()
-                    clipfracs.append(
-                        ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                with torch.autocast(
+                    device_type="cuda",
+                    dtype=torch.bfloat16,
+                    enabled=device.type == "cuda",
+                ):
+                    _, newlogprob, entropy, newvalue, new_vlogits = agent.get_action_and_value(
+                        b_obs[mb], b_masks[mb], b_actions[mb]
                     )
 
-                # Normalize advantages
-                mb_adv = b_advantages[mb]
-                mb_adv = (mb_adv - mb_adv.mean()) / (mb_adv.std() + 1e-8)
+                    logratio = newlogprob - b_logprobs[mb]
+                    ratio = logratio.exp()
 
-                # Policy loss
-                pg_loss1 = -mb_adv * ratio
-                pg_loss2 = -mb_adv * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                    # Approx KL for early stopping
+                    with torch.no_grad():
+                        approx_kl = ((ratio - 1) - logratio).mean().item()
+                        clipfracs.append(
+                            ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                        )
 
-                # Value loss: categorical cross-entropy (two-hot)
-                bins = agent.bins
-                target_twohot = encode_twohot(b_returns[mb], bins)
-                vf_loss = -(target_twohot * F.log_softmax(new_vlogits, -1)).sum(-1).mean()
+                    # Normalize advantages
+                    mb_adv = b_advantages[mb]
+                    mb_adv = (mb_adv - mb_adv.mean()) / (mb_adv.std() + 1e-8)
 
-                ent_loss = entropy.mean()
-                # TODO: fix this fucking loss
-                loss = pg_loss + args.vf_coef * vf_loss - ent_coef * ent_loss
+                    # Policy loss
+                    pg_loss1 = -mb_adv * ratio
+                    pg_loss2 = -mb_adv * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                    # Value loss: categorical cross-entropy (two-hot)
+                    bins = agent.bins
+                    target_twohot = encode_twohot(b_returns[mb], bins)
+                    vf_loss = -(target_twohot * F.log_softmax(new_vlogits, -1)).sum(-1).mean()
+
+                    ent_loss = entropy.mean()
+                    # TODO: fix this fucking loss
+                    loss = pg_loss + args.vf_coef * vf_loss - ent_coef * ent_loss
 
                 optimizer.zero_grad()
                 loss.backward()
